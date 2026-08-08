@@ -34,15 +34,25 @@ explicit store calls for the common path.
 
 ## 3. Namespace model
 
-A namespace is anchored on two required fields plus an optional extra path for
+*Amended 2026-08-07: dropped `user_id` as a core/required field. See rationale
+below.*
+
+A namespace is anchored on one required field plus an optional extra path for
 sub-scoping (forks, task-level isolation, etc.):
 
-- `user_id` — required.
 - `session_id` — required; this is the same value as LangGraph's `thread_id`,
   renamed because "thread" is overloaded in a memory context. Not a broader
   multi-thread concept.
 - `extra_path` — array, defaults to empty; used for forked/child namespaces,
   e.g. `('task', 'sub-a1b2')`.
+
+`user_id` is **not** part of the core schema. beadmem's unit of memory is the
+session, not the user — this keeps the adapter usable in contexts where
+"user" isn't a meaningful concept (a CI job, a one-off script) and avoids
+coupling the memory schema to an app's auth/identity model. If an application
+needs to know which user owns which session, it maintains its own
+`user_sessions` (or equivalent) mapping table outside beadmem's schema —
+beadmem never joins against it.
 
 Forked sub-agent namespaces get a **short random hash suffix** (beads-style),
 not a sequential counter — e.g. `task/sub-a1b2` — so concurrent spawns from the
@@ -54,17 +64,15 @@ scheme for this; the hash avoids the round-trip entirely.
 ```sql
 namespaces
   id              uuid pk
-  user_id         text not null
   session_id      text not null
   extra_path      text[] not null default '{}'
   parent_id       uuid fk -> namespaces.id, nullable   -- set for forked/child namespaces
   created_at      timestamptz
-  unique (user_id, session_id, extra_path)
+  unique (session_id, extra_path)
 
 facts
   id                    uuid pk   -- deterministically derived, see 5.4 (idempotency)
   namespace_id          uuid fk -> namespaces.id
-  user_id               text not null   -- denormalized from namespace, indexed
   session_id            text not null   -- denormalized from namespace, indexed
   kind                  text not null   -- 'user_input' | 'conclusion' | 'summary'
   body                  text not null
@@ -74,8 +82,8 @@ facts
                                          -- | 'conclude_task' | 'fallback_conclude'
                                          -- | 'compaction'
   agent_id              text not null   -- which agent wrote this fact
-  acting_on_behalf_of   text not null   -- parent agent_id, or user_id if this
-                                         -- fact's agent is the root agent
+  acting_on_behalf_of   text not null   -- parent agent_id, or the sentinel
+                                         -- 'user' if this fact's agent is root
   created_at            timestamptz
 
 fact_edges
@@ -86,6 +94,10 @@ fact_edges
                                    -- | 'derived_from' | 'rollup_of'
   created_at      timestamptz
 ```
+
+`user_sessions` (optional, app-owned, outside beadmem's schema): if an app
+wants to look up "all sessions for user X," it maintains its own table
+mapping `user_id -> session_id`. beadmem's queries never require it.
 
 `rollup_of` points from a sub-agent's `conclude_task` summary fact to every fact
 created in its child namespace (audit trail / drill-down). `derived_from` is
@@ -150,9 +162,10 @@ write synchronously when the agent invokes them as tool calls.
 ### 5.3 Actor identity
 
 Every fact records `agent_id` (who wrote it) and `acting_on_behalf_of` (a
-single-hop pointer: the parent agent_id, or the user_id if this agent is the
-root). The full delegation chain is reconstructable by walking namespaces'
-`parent_id` when needed — not stored redundantly on every fact.
+single-hop pointer: the parent agent_id, or the sentinel `'user'` if this
+agent is the root — beadmem has no `user_id` to point to, see §3). The full
+delegation chain is reconstructable by walking namespaces' `parent_id` when
+needed — not stored redundantly on every fact.
 
 ### 5.4 Idempotency under checkpoint replay
 

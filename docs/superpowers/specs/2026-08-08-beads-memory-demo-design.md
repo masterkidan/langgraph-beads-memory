@@ -1,20 +1,20 @@
-# beadmem demo: proving it beats plain LangGraph memory
+# langgraph-beads-memory demo: proving it beats plain LangGraph memory
 
 Status: Design approved, not yet implemented.
 Date: 2026-08-08
 
-Related: [2026-07-31-beadmem-langgraph-design.md](2026-07-31-beadmem-langgraph-design.md) (core architecture), [2026-07-31-beadmem-competitive-brief.md](2026-07-31-beadmem-competitive-brief.md) (market landscape)
+Related: [2026-07-31-beads-memory-design.md](2026-07-31-beads-memory-design.md) (core architecture), [2026-07-31-beads-memory-competitive-brief.md](2026-07-31-beads-memory-competitive-brief.md) (market landscape)
 
 ## 1. Goal
 
-Build a local, runnable demo that shows beadmem producing measurably better
+Build a local, runnable demo that shows beads-memory producing measurably better
 outcomes than LangGraph's own memory story (`BaseStore` + LangMem) on three
 claims: **better remembrance**, **better task delegation**, **better
 sub-agent task outcomes**. The demo output feeds an explainer animation for a
 Medium post announcing the project.
 
 This is a demo-first build: implement only the subset of the full design
-(`2026-07-31-beadmem-langgraph-design.md`) that this scenario actually
+(`2026-07-31-beads-memory-design.md`) that this scenario actually
 exercises. Compaction and the async embedding background worker are deferred
 — not needed at this scale (see §4).
 
@@ -42,12 +42,12 @@ input, so both runs are byte-identical in what the "user" says):
 - **Baseline**: LangGraph `PostgresSaver` (checkpointer, thread-scoped) +
   `PostgresStore` + LangMem for cross-thread memory. Configured as a team
   would reasonably set it up — not a strawman.
-- **Treatment**: beadmem, demo-scoped subset (§4).
+- **Treatment**: beads-memory, demo-scoped subset (§4).
 
 Both conditions use the same local LLM, same scripted user turns, same
 sub-agent task assignments — the only variable is the memory layer.
 
-## 4. Demo-scoped beadmem subset
+## 4. Demo-scoped beads-memory subset
 
 From the full design, implemented for the demo:
 
@@ -96,12 +96,12 @@ condition's session-3 answer against a fixed rubric, 1-5 per dimension:
 
 **Qualitative**: alongside the scores, call out specific divergence moments
 in the transcripts (e.g. "baseline agent re-asks a constraint already stated
-in session 1"; "beadmem agent's session-3 answer cites the session-2 rollup
+in session 1"; "beads-memory agent's session-3 answer cites the session-2 rollup
 fact directly").
 
 ## 7. Deliverables
 
-1. `beadmem` package (demo-scoped subset, §4) — installable locally.
+1. `langgraph-beads-memory` package (demo-scoped subset, §4) — installable locally.
 2. Comparison harness: runs the scripted scenario against both conditions,
    produces transcripts + judge scores.
 3. A results write-up (scores + annotated transcript excerpts) — the

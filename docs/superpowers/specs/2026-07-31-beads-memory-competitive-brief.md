@@ -1,8 +1,8 @@
-# Competitive Brief: Agent Memory Layer for LangGraph (vs. beadmem)
+# Competitive Brief: Agent Memory Layer for LangGraph (vs. langgraph-beads-memory)
 
 *Research date: 2026-07-31. This space moves fast — treat pricing/funding figures as directional.*
 
-Related design spec: [2026-07-31-beadmem-langgraph-design.md](2026-07-31-beadmem-langgraph-design.md)
+Related design spec: [2026-07-31-beads-memory-design.md](2026-07-31-beads-memory-design.md)
 
 ## Competitive Landscape
 
@@ -27,9 +27,9 @@ Related design spec: [2026-07-31-beadmem-langgraph-design.md](2026-07-31-beadmem
 
 ## Feature Comparison
 
-Rated against the specific angle **beadmem** stakes out: LangGraph-native middleware, Postgres-only, typed fact/edge graph, explicit dual-path capture, and enforced sub-agent fork+rollup.
+Rated against the specific angle **langgraph-beads-memory** stakes out: LangGraph-native middleware, Postgres-only, typed fact/edge graph, explicit dual-path capture, and enforced sub-agent fork+rollup.
 
-| Capability | LangGraph-native | Mem0 | Zep/Graphiti | Cognee | Letta | beads | **beadmem (proposed)** |
+| Capability | LangGraph-native | Mem0 | Zep/Graphiti | Cognee | Letta | beads | **langgraph-beads-memory (proposed)** |
 |---|---|---|---|---|---|---|---|
 | LangGraph-native integration | Strong | Adequate | Weak | Adequate | Weak | Absent | **Strong** |
 | Postgres-only (no extra infra) | Strong | Weak (graph mode needs Neo4j, Pro-tier only) | Absent (Neo4j required) | Strong | Adequate | Absent (Dolt) | **Strong** |
@@ -45,9 +45,9 @@ Rated against the specific angle **beadmem** stakes out: LangGraph-native middle
 - **LangGraph-native**: "It's already in the box." Category: infrastructure primitive, not a product. Differentiator: zero extra dependency. Vulnerable on: LangMem's own benchmarked p95 search latency (~60s in cited comparisons) is a real weakness if accurate for typical configs — worth your own benchmark before citing externally.
 - **Mem0**: "The fast, framework-agnostic memory API." Differentiator: sub-200ms retrieval, 21 framework integrations. Vulnerable on: their more structured/graph capability has visibly regressed (OSS graph drivers removed in v2, contradiction handling weak in base config) and is paywalled — they're optimizing for breadth and speed, not depth or correctness of the fact graph.
 - **Zep/Graphiti**: "Temporal knowledge graph, memory that doesn't go stale." Differentiator: bi-temporal fact invalidation, source provenance. Vulnerable on: requires Neo4j (real infra cost/complexity for a team that's Postgres-only elsewhere), tiny team, unclear LangGraph-specific ergonomics.
-- **Cognee**: "One Postgres instance, full memory stack." Differentiator: infra simplicity, Apache 2.0, explicit LangGraph interface. This is the **closest competitor** to beadmem's infra story. Vulnerable on: generic `remember/recall/forget/improve` API doesn't give you beads' specific semantics (typed edges, explicit dual capture, forced sub-agent rollup) — it's a memory platform, not opinionated about *how* an agent decides what's worth keeping.
+- **Cognee**: "One Postgres instance, full memory stack." Differentiator: infra simplicity, Apache 2.0, explicit LangGraph interface. This is the **closest competitor** to beads-memory's infra story. Vulnerable on: generic `remember/recall/forget/improve` API doesn't give you beads' specific semantics (typed edges, explicit dual capture, forced sub-agent rollup) — it's a memory platform, not opinionated about *how* an agent decides what's worth keeping.
 - **Letta**: "Stateful agents with OS-style memory." Differentiator: deliberate agent-managed memory blocks, native multi-agent. Vulnerable on: it's a full agent runtime you adopt, not a lightweight adapter you drop into an existing LangGraph app.
-- **beads**: "Memory upgrade for your coding agent." Not a competitor in the market sense (different runtime, no LangGraph story) — it's the pattern language beadmem borrows, not something you'd choose instead of it.
+- **beads**: "Memory upgrade for your coding agent." Not a competitor in the market sense (different runtime, no LangGraph story) — it's the pattern language beads-memory borrows, not something you'd choose instead of it.
 
 ## Strengths & Weaknesses Summary
 
@@ -62,14 +62,14 @@ Rated against the specific angle **beadmem** stakes out: LangGraph-native middle
 
 ## Opportunities
 
-- **The sub-agent fork+rollup gap is uncontested.** No competitor treats "spawn a sub-agent → isolated memory → forced summary back to parent" as a first-class primitive. This is beadmem's sharpest, most defensible differentiator — lead with it.
+- **The sub-agent fork+rollup gap is uncontested.** No competitor treats "spawn a sub-agent → isolated memory → forced summary back to parent" as a first-class primitive. This is beads-memory's sharpest, most defensible differentiator — lead with it.
 - **"Postgres-only + typed fact graph" is a narrow but real niche.** Cognee owns Postgres-only; Zep/Graphiti owns the typed graph; nobody owns both at once with LangGraph-specific ergonomics.
-- **Explicit capture as a stance, not just a mechanism.** Mem0 and Zep are both betting on automatic extraction as the differentiator (speed, no agent cooperation needed). There's a credible counter-position — "auto-extraction hallucinates and over-collects; deliberate capture is more auditable and cheaper" — that beadmem can own if you want to publish it, especially paired with beads' own track record of that stance working for coding agents.
+- **Explicit capture as a stance, not just a mechanism.** Mem0 and Zep are both betting on automatic extraction as the differentiator (speed, no agent cooperation needed). There's a credible counter-position — "auto-extraction hallucinates and over-collects; deliberate capture is more auditable and cheaper" — that beads-memory can own if you want to publish it, especially paired with beads' own track record of that stance working for coding agents.
 - **LangMem's cited latency weakness** is a specific, checkable wedge against the "just use what's built in" objection, if your own benchmarks confirm it.
 
 ## Threats
 
-- **Cognee is the nightmare-scenario mover.** It's well-funded, Postgres-only already, has a LangGraph interface, and Apache 2.0. The most likely competitive response if beadmem gets attention is Cognee (or a fork of it) adding beads-style typed edges and a sub-agent fork primitive — they have the infra and the funding to do it fast.
+- **Cognee is the nightmare-scenario mover.** It's well-funded, Postgres-only already, has a LangGraph interface, and Apache 2.0. The most likely competitive response if beads-memory gets attention is Cognee (or a fork of it) adding beads-style typed edges and a sub-agent fork primitive — they have the infra and the funding to do it fast.
 - **LangChain could ship this themselves.** LangMem is actively developed by the LangGraph team; if they decide typed fact graphs + sub-agent memory scoping matter, first-party wins by default distribution alone, regardless of design quality.
 - **Mem0's distribution advantage.** 21 framework integrations and a large user base mean even a less-precise memory model can win on convenience and momentum.
 

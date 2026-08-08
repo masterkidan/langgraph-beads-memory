@@ -1,11 +1,13 @@
-# beadmem: A beads-style memory adapter for LangGraph on Postgres
+# langgraph-beads-memory: A memory adapter for LangGraph on Postgres, inspired by beads
 
 Status: Design approved, not yet implemented.
 Date: 2026-07-31
+Package name finalized 2026-08-08: `langgraph-beads-memory` (PyPI/GitHub),
+referred to in prose below as beads-memory.
 
 ## 1. Overview & Goals
 
-A Python package (working name `beadmem`) that plugs into LangGraph's `create_agent`
+A Python package (`langgraph-beads-memory`) that plugs into LangGraph's `create_agent`
 middleware API and gives agents beads-style durable memory on Postgres: a typed
 fact/conclusion graph instead of an opaque conversation summary, explicit capture
 (not blind auto-extraction), and namespace-scoped forking for sub-agents that
@@ -46,13 +48,13 @@ sub-scoping (forks, task-level isolation, etc.):
 - `extra_path` — array, defaults to empty; used for forked/child namespaces,
   e.g. `('task', 'sub-a1b2')`.
 
-`user_id` is **not** part of the core schema. beadmem's unit of memory is the
+`user_id` is **not** part of the core schema. beads-memory's unit of memory is the
 session, not the user — this keeps the adapter usable in contexts where
 "user" isn't a meaningful concept (a CI job, a one-off script) and avoids
 coupling the memory schema to an app's auth/identity model. If an application
 needs to know which user owns which session, it maintains its own
-`user_sessions` (or equivalent) mapping table outside beadmem's schema —
-beadmem never joins against it.
+`user_sessions` (or equivalent) mapping table outside beads-memory's schema —
+beads-memory never joins against it.
 
 Forked sub-agent namespaces get a **short random hash suffix** (beads-style),
 not a sequential counter — e.g. `task/sub-a1b2` — so concurrent spawns from the
@@ -95,9 +97,9 @@ fact_edges
   created_at      timestamptz
 ```
 
-`user_sessions` (optional, app-owned, outside beadmem's schema): if an app
+`user_sessions` (optional, app-owned, outside beads-memory's schema): if an app
 wants to look up "all sessions for user X," it maintains its own table
-mapping `user_id -> session_id`. beadmem's queries never require it.
+mapping `user_id -> session_id`. beads-memory's queries never require it.
 
 `rollup_of` points from a sub-agent's `conclude_task` summary fact to every fact
 created in its child namespace (audit trail / drill-down). `derived_from` is
@@ -163,7 +165,7 @@ write synchronously when the agent invokes them as tool calls.
 
 Every fact records `agent_id` (who wrote it) and `acting_on_behalf_of` (a
 single-hop pointer: the parent agent_id, or the sentinel `'user'` if this
-agent is the root — beadmem has no `user_id` to point to, see §3). The full
+agent is the root — beads-memory has no `user_id` to point to, see §3). The full
 delegation chain is reconstructable by walking namespaces' `parent_id` when
 needed — not stored redundantly on every fact.
 
@@ -238,4 +240,3 @@ window for that turn.
 - Background worker mechanism for async embedding + compaction (in-process
   scheduler vs external job runner) — a deployment concern, not a schema
   concern.
-- Package name (`beadmem` is a placeholder).

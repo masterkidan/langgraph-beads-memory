@@ -4,6 +4,18 @@ Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langg
 
 > Status: **design phase**. The architecture below is specced and committed; implementation hasn't started yet. See [Project status](#project-status).
 
+## How it works
+
+![How langgraph-beads-memory works: user messages and agent conclusions become durable facts on a session-wide memory string; sub-agents fork isolated namespaces and roll summaries back; a revised budget supersedes the stale one; a later conversation on a new thread recalls only active facts.](docs/assets/mechanism.svg)
+
+One session (`session_id: vecdb-research`) spanning three conversations. Facts are beads on the session string — threads come and go, the string stays.
+
+1. **Capture** — every user message is written verbatim onto the session string, no extraction LLM involved. The turn's final answer is captured as a conclusion automatically, so durable memory never depends on the model remembering a tool call.
+2. **Fork** — delegating research gives each sub-agent an isolated child namespace. It reads its ancestors; it never sees its siblings.
+3. **Enforced rollup** — each sub-agent must call `conclude_task`. One summary lands on the parent, linked by `rollup_of` edges back to its raw exploration. A crashed sub-agent leaves a "did not complete" fact rather than vanishing.
+4. **Supersede** — when the user revises a constraint, the new fact supersedes the old one. The stale value is retired from retrieval but kept for audit.
+5. **Recall** — a brand-new thread starts warm, and only *active* facts can reach the model. This is exactly where thread-scoped memory starts cold, and where extraction stores surface both the old and new value with nothing marking which is current.
+
 ## The problem
 
 LangGraph ships two memory primitives: a checkpointer for thread-scoped state, and a `BaseStore`/`PostgresStore` for cross-thread key-value memory. Frameworks built on top (LangMem, Mem0, Zep) mostly bet on automatic LLM extraction — scan the transcript, pull out "facts," write them somewhere. That's fast to wire up, but it's also imprecise, hard to audit, and gives you no way to say "this conclusion replaced that one" or "this sub-agent's exploration shouldn't pollute the parent's context."

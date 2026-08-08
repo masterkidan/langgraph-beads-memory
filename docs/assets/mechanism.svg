@@ -1,0 +1,242 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-label="Animated diagram: user messages and agent conclusions become durable facts on a session-wide memory string; sub-agents fork isolated namespaces and roll summaries back; a revised budget supersedes the stale one; a later conversation on a new thread recalls only active facts.">
+  <title>langgraph-beads-memory: the mechanism</title>
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    .lanebox { fill: #d5ebe8; stroke: #0f766e; }
+    .ghostbox { fill: none; stroke: #8a8175; stroke-dasharray: 5 4; }
+    .string { stroke: #d9d2c6; stroke-width: 2.5; }
+    .beadUser { fill: #f5e3cd; stroke: #b45309; stroke-width: 2; }
+    .beadConcl { fill: #b45309; stroke: #b45309; stroke-width: 2; }
+    .beadSum { fill: #0f766e; stroke: #0f766e; stroke-width: 2; }
+    .flow { stroke: #8a8175; stroke-width: 1.3; fill: none; }
+    .flowRecall { stroke: #b45309; stroke-width: 1.4; fill: none; stroke-dasharray: 4 4; }
+    .flowAgent { stroke: #0f766e; stroke-width: 1.4; fill: none; }
+    .edgeSup { stroke: #b91c1c; stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+    .strike { stroke: #b91c1c; stroke-width: 2.2; }
+    .cBead { fill: #b45309; }
+    .cAgent { fill: #0f766e; }
+    .cGone { fill: #b91c1c; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; }
+      text { fill: #ece5da; }
+      .muted { fill: #93897b; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+      .lanebox { fill: #12332f; stroke: #2dd4bf; }
+      .ghostbox { stroke: #93897b; }
+      .string { stroke: #3b362e; }
+      .beadUser { fill: #3a2c17; stroke: #f59e0b; }
+      .beadConcl { fill: #f59e0b; stroke: #f59e0b; }
+      .beadSum { fill: #2dd4bf; stroke: #2dd4bf; }
+      .flow { stroke: #93897b; }
+      .flowRecall { stroke: #f59e0b; }
+      .flowAgent { stroke: #2dd4bf; }
+      .edgeSup { stroke: #f87171; }
+      .strike { stroke: #f87171; }
+      .cBead { fill: #f59e0b; }
+      .cAgent { fill: #2dd4bf; }
+      .cGone { fill: #f87171; }
+    }
+
+    /* 8 phases x 3s = 24s loop */
+    .p1,.p2,.p3,.p4,.p5,.p6,.p7,.p8,.r34,.r45,.cap1,.cap2,.cap3,.cap4,.cap5,.cap6,.cap7,.cap8 {
+      animation-duration: 24s; animation-iteration-count: infinite; animation-timing-function: ease;
+    }
+    .p1 { animation-name: s1; } .p2 { animation-name: s2; } .p3 { animation-name: s3; }
+    .p4 { animation-name: s4; } .p5 { animation-name: s5; } .p6 { animation-name: s6; }
+    .p7 { animation-name: s7; } .p8 { animation-name: s8; }
+    .r34 { animation-name: r34; } .r45 { animation-name: r45; }
+    .cap1 { animation-name: c1; } .cap2 { animation-name: c2; } .cap3 { animation-name: c3; }
+    .cap4 { animation-name: c4; } .cap5 { animation-name: c5; } .cap6 { animation-name: c6; }
+    .cap7 { animation-name: c7; } .cap8 { animation-name: c8; }
+
+    @keyframes s1 { 0%,100% { opacity: 1; } }
+    @keyframes s2 { 0%,11.5% { opacity: 0; } 14.5%,100% { opacity: 1; } }
+    @keyframes s3 { 0%,24% { opacity: 0; } 27%,100% { opacity: 1; } }
+    @keyframes s4 { 0%,36.5% { opacity: 0; } 39.5%,100% { opacity: 1; } }
+    @keyframes s5 { 0%,49% { opacity: 0; } 52%,100% { opacity: 1; } }
+    @keyframes s6 { 0%,61.5% { opacity: 0; } 64.5%,100% { opacity: 1; } }
+    @keyframes s7 { 0%,74% { opacity: 0; } 77%,100% { opacity: 1; } }
+    @keyframes s8 { 0%,86.5% { opacity: 0; } 89.5%,100% { opacity: 1; } }
+    /* transient: visible for one phase only */
+    @keyframes r34 { 0%,24% { opacity: 0; } 27%,47% { opacity: 1; } 50%,100% { opacity: 0; } }
+    @keyframes r45 { 0%,36.5% { opacity: 0; } 39.5%,59% { opacity: 1; } 62%,100% { opacity: 0; } }
+    /* the stale bead dims once superseded */
+    .fade6 { animation: dim6 24s infinite ease; }
+    @keyframes dim6 { 0%,61.5% { opacity: 1; } 64.5%,100% { opacity: 0.3; } }
+    /* captions: one at a time */
+    @keyframes c1 { 0%,0.5% { opacity: 1; } 11.5%,100% { opacity: 0; } }
+    @keyframes c2 { 0%,11.5% { opacity: 0; } 13%,23% { opacity: 1; } 24%,100% { opacity: 0; } }
+    @keyframes c3 { 0%,24% { opacity: 0; } 25.5%,35.5% { opacity: 1; } 36.5%,100% { opacity: 0; } }
+    @keyframes c4 { 0%,36.5% { opacity: 0; } 38%,48% { opacity: 1; } 49%,100% { opacity: 0; } }
+    @keyframes c5 { 0%,49% { opacity: 0; } 50.5%,60.5% { opacity: 1; } 61.5%,100% { opacity: 0; } }
+    @keyframes c6 { 0%,61.5% { opacity: 0; } 63%,73% { opacity: 1; } 74%,100% { opacity: 0; } }
+    @keyframes c7 { 0%,74% { opacity: 0; } 75.5%,85.5% { opacity: 1; } 86.5%,100% { opacity: 0; } }
+    @keyframes c8 { 0%,86.5% { opacity: 0; } 88%,99.5% { opacity: 1; } 100% { opacity: 0; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .p1,.p2,.p3,.p4,.p5,.p6,.p7,.p8,.fade6 { animation: none; opacity: 1; }
+      .r34,.r45 { animation: none; opacity: 0; }
+      .cap1,.cap2,.cap3,.cap4,.cap5,.cap6,.cap7,.cap8 { animation: none; opacity: 0; }
+      .capStatic { opacity: 1; }
+    }
+    .capStatic { opacity: 0; }
+  </style>
+
+  <defs>
+    <marker id="am" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="muted" fill="#8a8175"/></marker>
+    <marker id="ab" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cBead"/></marker>
+    <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cAgent"/></marker>
+    <marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cGone"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="960" height="540"/>
+
+  <!-- conversation 1 -->
+  <g class="p1">
+    <rect x="24" y="30" width="280" height="122" rx="8" class="panelbox"/>
+    <text x="36" y="50" font-size="11" class="mono muted">conversation 1 · thread-a</text>
+    <text x="36" y="74" font-size="12">“Pick us a vector DB.</text>
+    <text x="36" y="92" font-size="12">Budget <tspan font-weight="650">$100k</tspan>, must <tspan font-weight="650">self-host</tspan>,</text>
+    <text x="36" y="110" font-size="12"><tspan font-weight="650">primary sources</tspan> only.”</text>
+    <path d="M100 156 C 100 250, 100 360, 100 414" class="flow" marker-end="url(#am)"/>
+    <path d="M170 156 C 170 250, 170 360, 170 414" class="flow" marker-end="url(#am)"/>
+    <path d="M240 156 C 240 250, 240 360, 240 414" class="flow" marker-end="url(#am)"/>
+    <text x="112" y="286" font-size="11" class="muted">capture, verbatim</text>
+    <text x="112" y="301" font-size="11" class="muted">(no LLM extraction)</text>
+  </g>
+  <g class="p2">
+    <text x="36" y="136" font-size="12" class="muted">agent → final recommendation ◆</text>
+    <path d="M292 142 C 312 250, 312 350, 312 414" class="flow" marker-end="url(#am)"/>
+  </g>
+
+  <!-- conversation 2 -->
+  <g class="p3">
+    <rect x="340" y="30" width="280" height="122" rx="8" class="panelbox"/>
+    <text x="352" y="50" font-size="11" class="mono muted">conversation 2 · thread-b (new)</text>
+    <text x="352" y="74" font-size="12">“Investigate our options in depth.”</text>
+  </g>
+  <g class="r34">
+    <path d="M120 420 C 200 330, 300 210, 388 158" class="flowRecall" marker-end="url(#ab)"/>
+    <text x="206" y="242" font-size="11" class="cBead">inject top-K facts + short ids</text>
+  </g>
+  <g class="p6">
+    <text x="352" y="112" font-size="12">“Correction: budget is</text>
+    <text x="352" y="130" font-size="12"><tspan font-weight="650">$50k</tspan>, not $100k.”</text>
+  </g>
+
+  <!-- fork lanes -->
+  <g class="p4">
+    <path d="M400 152 L 372 198" class="flowAgent" marker-end="url(#aa)"/>
+    <path d="M480 152 L 480 198" class="flowAgent" marker-end="url(#aa)"/>
+    <path d="M560 152 L 588 198" class="flowAgent" marker-end="url(#aa)"/>
+    <text x="628" y="182" font-size="11" class="cAgent">fork: a child namespace each</text>
+    <rect x="330" y="202" width="88" height="92" rx="7" class="lanebox"/>
+    <text x="340" y="220" font-size="10" class="mono">pgvector</text>
+    <text x="340" y="233" font-size="9" class="mono muted">task/sub-3f2a</text>
+    <circle cx="352" cy="258" r="6" class="beadConcl"/>
+    <circle cx="372" cy="258" r="6" class="beadConcl"/>
+    <circle cx="392" cy="258" r="6" class="beadConcl"/>
+    <rect x="436" y="202" width="88" height="92" rx="7" class="lanebox"/>
+    <text x="446" y="220" font-size="10" class="mono">qdrant</text>
+    <text x="446" y="233" font-size="9" class="mono muted">task/sub-91cc</text>
+    <circle cx="458" cy="258" r="6" class="beadConcl"/>
+    <circle cx="478" cy="258" r="6" class="beadConcl"/>
+    <rect x="542" y="202" width="88" height="92" rx="7" class="lanebox"/>
+    <text x="552" y="220" font-size="10" class="mono">weaviate</text>
+    <text x="552" y="233" font-size="9" class="mono muted">task/sub-d04e</text>
+    <circle cx="564" cy="258" r="6" class="beadConcl"/>
+    <circle cx="584" cy="258" r="6" class="beadConcl"/>
+  </g>
+  <g class="r45">
+    <text x="330" y="313" font-size="11" class="muted">isolated exploration — siblings never see each other</text>
+  </g>
+
+  <!-- rollups -->
+  <g class="p5">
+    <path d="M374 294 C 380 350, 400 392, 418 416" class="flowAgent" marker-end="url(#aa)"/>
+    <path d="M480 294 C 484 350, 488 392, 490 416" class="flowAgent" marker-end="url(#aa)"/>
+    <path d="M586 294 C 580 350, 568 392, 560 416" class="flowAgent" marker-end="url(#aa)"/>
+    <text x="600" y="374" font-size="11" class="cAgent">conclude_task — enforced:</text>
+    <text x="600" y="389" font-size="11" class="cAgent">one Σ each, rollup_of → audit</text>
+  </g>
+
+  <!-- conversation 3 -->
+  <g class="p7">
+    <rect x="656" y="30" width="280" height="122" rx="8" class="panelbox"/>
+    <text x="668" y="50" font-size="11" class="mono muted">conversation 3 · thread-c (new)</text>
+    <text x="668" y="74" font-size="12">“So — which one, and why?”</text>
+    <text x="668" y="104" font-size="12">agent: fits <tspan font-weight="650">$50k</tspan>, self-host,</text>
+    <text x="668" y="122" font-size="12">our own benchmarks ✓</text>
+    <path d="M494 420 C 566 336, 642 220, 712 158" class="flowRecall" marker-end="url(#ab)"/>
+    <path d="M668 425 C 702 366, 730 248, 748 158" class="flowRecall" marker-end="url(#ab)"/>
+    <text x="700" y="286" font-size="11" class="cBead">recall: active facts only —</text>
+    <text x="700" y="301" font-size="11" class="cBead">superseded stays behind</text>
+  </g>
+
+  <!-- baseline ghost -->
+  <g class="p8">
+    <rect x="700" y="186" width="236" height="82" rx="7" class="ghostbox"/>
+    <text x="714" y="205" font-size="11" class="mono muted">baseline (thread-scoped / extraction)</text>
+    <text x="714" y="226" font-size="12" class="muted">new thread → starts cold</text>
+    <text x="714" y="244" font-size="12" class="muted">$100k and $50k both retrieved —</text>
+    <text x="714" y="260" font-size="12" class="muted">nothing marks which is current</text>
+  </g>
+
+  <!-- session string -->
+  <line x1="50" y1="440" x2="920" y2="440" class="string"/>
+  <text x="50" y="512" font-size="11" class="mono muted">session memory · session_id: vecdb-research · one string, spanning threads a, b, c</text>
+
+  <g class="p1 fade6">
+    <circle cx="100" cy="440" r="13" class="beadUser"/>
+    <text x="100" y="472" font-size="10" text-anchor="middle" class="mono">$100k</text>
+  </g>
+  <g class="p6"><line x1="90" y1="430" x2="110" y2="450" class="strike"/></g>
+  <g class="p1">
+    <circle cx="170" cy="440" r="13" class="beadUser"/>
+    <text x="170" y="472" font-size="10" text-anchor="middle" class="mono">selfhost</text>
+  </g>
+  <g class="p1">
+    <circle cx="240" cy="440" r="13" class="beadUser"/>
+    <text x="240" y="472" font-size="10" text-anchor="middle" class="mono">primary</text>
+  </g>
+  <g class="p2">
+    <circle cx="312" cy="440" r="13" class="beadConcl"/>
+    <text x="312" y="472" font-size="10" text-anchor="middle" class="mono">concl◆</text>
+  </g>
+  <g class="p5">
+    <circle cx="420" cy="440" r="13" class="beadSum"/>
+    <text x="420" y="472" font-size="10" text-anchor="middle" class="mono">pgv Σ</text>
+  </g>
+  <g class="p5">
+    <circle cx="490" cy="440" r="13" class="beadSum"/>
+    <text x="490" y="472" font-size="10" text-anchor="middle" class="mono">qdr Σ</text>
+  </g>
+  <g class="p5">
+    <circle cx="560" cy="440" r="13" class="beadSum"/>
+    <text x="560" y="472" font-size="10" text-anchor="middle" class="mono">wvt Σ</text>
+  </g>
+  <g class="p6">
+    <circle cx="668" cy="440" r="13" class="beadUser"/>
+    <text x="668" y="472" font-size="10" text-anchor="middle" class="mono">$50k</text>
+    <path d="M655 432 C 480 384, 240 384, 114 430" class="edgeSup" marker-end="url(#ag)"/>
+    <text x="352" y="402" font-size="11" class="cGone">supersedes → stale value retired, kept for audit</text>
+  </g>
+
+  <!-- rolling captions -->
+  <g font-size="13">
+    <text class="cap1" x="50" y="534">1 · Every user message is captured verbatim onto the session string — no extraction LLM, nothing invented.</text>
+    <text class="cap2" x="50" y="534">2 · The turn's final answer is captured as a conclusion automatically — not dependent on the model remembering a tool call.</text>
+    <text class="cap3" x="50" y="534">3 · A new thread starts warm: relevant facts are retrieved and injected with their short ids.</text>
+    <text class="cap4" x="50" y="534">4 · Delegation forks a child namespace per sub-agent — each reads its ancestors, never its siblings.</text>
+    <text class="cap5" x="50" y="534">5 · Each sub-agent must conclude: one summary lands on the parent, linked by rollup_of back to its raw exploration.</text>
+    <text class="cap6" x="50" y="534">6 · A correction supersedes the stale fact — retired from retrieval, kept for audit.</text>
+    <text class="cap7" x="50" y="534">7 · Another new thread recalls constraints, rollups, and the revised budget. The superseded value cannot reach the model.</text>
+    <text class="cap8" x="50" y="534">8 · Thread-scoped memory would start cold here, and extraction stores hold both budgets with nothing marking which is current.</text>
+    <text class="capStatic" x="50" y="534">Capture → fork → enforced rollup → supersede → recall across threads.</text>
+  </g>
+</svg>

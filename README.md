@@ -16,7 +16,7 @@ LangGraph ships two memory primitives: a checkpointer for thread-scoped state, a
 - **A typed fact graph, not a blob.** Facts relate to each other through typed edges — `supersedes`, `contradicts`, `relates_to`, `derived_from`, `rollup_of` — so "this replaced that" and "this summary was derived from these five facts" are first-class, queryable relationships.
 - **Enforced sub-agent memory forking.** When a supervisor spawns a sub-agent, its memory forks into an isolated child namespace. The sub-agent sees its own namespace plus its full ancestor chain (not siblings), and is *required* to call `conclude_task` before returning — the adapter synthesizes a fallback summary if it doesn't, so a failed or lazy sub-task is never silently lost. Raw exploration facts stay in the child namespace; only the rollup summary reaches the parent.
 - **Postgres-only.** No Neo4j, no separate vector database — namespaces, facts, and edges all live in one Postgres schema (`pgvector` for embeddings).
-- **Session-scoped, not identity-coupled.** The core schema is anchored on `session_id` alone. `langgraph-beads-memory` doesn't need to know what a "user" is; if an application wants a user↔session mapping, it owns that table itself.
+- **Session-scoped, not identity-coupled.** The core schema is anchored on `session_id` alone — a long-lived memory scope that deliberately spans LangGraph threads, so a new conversation that continues the same work recalls everything from earlier ones. `langgraph-beads-memory` doesn't need to know what a "user" is; if an application wants a user↔session mapping, it owns that table itself.
 
 ## How it fits into a LangGraph app
 

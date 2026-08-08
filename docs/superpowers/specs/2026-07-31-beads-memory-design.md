@@ -42,9 +42,16 @@ below.*
 A namespace is anchored on one required field plus an optional extra path for
 sub-scoping (forks, task-level isolation, etc.):
 
-- `session_id` — required; this is the same value as LangGraph's `thread_id`,
-  renamed because "thread" is overloaded in a memory context. Not a broader
-  multi-thread concept.
+- `session_id` — required; a **long-lived memory scope** identifying the
+  user's ongoing engagement with a topic. It deliberately spans multiple
+  LangGraph threads: the app passes it explicitly in config (e.g.
+  `configurable["beads_session_id"]`), and a new conversation that continues
+  the same work passes the same `session_id` — that is how cross-thread
+  remembrance works. If the app omits it, the middleware falls back to
+  `thread_id` (memory then lives and dies with one conversation).
+  *(Amended 2026-08-08: an earlier revision equated `session_id` with
+  `thread_id`; that would have silo'd memory per conversation and defeated
+  cross-thread recall.)*
 - `extra_path` — array, defaults to empty; used for forked/child namespaces,
   e.g. `('task', 'sub-a1b2')`.
 
@@ -117,14 +124,27 @@ Three write paths, all into `facts`:
 
 1. **Passive user-input capture.** On the pre-model hook, any new `HumanMessage`
    since the last hook invocation is written as `kind='user_input'`,
-   `source='passive_capture'`, verbatim — no LLM call.
+   `source='passive_capture'`, verbatim — no LLM call. **No noise filtering**:
+   short acknowledgments ("ok", "thanks") are captured like everything else
+   ("capture everything, rank it away"). The verbatim record is the point —
+   auditability over tidiness; retrieval ranking (§5.2) is responsible for
+   keeping low-signal facts out of the injected top-K.
 2. **`remember_fact(body, relates_to=None, relation=None)` tool.** Bound into
    the agent's toolset by the middleware. The agent calls it deliberately for
-   conclusions it reaches. `source='remember_tool'`.
+   conclusions it reaches. `source='remember_tool'`. `relates_to` takes a
+   short fact id (see §5.2 on how the agent learns these).
 3. **`conclude_task(summary, supersedes=None)` tool.** Only bound in a forked
    (sub-agent) namespace. Writes one `kind='summary'` fact into the **parent**
    namespace, plus a `rollup_of` edge from that fact to every fact created in
-   the child namespace during the task.
+   the child namespace during the task. `supersedes` may only target facts on
+   the sub-agent's own ancestor chain — a sub-agent cannot supersede sibling
+   facts it cannot even read.
+
+**Short fact ids.** `facts.id` is a uuid; everywhere a fact is shown to an
+agent or accepted as a tool argument, it is rendered as a beads-style short
+id — the first 8 hex chars (e.g. `fact-a3f8b2c1`). Tools resolve short ids by
+unique-prefix match within the agent's readable scope (own namespace +
+ancestor chain) and return a structured error on ambiguity or no-match.
 
 ### 5.1 Fork/rollup model (sub-agent spawning)
 
@@ -151,12 +171,20 @@ a `make_subagent_tool(subgraph, ...)` wrapper that:
 
 **Pre-model hook:**
 1. Passive-capture new human messages (idempotently, see §5.4).
-2. Trim/window raw messages to the last N (default 10, configurable); anything
-   rolling off the window is handed to compaction (§6) before being dropped
-   from raw context.
+2. Trim/window raw messages to the last N (default 10, configurable). The trim
+   is a **view-only projection of the model input** — it never mutates graph
+   state or checkpointer history. Messages beyond the window are enqueued for
+   compaction (§6) on the background worker; because fact ids are
+   content-derived (§5.4), a message "rolling off" on every subsequent turn
+   enqueues idempotently — no duplicate compaction work.
 3. Semantic search over `facts` for the current namespace + full ancestor
    read-through (§5.1), inject top-K as context (K configurable, default TBD
-   at plan time).
+   at plan time). Two rules on the injected set:
+   - Each injected fact is rendered with its short id (§5), so the agent can
+     reference it in `remember_fact(relates_to=...)` / `conclude_task(supersedes=...)`.
+   - Facts whose source message is still present in the raw window are
+     **excluded** — the model should never see the same content twice
+     (once raw, once as a retrieved fact).
 
 **Post-model hook:** none required — `remember_fact`/`conclude_task` already
 write synchronously when the agent invokes them as tool calls.
@@ -179,10 +207,13 @@ re-write facts already captured. `facts.id` is **deterministically derived**
 
 ## 6. Compaction
 
-Two triggers, one mechanism:
+Two triggers, one mechanism — **both run on the background worker** (the same
+worker that handles async embedding, §7). Compaction never runs an LLM call in
+the pre-model hook's hot path; the hook only *enqueues*:
 - **Window overflow** (primary, normal operation): messages rolling off the
-  ~10-message sliding window are distilled before being dropped from raw
-  context.
+  ~10-message sliding window are enqueued for distillation. Until the worker
+  processes them, they simply don't appear in the model input — no data loss,
+  the raw messages remain in checkpointer history and the facts table.
 - **Fact-count threshold** (background): a periodic job checks namespaces with
   many `active` facts and compacts older/superseded ones.
 
@@ -235,8 +266,14 @@ window for that turn.
 
 ## Open items for the implementation plan
 
-- Exact embedding model/provider (pluggable interface, default TBD at plan
-  time).
+- Exact embedding model/provider (pluggable interface; for local use,
+  `nomic-embed-text` via Ollama is the working default — 768-d).
 - Background worker mechanism for async embedding + compaction (in-process
   scheduler vs external job runner) — a deployment concern, not a schema
   concern.
+- A `forget`/deletion API. Facts are currently archived, never deleted; a
+  public package will eventually need true deletion (privacy/GDPR-style
+  requests). Deferred as future work.
+- Cross-session aggregation (e.g. mining many sessions' fact graphs to train
+  or prime sub-agents). Explicitly out of scope for now: a sub-agent reads
+  only its own namespace + ancestor chain.

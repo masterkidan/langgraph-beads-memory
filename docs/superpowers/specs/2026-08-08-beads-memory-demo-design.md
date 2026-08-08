@@ -38,11 +38,35 @@ says):
 2. **Conversation 2** (new thread, same session) — user asks the agent to
    investigate the goal in depth. Agent delegates to 2-3 parallel sub-agents,
    each assigned a distinct sub-topic. Sub-agents conclude and roll up
-   summaries to the parent. Agent synthesizes an answer; conversation ends.
+   summaries to the parent. Agent synthesizes an answer. Then — final
+   scripted turn — the user **revises a conversation-1 constraint** (e.g.
+   "actually, budget is $50k, not $100k"). Conversation ends.
 3. **Conversation 3** (new thread, later) — user asks a follow-up that can
-   only be answered well by recalling **both** conversation 1's constraints/
-   preferences **and** conversation 2's rolled-up conclusions, without
-   repeating either in the conversation-3 prompt.
+   only be answered well by recalling **all three**: conversation 1's
+   constraints/preferences, conversation 2's rolled-up conclusions, **and
+   the revised (not original) constraint value** — without repeating any of
+   it in the conversation-3 prompt.
+
+**Scenario-design guidance** (per the §8 iterate-and-disclose stance, the
+script is tuned to exercise the mechanism differences — these are the levers):
+
+- **The revision beat** exercises `supersedes`: beads-memory flips the stale
+  constraint to `superseded` and retrieval only surfaces the current value;
+  extraction-style stores are known-weak at invalidation and risk surfacing
+  both. This is the demo's sharpest honest divergence moment. Mechanically:
+  the revision arrives as passive user-input capture (a new fact), but the
+  `supersedes` edge itself is created by the *agent* calling
+  `remember_fact(..., relation='supersedes')` — made easy because the old
+  constraint fact is visible in its injected context with a short id. The
+  agent's system prompt instructs it to record revisions this way, and
+  doing so reliably is part of the pre-flight smoke test (§5).
+- **Verbose sub-agents**: sub-agent tasks should require genuinely multi-step,
+  verbose exploration, so the baseline parent's message history bloats (shows
+  up in the token metric) while the treatment parent receives only rollups.
+- **Buried-detail question**: conversation 3 should require one *specific
+  detail* from one sub-agent's findings — in the treatment it's reachable by
+  drill-down through the rollup edge; in the baseline it only survives if
+  LangMem's extractor happened to keep it from the message flood.
 
 ## 3. Conditions compared
 
@@ -66,8 +90,9 @@ From the full design, implemented for the demo:
 
 - Postgres schema: `namespaces`, `facts`, `fact_edges` (session_id-only, per
   the 2026-08-08 amendment).
-- Passive user-input capture, `remember_fact` tool, `conclude_task` tool with
-  enforced fallback.
+- Passive user-input capture, passive final-answer capture (root
+  conclusions), `remember_fact` tool (with `supersedes` — the revision beat
+  exercises it), `conclude_task` tool with enforced fallback.
 - Fork/rollup model for sub-agents (§5.1 of the core design) — this is
   exactly what the conversation-2 delegation scenario exercises.
 - Semantic search retrieval (pgvector) + ancestor read-through, with short
@@ -98,7 +123,10 @@ Deferred (not needed at this scale, revisit post-demo):
   better model."
 - **Embeddings**: `nomic-embed-text` via Ollama (768-d) for pgvector.
 - **Postgres**: local via Docker, with `pgvector` extension.
-- **Framework**: LangGraph (`create_agent` + middleware), Python.
+- **Framework**: LangGraph (`create_agent` + middleware), Python. **Pin
+  exact versions** of langgraph/langmem/langchain in the demo lockfile — the
+  middleware API is new enough that unpinned installs risk breakage before
+  publish.
 
 ## 6. Measurement
 

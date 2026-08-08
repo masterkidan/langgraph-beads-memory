@@ -120,7 +120,7 @@ that status.
 
 ## 5. Capture mechanisms
 
-Three write paths, all into `facts`:
+Four write paths, all into `facts`:
 
 1. **Passive user-input capture.** On the pre-model hook, any new `HumanMessage`
    since the last hook invocation is written as `kind='user_input'`,
@@ -140,6 +140,15 @@ Three write paths, all into `facts`:
    the sub-agent's own ancestor chain — a sub-agent cannot supersede sibling
    facts it cannot even read.
 
+4. **Passive final-answer capture.** When a conversation's turn completes
+   with a final AI response (post-model hook, root namespace only), that
+   response is written as `kind='conclusion'`, `source='passive_capture'`.
+   This is the root-agent symmetry to the sub-agent's enforced
+   `conclude_task`: sub-agent conclusions are guaranteed by the wrapper,
+   root-agent conclusions are guaranteed here — neither depends on the
+   model's tool-calling discipline. `remember_fact` remains the channel for
+   deliberate mid-conversation conclusions.
+
 **Short fact ids.** `facts.id` is a uuid; everywhere a fact is shown to an
 agent or accepted as a tool argument, it is rendered as a beads-style short
 id — the first 8 hex chars (e.g. `fact-a3f8b2c1`). Tools resolve short ids by
@@ -147,6 +156,19 @@ unique-prefix match within the agent's readable scope (own namespace +
 ancestor chain) and return a structured error on ambiguity or no-match.
 
 ### 5.1 Fork/rollup model (sub-agent spawning)
+
+**Positioning note (be precise about the claim).** Context isolation for
+sub-agents is *not* novel — a LangGraph subgraph invoked as a tool already
+has isolated context, and the parent already receives only its final
+message. What this model adds, and what we claim: the rollup is **durable**
+(a fact that survives the conversation, not a message that scrolls away),
+**auditable** (`rollup_of` edges from summary back to the exploration that
+produced it), and **enforced** (a crashed or lazy sub-agent leaves a
+"task did not complete" fact instead of vanishing silently).
+
+**v1 scope**: the wrapper covers **tool-invoked sub-agents only**. Handoff-
+style delegation (`Command(goto=...)`, `langgraph-supervisor`'s native
+mechanism) is not supported in v1 — noted as future work in Open items.
 
 When a supervisor spawns a sub-agent with a task summary, the adapter provides
 a `make_subagent_tool(subgraph, ...)` wrapper that:
@@ -186,8 +208,9 @@ a `make_subagent_tool(subgraph, ...)` wrapper that:
      **excluded** — the model should never see the same content twice
      (once raw, once as a retrieved fact).
 
-**Post-model hook:** none required — `remember_fact`/`conclude_task` already
-write synchronously when the agent invokes them as tool calls.
+**Post-model hook:** passive final-answer capture (write path 4, root
+namespace only), idempotent like all captures. `remember_fact`/
+`conclude_task` need nothing here — they write synchronously as tool calls.
 
 ### 5.3 Actor identity
 
@@ -277,3 +300,6 @@ window for that turn.
 - Cross-session aggregation (e.g. mining many sessions' fact graphs to train
   or prime sub-agents). Explicitly out of scope for now: a sub-agent reads
   only its own namespace + ancestor chain.
+- Handoff-style delegation support (`Command(goto=...)` /
+  `langgraph-supervisor` handoffs) — v1 forks only tool-invoked sub-agents
+  (§5.1).

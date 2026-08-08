@@ -6,9 +6,37 @@
 
 **Architecture:** A `beads_memory` Python package: `BeadsStore` (psycopg3 + pgvector, three tables), `BeadsMemoryMiddleware` (`AgentMiddleware` subclass — passive capture in `before_model`, window-trim + fact injection in `wrap_model_call`, final-answer capture in `after_model`), tool factories (`remember_fact`, `conclude_task`), and `make_subagent_tool` (fork + enforced rollup). A `demo/` harness runs both conditions N times against a local corpus, captures transcripts, computes objective metrics, and runs a blinded LLM judge.
 
-**Tech Stack:** Python 3.12, psycopg3 + pgvector, LangChain/LangGraph 1.x (`create_agent` + middleware), LangMem (baseline), ChatOllama + `nomic-embed-text` (local), pytest, Docker (Postgres).
+**Tech Stack:** Python 3.13, **uv** (package/venv manager — never call `pip` directly), psycopg3 + pgvector, LangChain/LangGraph 1.x (`create_agent` + middleware), LangMem (baseline), ChatOllama + `nomic-embed-text` (local), pytest + pytest-cov, black, ruff, Docker (Postgres).
 
 **Specs:** `docs/superpowers/specs/2026-07-31-beads-memory-design.md` (architecture), `docs/superpowers/specs/2026-08-08-beads-memory-demo-design.md` (demo scope/measurement). Read both before starting.
+
+---
+
+## Definition of Done — applies to EVERY task
+
+No task is complete until all four gates pass. Run them before committing; paste the real
+output in your report, never a paraphrase.
+
+```bash
+uv run black .
+uv run ruff check --fix .
+uv run pytest --cov=beads_memory --cov-report=term-missing --cov-fail-under=80
+```
+
+1. **Formatted** — `uv run black .` reports no files needing reformat on a second run.
+2. **Linted** — `uv run ruff check .` exits clean (0 findings). Fix the code; do not add
+   blanket `# noqa` to silence findings.
+3. **Tested** — all tests pass.
+4. **Covered** — line coverage of `beads_memory` is **> 80%**; the `--cov-fail-under=80`
+   flag enforces it. If a task's own code drops coverage below the gate, write the missing
+   tests rather than lowering the threshold.
+
+Tooling rules:
+- **Use `uv` for everything.** `uv sync` to install, `uv add` to add a dependency,
+  `uv run <cmd>` to execute. Never `pip install`, never activate a venv manually.
+- Demo-only modules (`demo/`) are excluded from the coverage target — the gate measures
+  the `beads_memory` package. Demo logic that *can* be unit-tested without an LLM
+  (e.g. `demo/metrics.py`, `demo/judge.py` blinding) still gets tests, per its task.
 
 ---
 
@@ -61,7 +89,7 @@ Conventions used throughout: DB connection string env var `BEADS_PG_DSN` (defaul
 name = "langgraph-beads-memory"
 version = "0.1.0"
 description = "Beads-style durable memory for LangGraph agents on Postgres"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 dependencies = [
     "langchain>=1.0",
@@ -76,7 +104,14 @@ demo = [
     "langgraph-checkpoint-postgres>=2.0",
     "langmem>=0.0.29",
 ]
-dev = ["pytest>=8.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "black>=24.0",
+    "ruff>=0.6",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -87,6 +122,20 @@ packages = ["src/beads_memory"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.coverage.run]
+source = ["beads_memory"]
 ```
 
 - [ ] **Step 2: Write `docker-compose.yml`**
@@ -103,13 +152,23 @@ services:
       - "5433:5432"
 ```
 
-- [ ] **Step 3: Create venv, install, pin versions**
+- [ ] **Step 3: Pin Python, install with uv, produce the lockfile**
 
 Run:
 ```bash
-python3.12 -m venv .venv && .venv/bin/pip install -e '.[demo,dev]' && .venv/bin/pip freeze > requirements.lock
+uv python pin 3.13 && uv sync --all-extras && uv lock
 ```
-Expected: install succeeds; `requirements.lock` created (this is the version pin required by demo spec §5). If `langmem` or `langchain>=1.0` fail to resolve, record the actual resolvable versions in `pyproject.toml` rather than loosening the lock.
+Expected: `.python-version` pinned to 3.13, a `.venv/` created by uv, and `uv.lock` written
+(this is the version pin required by demo spec §5 — the middleware API is new enough that
+unpinned installs risk breaking before publish). `uv.lock` **is committed**. If `langmem` or
+`langchain>=1.0` fail to resolve, record the actual resolvable versions in `pyproject.toml`
+rather than loosening the pin.
+
+Verify the toolchain works end to end:
+```bash
+uv run python -c "import sys; print(sys.version)" && uv run black --version && uv run ruff --version && uv run pytest --version
+```
+Expected: Python 3.13.x, and versions for black, ruff, pytest.
 
 - [ ] **Step 4: Start Postgres and verify**
 
@@ -118,11 +177,11 @@ Expected: one row with a version like `0.7.x`.
 
 - [ ] **Step 5: Append to `.gitignore` and commit**
 
-Add line `results/raw/` to `.gitignore`.
+Add `results/raw/` to `.gitignore` (`.venv/` is already covered by the Python template).
 
 ```bash
-git add pyproject.toml docker-compose.yml requirements.lock .gitignore
-git commit -m "chore: scaffold package, docker postgres, pinned deps"
+git add pyproject.toml docker-compose.yml uv.lock .python-version .gitignore
+git commit -m "chore: scaffold package with uv, docker postgres, pinned deps"
 ```
 
 ---
@@ -166,7 +225,7 @@ def test_random_fork_suffix_shape_and_uniqueness():
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_ids.py -v`
+Run: `uv run pytest tests/test_ids.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'beads_memory.ids'`
 
 - [ ] **Step 3: Implement `src/beads_memory/ids.py`**
@@ -197,7 +256,7 @@ def random_fork_suffix() -> str:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_ids.py -v`
+Run: `uv run pytest tests/test_ids.py -v`
 Expected: 4 passed
 
 - [ ] **Step 5: Commit**
@@ -337,7 +396,7 @@ def test_ancestor_chain(conn):
 
 - [ ] **Step 4: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_store.py -v`
+Run: `uv run pytest tests/test_store.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'beads_memory.store'`
 
 - [ ] **Step 5: Implement `src/beads_memory/store.py` (namespace part)**
@@ -432,7 +491,7 @@ Also make the DDL ship with the wheel — add to `pyproject.toml`:
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_store.py -v`
+Run: `uv run pytest tests/test_store.py -v`
 Expected: 4 passed
 
 - [ ] **Step 7: Commit**
@@ -513,7 +572,7 @@ def test_facts_in_namespace(conn):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_store.py -v -k "fact or edge"`
+Run: `uv run pytest tests/test_store.py -v -k "fact or edge"`
 Expected: FAIL with `AttributeError: 'BeadsStore' object has no attribute 'write_fact'`
 
 - [ ] **Step 3: Implement — append methods to `BeadsStore`**
@@ -599,7 +658,7 @@ Note for the implementer: `id::text LIKE 'a3f8b2c1%'` works because a UUID's fir
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_store.py -v`
+Run: `uv run pytest tests/test_store.py -v`
 Expected: 8 passed
 
 - [ ] **Step 5: Commit**
@@ -744,7 +803,7 @@ def test_search_skips_unembedded_facts(conn, embedder):
 
 - [ ] **Step 4: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_search.py -v`
+Run: `uv run pytest tests/test_search.py -v`
 Expected: FAIL with `AttributeError: 'BeadsStore' object has no attribute 'search'`
 
 - [ ] **Step 5: Implement — append `search` to `BeadsStore`**
@@ -780,7 +839,7 @@ Expected: FAIL with `AttributeError: 'BeadsStore' object has no attribute 'searc
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_search.py -v`
+Run: `uv run pytest tests/test_search.py -v`
 Expected: 5 passed
 
 - [ ] **Step 7: Commit**
@@ -869,7 +928,7 @@ def test_conclude_task_writes_summary_to_parent_with_rollups(conn, embedder):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_tools.py -v`
+Run: `uv run pytest tests/test_tools.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'beads_memory.tools'`
 
 - [ ] **Step 3: Implement `src/beads_memory/tools.py`**
@@ -967,7 +1026,7 @@ Note: `source_key=f"conclude:{child_namespace.id}"` makes a repeated/replayed co
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_tools.py -v`
+Run: `uv run pytest tests/test_tools.py -v`
 Expected: 4 passed
 
 - [ ] **Step 5: Commit**
@@ -1097,7 +1156,7 @@ def test_wrap_model_call_dedups_facts_still_in_window(conn, embedder):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_middleware.py -v`
+Run: `uv run pytest tests/test_middleware.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'beads_memory.middleware'`
 
 - [ ] **Step 3: Implement `src/beads_memory/middleware.py`**
@@ -1208,12 +1267,12 @@ class BeadsMemoryMiddleware(AgentMiddleware):
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_middleware.py -v`
+Run: `uv run pytest tests/test_middleware.py -v`
 Expected: 5 passed
 
 - [ ] **Step 5: Run the whole suite**
 
-Run: `.venv/bin/pytest -v`
+Run: `uv run pytest -v`
 Expected: all pass (ids 4, store 8, search 5, tools 4, middleware 5 = 26)
 
 - [ ] **Step 6: Commit**
@@ -1330,7 +1389,7 @@ def test_parallel_forks_get_distinct_namespaces(conn, embedder):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_subagent.py -v`
+Run: `uv run pytest tests/test_subagent.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'beads_memory.subagent'`
 
 - [ ] **Step 3: Implement `src/beads_memory/subagent.py`**
@@ -1410,7 +1469,7 @@ def make_subagent_tool(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_subagent.py -v`
+Run: `uv run pytest tests/test_subagent.py -v`
 Expected: 4 passed
 
 - [ ] **Step 5: Write `src/beads_memory/__init__.py` exports**
@@ -1431,7 +1490,7 @@ __all__ = [
 
 - [ ] **Step 6: Run full suite and commit**
 
-Run: `.venv/bin/pytest -v` — Expected: 30 passed
+Run: `uv run pytest -v` — Expected: 30 passed
 
 ```bash
 git add src/beads_memory tests/test_subagent.py
@@ -1614,7 +1673,7 @@ if __name__ == "__main__":
 
 Run:
 ```bash
-ollama pull qwen2.5:14b && ollama pull nomic-embed-text && .venv/bin/python -m demo.smoke_test
+ollama pull qwen2.5:14b && ollama pull nomic-embed-text && uv run python -m demo.smoke_test
 ```
 Expected: three PASS lines, exit 0. If tool-calling FAILs, try `BEADS_DEMO_MODEL=llama3.1:8b` (then re-run); record the winning model in `demo/llm.py`'s default. Do not proceed to Task 10 until this passes — that's the point of the gate.
 
@@ -1855,7 +1914,7 @@ Implementation notes for this task (verify at build time, adjust minimally):
 
 Run:
 ```bash
-.venv/bin/python -c "
+uv run python -c "
 from demo.conditions import build_treatment
 inv, close = build_treatment('sanity-sess', 'sanity_run')
 r = inv('t1', 'The budget is 100k per year. Remember the key constraint.')
@@ -2023,7 +2082,7 @@ def test_constraint_carry_stale_budget_detected():
     assert not c["buried_detail_recalled"]
 ```
 
-Run: `.venv/bin/pytest tests/test_metrics.py -v`
+Run: `uv run pytest tests/test_metrics.py -v`
 Expected: 2 passed
 
 - [ ] **Step 4: Commit**
@@ -2059,7 +2118,7 @@ def test_blind_pair_strips_and_randomizes(monkeypatch):
                        {"X": "treatment", "Y": "baseline"})
 ```
 
-Run: `.venv/bin/pytest tests/test_judge.py -v` — Expected: FAIL (module missing)
+Run: `uv run pytest tests/test_judge.py -v` — Expected: FAIL (module missing)
 
 - [ ] **Step 2: Implement `demo/judge.py`**
 
@@ -2154,7 +2213,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 3: Run the blinding test**
 
-Run: `.venv/bin/pytest tests/test_judge.py -v`
+Run: `uv run pytest tests/test_judge.py -v`
 Expected: 1 passed
 
 - [ ] **Step 4: Commit**
@@ -2174,17 +2233,17 @@ git commit -m "feat: blinded LLM judge with per-run pairing and mean reporting"
 
 - [ ] **Step 1: Pre-flight**
 
-Run: `.venv/bin/python -m demo.smoke_test`
+Run: `uv run python -m demo.smoke_test`
 Expected: all PASS. If not, fix the model choice first (Task 9 Step 4).
 
 - [ ] **Step 2: Full harness run**
 
-Run: `.venv/bin/python -m demo.harness --runs 3`
+Run: `uv run python -m demo.harness --runs 3`
 Expected: 6 JSON files in `results/raw/` (3 runs x 2 conditions), each printing token + carry summaries. Budget ~30-60 min on local hardware.
 
 - [ ] **Step 3: Judge run**
 
-Run: `.venv/bin/python -m demo.judge results/raw`
+Run: `uv run python -m demo.judge results/raw`
 Expected: per-run scores + per-dimension means printed.
 
 - [ ] **Step 4: Write `results/<date>-results.md`**

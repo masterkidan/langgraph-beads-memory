@@ -2,7 +2,7 @@
 name = "langgraph-beads-memory"
 version = "0.1.0"
 description = "Beads-style durable memory for LangGraph agents on Postgres"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 dependencies = [
     "langchain>=1.0",
@@ -17,7 +17,14 @@ demo = [
     "langgraph-checkpoint-postgres>=2.0",
     "langmem>=0.0.29",
 ]
-dev = ["pytest>=8.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "black>=24.0",
+    "ruff>=0.6",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -28,3 +35,17 @@ packages = ["src/beads_memory"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.coverage.run]
+source = ["beads_memory"]

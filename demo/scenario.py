@@ -54,8 +54,9 @@ CONVERSATIONS = [
 # Terms with multiple plausible surface forms are lists of accepted variants —
 # a model writing "32 times" instead of "32x" is correct and must score as such.
 PLANTED = {
-    "revised_budget": "50k",
-    "stale_budget": "100k",  # must NOT be presented as current
+    "revised_budget_variants": ["50k", "50,000", "50000"],
+    # must NOT be presented as current
+    "stale_budget_variants": ["100k", "100,000", "100000"],
     "selfhost_variants": ["self-host", "self host", "selfhost", "on-prem", "on prem"],
     "constraint_primary_sources": "primary",
     "buried_detail_variants": [

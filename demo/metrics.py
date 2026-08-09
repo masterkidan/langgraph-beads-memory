@@ -42,11 +42,11 @@ def constraint_carry(final_answer: str, buried_answer: str) -> dict:
     """
     fa = final_answer.lower()
     ba = buried_answer.lower()
+    revised = _any_variant(fa, PLANTED["revised_budget_variants"])
+    stale = _any_variant(fa, PLANTED["stale_budget_variants"])
     return {
-        "uses_revised_budget": PLANTED["revised_budget"] in fa,
-        "avoids_stale_budget_as_current": not (
-            PLANTED["stale_budget"] in fa and PLANTED["revised_budget"] not in fa
-        ),
+        "uses_revised_budget": revised,
+        "avoids_stale_budget_as_current": not (stale and not revised),
         "mentions_selfhost": _any_variant(fa, PLANTED["selfhost_variants"]),
         "mentions_primary_sources": PLANTED["constraint_primary_sources"] in fa,
         "mentions_feasible_option": any(p in fa for p in PLANTED["expected_pick_one_of"]),

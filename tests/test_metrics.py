@@ -77,3 +77,11 @@ def test_token_usage_sums_across_messages():
 
 def test_token_usage_empty_list():
     assert token_usage([]) == {"input_tokens": 0, "output_tokens": 0}
+
+
+def test_budget_accepts_currency_surface_forms():
+    """Regression: the treatment answered "$50,000" and was scored as having
+    forgotten the revised budget. Any surface form of the figure must count."""
+    for phrasing in ["50k", "$50,000", "50,000", "50000"]:
+        c = constraint_carry(f"Qdrant fits the revised {phrasing} budget.", "")
+        assert c["uses_revised_budget"], phrasing

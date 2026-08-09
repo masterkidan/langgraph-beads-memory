@@ -105,3 +105,56 @@ def test_wrap_model_call_dedups_facts_still_in_window(conn, embedder):
     )
     mw.wrap_model_call(req, handler)
     assert "budget is 100k" not in str(captured["system"].content)
+
+
+def test_facts_still_injected_when_question_falls_outside_the_window(conn, embedder):
+    """Regression: a long tool-calling turn must not silently disable memory.
+
+    The retrieval query was taken from the *windowed* messages. On a turn with
+    enough tool calls to push the user's question past the window, no
+    HumanMessage remained in view, the query came back None, and NOT A SINGLE
+    fact was injected — memory switched itself off on exactly the long,
+    roundabout turns where it matters most. Observed at the boundary in a real
+    run: one turn reached exactly the window size.
+    """
+    store, ns, mw = _mw(conn, embedder, window=3)
+    store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is 100k dollars per year",
+        source="passive_capture",
+        source_key="old-1",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=embedder.embed("the budget is 100k dollars per year"),
+    )
+    # question first, then enough tool traffic to push it out of a 3-window
+    msgs = [HumanMessage("what is the budget?", id="q1")]
+    for i in range(5):
+        msgs.append(
+            AIMessage("", tool_calls=[{"name": "x", "args": {}, "id": f"tc{i}"}], id=f"a{i}")
+        )
+    captured = {}
+
+    def handler(req):
+        captured["system"] = req.system_message
+        captured["messages"] = req.messages
+        return "R"
+
+    req = SimpleNamespace(
+        messages=msgs,
+        system_message=SystemMessage("sys"),
+        override=lambda **kw: SimpleNamespace(
+            messages=kw.get("messages", msgs),
+            system_message=kw.get("system_message", SystemMessage("sys")),
+        ),
+    )
+    mw.wrap_model_call(req, handler)
+
+    assert len(captured["messages"]) == 3, "window trim still applies"
+    assert not any(
+        isinstance(m, HumanMessage) for m in captured["messages"]
+    ), "precondition: the question must be outside the window for this test to mean anything"
+    assert "budget is 100k" in str(
+        captured["system"].content
+    ), "facts must still be injected when the question is outside the window"

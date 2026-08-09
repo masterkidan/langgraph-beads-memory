@@ -100,10 +100,18 @@ class BeadsMemoryMiddleware(AgentMiddleware):
             for m in windowed
             if isinstance(m, HumanMessage)
         ]
+        # Query from the FULL message list, not the window. The window governs
+        # what the model re-reads; it must not govern what memory is retrievable.
+        # Taking the query from `windowed` meant a turn with enough tool calls to
+        # push the user's question out of view produced no query at all, and
+        # therefore injected no facts — memory silently switched off on exactly
+        # the long, roundabout turns where it is most needed. Falling back to the
+        # last non-empty message keeps retrieval working even on a turn that
+        # opens with tool traffic and contains no HumanMessage at all.
         query_text = next(
-            (str(m.content) for m in reversed(windowed) if isinstance(m, HumanMessage)),
+            (str(m.content) for m in reversed(msgs) if isinstance(m, HumanMessage)),
             None,
-        )
+        ) or next((str(m.content) for m in reversed(msgs) if str(m.content).strip()), None)
         facts = []
         if query_text:
             facts = self.store.search(

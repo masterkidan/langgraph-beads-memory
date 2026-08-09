@@ -18,7 +18,9 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 | sub-agents | results return as messages; no link back to what produced them | isolated namespaces, enforced `conclude_task`, `rollup_of` audit edges |
 | a crashed sub-agent | silently returns nothing | wrapper synthesizes a "did not complete" fact |
 
-**What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema, and injecting facts on every call measured **~46% more input tokens** in a single run. It buys reliability of capture and typed invalidation, not efficiency.
+**What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema.
+
+**Token cost is unsettled.** An early run measured this library using ~46% *more* input tokens (facts are injected every call). After a scenario fix, a later run measured it using ~42% *fewer* (18,638 → 10,799), because injecting a compact fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. Both figures are single runs and they point in opposite directions, so neither is a claim — treat token cost as unmeasured until the N=3 results land. The published diagram still carries the older figure.
 
 ## How it works
 

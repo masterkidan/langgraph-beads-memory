@@ -137,6 +137,33 @@ class BeadsStore:
         ).fetchall()
         return [Fact(*r) for r in rows]
 
+    def search(
+        self,
+        namespace_id: uuid.UUID,
+        query_embedding: list[float],
+        *,
+        k: int = 8,
+        exclude_ids: list[uuid.UUID] | None = None,
+    ) -> list[Fact]:
+        """Top-k active facts by cosine similarity across self + ancestor chain.
+        Facts without embeddings are invisible to search."""
+        chain = self.ancestor_chain(namespace_id)
+        rows = self._conn.execute(
+            """
+            SELECT id, namespace_id, session_id, kind, body, status, source,
+                   agent_id, acting_on_behalf_of
+            FROM facts
+            WHERE namespace_id = ANY(%s)
+              AND status = 'active'
+              AND embedding IS NOT NULL
+              AND NOT (id = ANY(%s))
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
+            """,
+            (chain, exclude_ids or [], query_embedding, k),
+        ).fetchall()
+        return [Fact(*r) for r in rows]
+
     def resolve_short_id(self, prefix: str, readable_ns_ids: list[uuid.UUID]) -> Fact:
         """Resolve 'fact-a3f8b2c1' within readable scope; raise on miss/ambiguity."""
         hexpref = prefix.removeprefix("fact-")

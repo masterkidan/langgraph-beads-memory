@@ -5,6 +5,8 @@ import psycopg
 import pytest
 from pgvector.psycopg import register_vector
 
+from beads_memory.embeddings import FakeEmbedder
+
 DSN = os.environ.get("BEADS_PG_DSN", "postgresql://beads:beads@localhost:5433/beads")
 
 
@@ -21,3 +23,8 @@ def conn():
     yield c
     c.execute(f'DROP SCHEMA "{schema}" CASCADE')
     c.close()
+
+
+@pytest.fixture()
+def embedder():
+    return FakeEmbedder()

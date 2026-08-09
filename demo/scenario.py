@@ -51,12 +51,17 @@ CONVERSATIONS = [
 ]
 
 # Ground truth for objective metrics (metrics.py checks these substrings).
+# Terms with multiple plausible surface forms are lists of accepted variants —
+# a model writing "32 times" instead of "32x" is correct and must score as such.
 PLANTED = {
     "revised_budget": "50k",
     "stale_budget": "100k",  # must NOT be presented as current
-    "constraint_selfhost": "self-host",
+    "selfhost_variants": ["self-host", "self host", "selfhost", "on-prem", "on prem"],
     "constraint_primary_sources": "primary",
-    "buried_detail_terms": ["binary quantization", "32x"],
+    "buried_detail_variants": [
+        ["binary quantization"],
+        ["32x", "32 times", "32-fold", "32 fold", "32×"],
+    ],
     # $50k budget: pgvector ($12-18k) fits; qdrant ($30k) fits; weaviate ($60k) does not.
     "expected_pick_one_of": ["pgvector", "qdrant"],
 }

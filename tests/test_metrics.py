@@ -34,6 +34,36 @@ def test_constraint_carry_stale_and_revised_both_present_is_ok():
     assert c["avoids_stale_budget_as_current"]
 
 
+def test_buried_detail_accepts_natural_language_multiplier():
+    """Regression: the first real run said "32 times", not "32x", and was
+    scored as a miss. Any surface form of the multiplier must count."""
+    for phrasing in ["32x", "32 times", "32-fold", "32×"]:
+        c = constraint_carry("", f"Qdrant's binary quantization cut RAM up to {phrasing}.")
+        assert c["buried_detail_recalled"], phrasing
+
+
+def test_buried_detail_needs_both_terms():
+    # multiplier alone, without naming the technique, is not recall
+    c = constraint_carry("", "It cut RAM up to 32 times.")
+    assert not c["buried_detail_recalled"]
+
+
+def test_selfhost_accepts_variants():
+    for phrasing in ["self-hosted", "self host", "selfhost", "on-prem"]:
+        c = constraint_carry(f"pgvector can be {phrasing}.", "")
+        assert c["mentions_selfhost"], phrasing
+
+
+def test_mentions_feasible_option_does_not_claim_a_recommendation():
+    """The metric is deliberately literal: naming an option is not the same as
+    recommending it. A hedging answer still scores True here, and it is the
+    judge's `final` dimension that penalises the non-commitment."""
+    hedging = "We could pick pgvector, or qdrant, or weaviate. Tell me your constraints."
+    c = constraint_carry(hedging, "")
+    assert c["mentions_feasible_option"]
+    assert not c["uses_revised_budget"]
+
+
 def test_token_usage_sums_across_messages():
     messages = [
         _StubMsg(usage_metadata={"input_tokens": 10, "output_tokens": 5}),

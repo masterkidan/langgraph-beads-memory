@@ -213,3 +213,73 @@ def test_resolve_short_id_ambiguous_raises(conn, monkeypatch):
     )
     with pytest.raises(LookupError):
         store.resolve_short_id(f"fact-{shared_prefix}", [ns.id])
+
+
+def _f(store, ns, body, embedder, kind="conclusion", key=None):
+    return store.write_fact(
+        ns,
+        kind=kind,
+        body=body,
+        source="remember_tool",
+        source_key=key or body,
+        agent_id="a",
+        acting_on_behalf_of="user",
+        embedding=embedder.embed(body),
+    )
+
+
+def test_supersedes_rejected_when_facts_are_unrelated(conn, embedder):
+    """A supersede must be *about* its target.
+
+    Measured in a real run: "The investigation into Weaviate has been completed"
+    was allowed to retire the user's stated constraints, silently removing them
+    from retrieval. Nothing validated the relationship.
+    """
+    store = _mkstore(conn)
+    ns = store.get_or_create_namespace("s1")
+    target = _f(store, ns, "the budget is 100k per year", embedder)
+    unrelated = _f(store, ns, "zebras migrate across the savannah in herds", embedder)
+    created = store.add_edge(unrelated.id, target.id, "supersedes")
+    assert created is False
+    status = conn.execute("SELECT status FROM facts WHERE id=%s", (target.id,)).fetchone()[0]
+    assert status == "active", "an unrelated fact must not retire this one"
+    n = conn.execute("SELECT count(*) FROM fact_edges WHERE relation='supersedes'").fetchone()[0]
+    assert n == 0
+
+
+def test_supersedes_allowed_when_facts_are_about_the_same_thing(conn, embedder):
+    store = _mkstore(conn)
+    ns = store.get_or_create_namespace("s1")
+    target = _f(store, ns, "the budget is 100k per year", embedder)
+    revision = _f(store, ns, "the budget is 100k per year, revised to 50k", embedder)
+    created = store.add_edge(revision.id, target.id, "supersedes")
+    assert created is True
+    status = conn.execute("SELECT status FROM facts WHERE id=%s", (target.id,)).fetchone()[0]
+    assert status == "superseded"
+
+
+def test_unguarded_relations_are_unaffected(conn, embedder):
+    """Only `supersedes` retires a fact, so only it needs the guard."""
+    store = _mkstore(conn)
+    ns = store.get_or_create_namespace("s1")
+    a = _f(store, ns, "the budget is 100k per year", embedder)
+    b = _f(store, ns, "zebras migrate across the savannah in herds", embedder)
+    assert store.add_edge(b.id, a.id, "relates_to") is True
+
+
+def test_supersedes_allowed_when_an_embedding_is_missing(conn, embedder):
+    """Fail open: a fact written before embeddings existed must not become
+    permanently un-supersedable."""
+    store = _mkstore(conn)
+    ns = store.get_or_create_namespace("s1")
+    target = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is 100k",
+        source="passive_capture",
+        source_key="m1",
+        agent_id="a",
+        acting_on_behalf_of="user",
+    )  # no embedding
+    src = _f(store, ns, "the budget is now 50k", embedder)
+    assert store.add_edge(src.id, target.id, "supersedes") is True

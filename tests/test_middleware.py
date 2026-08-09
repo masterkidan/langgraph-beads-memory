@@ -158,3 +158,41 @@ def test_facts_still_injected_when_question_falls_outside_the_window(conn, embed
     assert "budget is 100k" in str(
         captured["system"].content
     ), "facts must still be injected when the question is outside the window"
+
+
+def test_split_facts_still_dedup_against_the_raw_window(conn, embedder):
+    """Regression: the dedup exclusion must mirror how capture keys fragments.
+
+    Capture splits a multi-constraint message into one fact per clause, keyed
+    `<base>#<i>`. The exclusion list was still deriving a single id from the
+    whole message, so none of the fragments matched and every one of them was
+    re-injected into the system prompt while the message was still visible raw —
+    the model reading the same content twice.
+    """
+    store, ns, mw = _mw(conn, embedder, window=5)
+    msg = HumanMessage(
+        "Constraints: the budget is $100k per year, it must be self-hostable, "
+        "and I only trust primary benchmark data we measured ourselves.",
+        id="u1",
+    )
+    mw.before_model({"messages": [msg]}, None)
+    assert len(store.facts_in_namespace(ns.id)) >= 3, "precondition: message was split"
+
+    captured = {}
+
+    def handler(req):
+        captured["system"] = req.system_message
+        return "R"
+
+    req = SimpleNamespace(
+        messages=[msg],
+        system_message=SystemMessage("sys"),
+        override=lambda **kw: SimpleNamespace(
+            messages=kw.get("messages", [msg]),
+            system_message=kw.get("system_message", SystemMessage("sys")),
+        ),
+    )
+    mw.wrap_model_call(req, handler)
+    injected = str(captured["system"].content)
+    assert "self-hostable" not in injected, injected
+    assert "primary benchmark" not in injected, injected

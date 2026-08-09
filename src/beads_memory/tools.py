@@ -125,8 +125,15 @@ def make_remember_fact(
             acting_on_behalf_of=acting_on_behalf_of,
             embedding=embedder.embed(body),
         )
-        if target is not None:
-            store.add_edge(fact.id, target.id, relation)
+        if target is not None and not store.add_edge(fact.id, target.id, relation):
+            # Refused: the guard found the two facts unrelated. Say so, so the
+            # agent can correct its reference rather than believing it retired
+            # something it did not.
+            return (
+                f"Remembered [{short_id(fact.id)}], but the {relation} link to "
+                f"{relates_to} was refused: that fact is about something else. "
+                "Cite the short id of the fact this actually replaces."
+            )
         return f"Remembered [{short_id(fact.id)}]"
 
     return remember_fact
@@ -168,9 +175,13 @@ def make_conclude_task(
         )
         for child_fact in store.facts_in_namespace(child_namespace.id):
             store.add_edge(fact.id, child_fact.id, "rollup_of")
-        if target is not None:
-            store.add_edge(fact.id, target.id, "supersedes")
+        refused = target is not None and not store.add_edge(fact.id, target.id, "supersedes")
         concluded["fact_id"] = fact.id
+        if refused:
+            return (
+                f"Task concluded [{short_id(fact.id)}], but the supersedes link to "
+                f"{supersedes} was refused: that fact is about something else."
+            )
         return f"Task concluded [{short_id(fact.id)}]"
 
     return conclude_task

@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .embeddings import Embedder
 from .ids import content_key, derive_fact_id, short_id
+from .segment import split_into_facts
 from .store import BeadsStore, Namespace
 from .tools import make_remember_fact
 
@@ -48,18 +49,50 @@ class BeadsMemoryMiddleware(AgentMiddleware):
     def before_model(self, state, runtime):
         for msg in state["messages"]:
             if isinstance(msg, HumanMessage):
-                body = str(msg.content)
-                self.store.write_fact(
-                    self.namespace,
-                    kind="user_input",
-                    body=body,
-                    source="passive_capture",
-                    source_key=msg.id or content_key(body),
-                    agent_id=self.agent_id,
-                    acting_on_behalf_of=self.acting_on_behalf_of,
-                    embedding=self.embedder.embed(body),
-                )
+                self._capture_user_message(msg)
         return None
+
+    def _user_fact_specs(self, msg) -> list[tuple[str, str]]:
+        """(source_key, body) for each fact a user message produces.
+
+        Single source of truth shared by capture and by the dedup exclusion.
+        They were previously derived independently, and splitting broke them
+        apart: capture wrote `<base>#<i>` fragment keys while the exclusion
+        still derived one id from the whole message, so nothing matched and
+        every fragment was re-injected while the message was still on screen.
+        """
+        whole = str(msg.content)
+        fragments = split_into_facts(whole)
+        base_key = msg.id or content_key(whole)
+        if len(fragments) == 1:
+            return [(base_key, fragments[0])]
+        return [(f"{base_key}#{i}", body) for i, body in enumerate(fragments)]
+
+    def _capture_user_message(self, msg) -> None:
+        """Capture a user message as one fact per distinct claim.
+
+        A message stating several constraints at once used to become a single
+        fact, which measurably hurt in two ways: one embedding averaged across
+        every topic, so an individual constraint never reached the top-K for a
+        related question; and one row, so a single bad `supersedes` edge retired
+        every constraint in it. Splitting is verbatim and heuristic — passive
+        capture is in the model-call hot path and cannot afford an LLM.
+
+        The `source_key` carries the fragment index so the parts of one message
+        stay distinct under the content-derived id scheme, and a replay of the
+        same message still collapses onto the same ids.
+        """
+        for source_key, body in self._user_fact_specs(msg):
+            self.store.write_fact(
+                self.namespace,
+                kind="user_input",
+                body=body,
+                source="passive_capture",
+                source_key=source_key,
+                agent_id=self.agent_id,
+                acting_on_behalf_of=self.acting_on_behalf_of,
+                embedding=self.embedder.embed(body),
+            )
 
     # -- write path 4: passive final-answer capture (root only) -------------
     def after_model(self, state, runtime):
@@ -94,11 +127,12 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 self.namespace.session_id,
                 self.namespace.id,
                 "passive_capture",
-                m.id or content_key(str(m.content)),
-                str(m.content),
+                source_key,
+                body,
             )
             for m in windowed
             if isinstance(m, HumanMessage)
+            for source_key, body in self._user_fact_specs(m)
         ]
         # Query from the FULL message list, not the window. The window governs
         # what the model re-reads; it must not govern what memory is retrievable.

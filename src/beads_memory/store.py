@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import dataclasses
 import importlib.resources
+import os
 import uuid
 
 import psycopg
 
 from .ids import derive_fact_id, derive_namespace_id, random_fork_suffix
+
+# Cosine-similarity floor for a `supersedes` edge. Chosen from measurement, not
+# taste: on real run data the legitimate budget revision scored 0.730 against
+# its target while every spurious edge scored at most 0.472, so anything in that
+# gap separates them. 0.55 sits near the middle.
+SUPERSEDE_MIN_SIMILARITY = float(os.environ.get("BEADS_SUPERSEDE_MIN_SIMILARITY", "0.55"))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -115,7 +122,27 @@ class BeadsStore:
         ).fetchone()
         return Fact(*row)
 
-    def add_edge(self, from_fact_id: uuid.UUID, to_fact_id: uuid.UUID, relation: str) -> None:
+    def add_edge(self, from_fact_id: uuid.UUID, to_fact_id: uuid.UUID, relation: str) -> bool:
+        """Create a typed edge. Returns False if a `supersedes` edge was refused.
+
+        `supersedes` is guarded because it is the only relation that retires a
+        fact from retrieval, and an agent can aim it at anything it can see. In
+        a real run "The investigation into Weaviate has been completed" retired
+        the user's stated constraints; nothing checked that the two facts were
+        about the same thing.
+
+        The guard requires cosine similarity above SUPERSEDE_MIN_SIMILARITY.
+        This only became viable once messages were split into one fact per
+        claim: against a bundled fact, measured spurious edges scored HIGHER
+        (0.63-0.74) than legitimate revisions (0.45-0.68), so a threshold would
+        have blocked the right edges. Post-split the separation is clean —
+        legitimate 0.73, spurious at most 0.47.
+
+        Fails open when either fact lacks an embedding, so a fact written before
+        embeddings existed never becomes permanently un-supersedable.
+        """
+        if relation == "supersedes" and not self._may_supersede(from_fact_id, to_fact_id):
+            return False
         self._conn.execute(
             """
             INSERT INTO fact_edges (id, from_fact_id, to_fact_id, relation)
@@ -127,6 +154,21 @@ class BeadsStore:
         if relation == "supersedes":
             # The only path that sets status='superseded' (design spec).
             self._conn.execute("UPDATE facts SET status='superseded' WHERE id=%s", (to_fact_id,))
+        return True
+
+    def _may_supersede(self, from_fact_id: uuid.UUID, to_fact_id: uuid.UUID) -> bool:
+        row = self._conn.execute(
+            """
+            SELECT 1 - (a.embedding <=> b.embedding)
+            FROM facts a, facts b
+            WHERE a.id = %s AND b.id = %s
+              AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+            """,
+            (from_fact_id, to_fact_id),
+        ).fetchone()
+        if row is None:  # missing embedding on either side -> fail open
+            return True
+        return float(row[0]) >= SUPERSEDE_MIN_SIMILARITY
 
     def facts_in_namespace(self, namespace_id: uuid.UUID) -> list[Fact]:
         rows = self._conn.execute(

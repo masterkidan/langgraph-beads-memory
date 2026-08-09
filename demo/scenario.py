@@ -43,9 +43,24 @@ CONVERSATIONS = [
         [
             "Given everything we've established, which vector database should "
             "we pick and why? Be specific about how it fits our constraints.",
-            # Buried-detail question: lives only in qdrant.md's memory section.
-            "And remind me — what was that big memory optimization for the "
-            "strongest runner-up, and roughly how much did it save?",
+            # Buried-detail question: this fact lives only in qdrant.md's memory
+            # section, and reaches conversation 3 only via the Qdrant researcher's
+            # rollup — which is exactly what we want to measure.
+            #
+            # DISCLOSED SCENARIO ITERATION (2026-08-08, after run 0; demo design
+            # spec §8 permits iterating the scenario and requires saying so):
+            # this question originally asked about "the strongest runner-up"
+            # without naming it. That was ambiguous by accident — the referent
+            # depends on which database the agent picked. In run 0 the treatment
+            # picked Qdrant, read "runner-up" as Weaviate, and hallucinated an
+            # optimization for it; the baseline scored the point only because it
+            # declined to pick anything, leaving Qdrant as the default reading.
+            # The question therefore measured which DB was chosen, not whether
+            # the researcher's finding survived. Naming Qdrant removes the
+            # ambiguity. This change was made AFTER seeing results and is
+            # recorded here so the results write-up can state it plainly.
+            "And remind me — what was that big memory optimization the Qdrant "
+            "researcher found, and roughly how much did it save?",
         ],
     ),
 ]

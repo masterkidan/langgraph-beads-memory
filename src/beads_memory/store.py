@@ -8,7 +8,7 @@ import uuid
 
 import psycopg
 
-from .ids import random_fork_suffix
+from .ids import derive_fact_id, random_fork_suffix
 
 
 @dataclasses.dataclass(frozen=True)
@@ -75,3 +75,83 @@ class BeadsStore:
             (namespace_id,),
         ).fetchall()
         return [r[0] for r in rows]
+
+    def write_fact(
+        self,
+        namespace: Namespace,
+        *,
+        kind: str,
+        body: str,
+        source: str,
+        source_key: str,
+        agent_id: str,
+        acting_on_behalf_of: str,
+        embedding: list[float] | None = None,
+    ) -> Fact:
+        fid = derive_fact_id(namespace.id, source_key, body)
+        self._conn.execute(
+            """
+            INSERT INTO facts (id, namespace_id, session_id, kind, body, embedding,
+                               source, agent_id, acting_on_behalf_of)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            (
+                fid,
+                namespace.id,
+                namespace.session_id,
+                kind,
+                body,
+                embedding,
+                source,
+                agent_id,
+                acting_on_behalf_of,
+            ),
+        )
+        row = self._conn.execute(
+            "SELECT id, namespace_id, session_id, kind, body, status, source,"
+            " agent_id, acting_on_behalf_of FROM facts WHERE id=%s",
+            (fid,),
+        ).fetchone()
+        return Fact(*row)
+
+    def add_edge(self, from_fact_id: uuid.UUID, to_fact_id: uuid.UUID, relation: str) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO fact_edges (id, from_fact_id, to_fact_id, relation)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (from_fact_id, to_fact_id, relation) DO NOTHING
+            """,
+            (uuid.uuid4(), from_fact_id, to_fact_id, relation),
+        )
+        if relation == "supersedes":
+            # The only path that sets status='superseded' (design spec).
+            self._conn.execute("UPDATE facts SET status='superseded' WHERE id=%s", (to_fact_id,))
+
+    def facts_in_namespace(self, namespace_id: uuid.UUID) -> list[Fact]:
+        rows = self._conn.execute(
+            "SELECT id, namespace_id, session_id, kind, body, status, source,"
+            " agent_id, acting_on_behalf_of FROM facts WHERE namespace_id=%s"
+            " ORDER BY created_at, id",
+            (namespace_id,),
+        ).fetchall()
+        return [Fact(*r) for r in rows]
+
+    def resolve_short_id(self, prefix: str, readable_ns_ids: list[uuid.UUID]) -> Fact:
+        """Resolve 'fact-a3f8b2c1' within readable scope; raise on miss/ambiguity."""
+        hexpref = prefix.removeprefix("fact-")
+        rows = self._conn.execute(
+            "SELECT id, namespace_id, session_id, kind, body, status, source,"
+            " agent_id, acting_on_behalf_of FROM facts"
+            " WHERE namespace_id = ANY(%s) AND id::text LIKE %s",
+            (readable_ns_ids, _hex_like(hexpref)),
+        ).fetchall()
+        if len(rows) != 1:
+            raise LookupError(f"short id {prefix!r} matched {len(rows)} facts")
+        return Fact(*rows[0])
+
+
+def _hex_like(hexpref: str) -> str:
+    """uuid::text is 8-4-4-4-12 with dashes; first 8 hex chars are the first group."""
+    h = hexpref.lower()
+    return f"{h[:8]}%"

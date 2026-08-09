@@ -1,0 +1,448 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 630" width="1320" height="630" role="img" aria-label="Animated side-by-side comparison: LangGraph stock memory (checkpointer plus BaseStore and LangMem) versus langgraph-beads-memory (typed fact graph), run through the same three-conversation scenario. Phase A: a user states budget, self-host, and primary-source-only constraints; beads-memory captures the message and the turn's conclusion verbatim with no extraction LLM, while stock memory requires the agent to call manage_memory, which in the measured run it did not do (checkpointer history within the thread is genuinely complete, though). Phase B: a new thread_id resets message history in both; beads-memory recalls top-K facts across threads automatically, while stock memory requires the agent to call search_memory and finds nothing saved. Phase C: three sub-agents research pgvector, qdrant, and weaviate; beads-memory forks isolated hash-suffixed namespaces and enforces conclude_task with rollup_of edges back to raw exploration, synthesizing a fallback fact if a sub-agent crashes; stock memory returns sub-agent results as plain messages with no isolation and no audit edge, and a crashed sub-agent returns nothing, silently. Phase D, the sharpest contrast: a budget correction from $100k to $50k. beads-memory writes a typed supersedes edge that flips the old fact to superseded, retired from retrieval but kept for audit; stock memory would hold both values as separate documents with nothing marking which is current. Phase E, the real measured outcome, N=1, directional, not a benchmark: the treatment answered, quote, given the updated budget constraint of $50,000, Qdrant is the most suitable choice, end quote, while the baseline mentioned no budget figure and ended, quote, if you have any additional information or constraints, please let me know, end quote. Phase F is an honest scorecard: stock memory's real strengths are first-party simplicity, full history within a thread, real vector search in BaseStore, and verified cross-thread recall when the agent does save; beads-memory's honest costs are about 46 percent more input tokens, 22,225 versus 15,190, plus an extra dependency and Postgres schema.">
+  <title>langgraph-beads-memory vs. LangGraph stock memory — side by side</title>
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    .ghostbox { fill: none; stroke: #8a8175; stroke-dasharray: 5 4; }
+    .lanebox { fill: #d5ebe8; stroke: #0f766e; }
+    .stockbox { fill: #e9edf2; stroke: #64748b; }
+    .stockDoc { fill: #dbe2ea; stroke: #475569; stroke-width: 2; }
+    .string { stroke: #d9d2c6; stroke-width: 2.5; }
+    .beadUser { fill: #f5e3cd; stroke: #b45309; stroke-width: 2; }
+    .beadConcl { fill: #b45309; stroke: #b45309; stroke-width: 2; }
+    .beadSum { fill: #0f766e; stroke: #0f766e; stroke-width: 2; }
+    .beadFallback { fill: #ffffff; stroke: #8a8175; stroke-width: 2; stroke-dasharray: 3 2; }
+    .flow { stroke: #8a8175; stroke-width: 1.3; fill: none; }
+    .flowStock { stroke: #64748b; stroke-width: 1.3; fill: none; stroke-dasharray: 3 3; }
+    .flowRecall { stroke: #b45309; stroke-width: 1.4; fill: none; stroke-dasharray: 4 4; }
+    .flowAgent { stroke: #0f766e; stroke-width: 1.4; fill: none; }
+    .flowRollup { stroke: #0f766e; stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+    .flowFallback { stroke: #8a8175; stroke-width: 1.3; fill: none; stroke-dasharray: 3 3; }
+    .edgeSup { stroke: #b91c1c; stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+    .strike { stroke: #b91c1c; stroke-width: 2.2; }
+    .hl { fill: none; stroke: #b45309; stroke-width: 2.5; }
+    .cBead { fill: #b45309; }
+    .cAgent { fill: #0f766e; }
+    .cGone { fill: #b91c1c; }
+    .cStock { fill: #475569; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; }
+      text { fill: #ece5da; }
+      .muted { fill: #93897b; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+      .ghostbox { stroke: #93897b; }
+      .lanebox { fill: #12332f; stroke: #2dd4bf; }
+      .stockbox { fill: #1c2431; stroke: #94a3b8; }
+      .stockDoc { fill: #243040; stroke: #94a3b8; }
+      .string { stroke: #3b362e; }
+      .beadUser { fill: #3a2c17; stroke: #f59e0b; }
+      .beadConcl { fill: #f59e0b; stroke: #f59e0b; }
+      .beadSum { fill: #2dd4bf; stroke: #2dd4bf; }
+      .beadFallback { fill: #201d19; stroke: #93897b; }
+      .flow { stroke: #93897b; }
+      .flowStock { stroke: #94a3b8; }
+      .flowRecall { stroke: #f59e0b; }
+      .flowAgent { stroke: #2dd4bf; }
+      .flowRollup { stroke: #2dd4bf; }
+      .flowFallback { stroke: #93897b; }
+      .edgeSup { stroke: #f87171; }
+      .strike { stroke: #f87171; }
+      .hl { stroke: #f59e0b; }
+      .cBead { fill: #f59e0b; }
+      .cAgent { fill: #2dd4bf; }
+      .cGone { fill: #f87171; }
+      .cStock { fill: #94a3b8; }
+    }
+
+    /* 6 phases x 7s = 42s loop */
+    .phA,.phB,.phC,.phD,.phE,.phF,.frameAE,.stA,.stC,.stD,.budgetBead {
+      animation-duration: 42s; animation-iteration-count: infinite; animation-timing-function: ease;
+    }
+    .phA { animation-name: kA; } .phB { animation-name: kB; } .phC { animation-name: kC; }
+    .phD { animation-name: kD; } .phE { animation-name: kE; } .phF { animation-name: kF; }
+    .frameAE { animation-name: kFrameAE; }
+    .stA { animation-name: kStA; } .stC { animation-name: kStC; } .stD { animation-name: kStD; }
+    .budgetBead { animation-name: kBudgetBead; }
+
+    /* phase-exclusive visibility: quick 0.6%-wide crossfade at each boundary, no lingering blank gap */
+    @keyframes kA { 0%,16.067% { opacity: 1; } 16.667%,100% { opacity: 0; } }
+    @keyframes kB { 0%,16.667% { opacity: 0; } 17.267%,32.733% { opacity: 1; } 33.333%,100% { opacity: 0; } }
+    @keyframes kC { 0%,33.333% { opacity: 0; } 33.933%,49.4% { opacity: 1; } 50%,100% { opacity: 0; } }
+    @keyframes kD { 0%,50% { opacity: 0; } 50.6%,66.067% { opacity: 1; } 66.667%,100% { opacity: 0; } }
+    @keyframes kE { 0%,66.667% { opacity: 0; } 67.267%,82.733% { opacity: 1; } 83.333%,100% { opacity: 0; } }
+    @keyframes kF { 0%,83.333% { opacity: 0; } 83.933%,99.4% { opacity: 1; } 100% { opacity: 0; } }
+
+    /* the thread-panel frame covers phases A-E; phase F replaces it with the scorecard */
+    @keyframes kFrameAE { 0%,82.733% { opacity: 1; } 83.333%,100% { opacity: 0; } }
+
+    /* memory-store accumulation: appears once, then persists for the rest of the loop */
+    @keyframes kStA { 0%,14% { opacity: 0; } 16%,100% { opacity: 1; } }
+    @keyframes kStC { 0%,47% { opacity: 0; } 49%,100% { opacity: 1; } }
+    @keyframes kStD { 0%,63% { opacity: 0; } 65%,100% { opacity: 1; } }
+    /* the $100k bead: appears with the rest of phase A's captures, then dims once superseded in D */
+    @keyframes kBudgetBead { 0%,14% { opacity: 0; } 16%,63% { opacity: 1; } 65%,100% { opacity: 0.35; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .phA,.phB,.phC,.phD,.phE,.frameAE,.stA,.stC,.stD,.budgetBead { animation: none; opacity: 0; }
+      .phF { animation: none; opacity: 1; }
+      .reducedSummary { opacity: 1; }
+    }
+    .reducedSummary { opacity: 0; }
+  </style>
+
+  <defs>
+    <marker id="am" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="muted" fill="#8a8175"/></marker>
+    <marker id="as" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cStock" fill="#64748b"/></marker>
+    <marker id="ab" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cBead" fill="#b45309"/></marker>
+    <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cAgent" fill="#0f766e"/></marker>
+    <marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cGone" fill="#b91c1c"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1320" height="630"/>
+
+  <text x="24" y="24" font-size="15" font-weight="650">LangGraph stock memory vs. langgraph-beads-memory — side by side</text>
+  <text x="24" y="40" font-size="10.5" class="muted">Same session, same 3 conversations, same correction, both lanes on the same clock. N=1, directional — not a benchmark.</text>
+
+  <!-- ============ shared timeline strip ============ -->
+  <g font-size="9.5" class="mono muted">
+    <rect x="20" y="50" width="200" height="20" rx="4" class="panelbox"/>
+    <text x="120" y="63" text-anchor="middle">A · capture</text>
+    <rect x="233" y="50" width="200" height="20" rx="4" class="panelbox"/>
+    <text x="333" y="63" text-anchor="middle">B · new thread</text>
+    <rect x="447" y="50" width="200" height="20" rx="4" class="panelbox"/>
+    <text x="547" y="63" text-anchor="middle">C · delegate</text>
+    <rect x="660" y="50" width="200" height="20" rx="4" class="panelbox"/>
+    <text x="760" y="63" text-anchor="middle">D · correction</text>
+    <rect x="873" y="50" width="200" height="20" rx="4" class="panelbox"/>
+    <text x="973" y="63" text-anchor="middle">E · outcome</text>
+    <rect x="1087" y="50" width="200" height="20" rx="4" class="panelbox"/>
+    <text x="1187" y="63" text-anchor="middle">F · scorecard</text>
+  </g>
+  <g class="phA"><rect x="20" y="50" width="200" height="20" rx="4" class="hl"/></g>
+  <g class="phB"><rect x="233" y="50" width="200" height="20" rx="4" class="hl"/></g>
+  <g class="phC"><rect x="447" y="50" width="200" height="20" rx="4" class="hl"/></g>
+  <g class="phD"><rect x="660" y="50" width="200" height="20" rx="4" class="hl"/></g>
+  <g class="phE"><rect x="873" y="50" width="200" height="20" rx="4" class="hl"/></g>
+  <g class="phF"><rect x="1087" y="50" width="200" height="20" rx="4" class="hl"/></g>
+
+  <!-- ============ lane headers + divider ============ -->
+  <text x="20" y="88" font-size="13" font-weight="650">LangGraph stock memory</text>
+  <text x="20" y="101" font-size="9.5" class="muted">checkpointer + BaseStore / LangMem — real vector search; correct save+recall verified separately</text>
+  <text x="680" y="88" font-size="13" font-weight="650">langgraph-beads-memory</text>
+  <text x="680" y="101" font-size="9.5" class="muted">typed fact graph — session scope spans thread_ids</text>
+  <line x1="660" y1="78" x2="660" y2="534" class="ghostbox"/>
+
+  <!-- ============ thread-panel frames (phases A-E) ============ -->
+  <rect x="20" y="108" width="630" height="112" rx="8" class="panelbox frameAE"/>
+  <rect x="670" y="108" width="630" height="112" rx="8" class="panelbox frameAE"/>
+
+  <!-- ============ PHASE A — capture (conv-1) ============ -->
+  <g class="phA">
+    <!-- left: stock -->
+    <text x="32" y="126" font-size="11" class="mono muted">conversation 1 · thread_id: t1</text>
+    <text x="32" y="143" font-size="12">"Pick us a vector DB. Budget <tspan font-weight="650">$100k</tspan>,</text>
+    <text x="32" y="160" font-size="12">must <tspan font-weight="650">self-host</tspan>, <tspan font-weight="650">primary sources</tspan> only."</text>
+    <text x="32" y="180" font-size="10.5" class="muted">checkpointer: full message history, this thread ✓</text>
+    <text x="32" y="197" font-size="10.5" class="cStock">agent must call manage_memory() to persist anything</text>
+    <path d="M330 220 C 330 270, 250 340, 175 356" class="flowStock" marker-end="url(#as)"/>
+    <text x="345" y="270" font-size="10.5" class="cStock">manage_memory(user_input)? — model-dependent</text>
+    <text x="345" y="286" font-size="10.5" class="muted">run 0: not called — store stays empty</text>
+
+    <!-- right: beads -->
+    <text x="682" y="126" font-size="11" class="mono muted">conversation 1 · thread_id: t1</text>
+    <text x="682" y="143" font-size="12">"Pick us a vector DB. Budget <tspan font-weight="650">$100k</tspan>,</text>
+    <text x="682" y="160" font-size="12">must <tspan font-weight="650">self-host</tspan>, <tspan font-weight="650">primary sources</tspan> only."</text>
+    <text x="682" y="180" font-size="10.5" class="muted">agent → final recommendation ◆</text>
+    <text x="682" y="197" font-size="10.5" class="muted">captured verbatim — no extraction LLM, no tool call</text>
+    <path d="M700 220 C 700 300, 700 380, 700 442" class="flow" marker-end="url(#am)"/>
+    <path d="M770 220 C 770 300, 770 380, 770 442" class="flow" marker-end="url(#am)"/>
+    <path d="M840 220 C 840 300, 840 380, 840 442" class="flow" marker-end="url(#am)"/>
+    <path d="M910 214 C 910 300, 910 380, 910 442" class="flow" marker-end="url(#am)"/>
+    <text x="790" y="260" font-size="10.5" class="muted">captures — user_input + conclusion,</text>
+    <text x="790" y="276" font-size="10.5" class="muted">verbatim, no extraction LLM</text>
+  </g>
+
+  <!-- ============ PHASE B — new thread (conv-2 starts) ============ -->
+  <g class="phB">
+    <!-- left: stock -->
+    <text x="32" y="126" font-size="11" class="mono muted">conversation 2 · thread_id: t2 (new)</text>
+    <text x="32" y="146" font-size="12">message history resets — new thread_id</text>
+    <text x="32" y="168" font-size="10.5" class="cStock">agent must decide to call search_memory() to recall</text>
+    <text x="32" y="185" font-size="10.5" class="muted">anything it previously chose to save</text>
+    <path d="M175 356 C 250 320, 300 260, 330 220" class="flowStock" marker-end="url(#as)"/>
+    <text x="345" y="270" font-size="10.5" class="cStock">search_memory("budget, self-host, db")?</text>
+    <text x="345" y="286" font-size="10.5" class="muted">run 0: nothing was saved in conv-1 → ∅</text>
+
+    <!-- right: beads -->
+    <text x="682" y="126" font-size="11" class="mono muted">conversation 2 · thread_id: t2 (new)</text>
+    <text x="682" y="146" font-size="12">"Investigate our options in depth."</text>
+    <path d="M700 442 C 700 380, 700 300, 700 220" class="flowRecall" marker-end="url(#ab)"/>
+    <path d="M770 442 C 770 380, 770 300, 770 220" class="flowRecall" marker-end="url(#ab)"/>
+    <text x="790" y="176" font-size="10.5" class="cBead">recalls: top-K by similarity</text>
+    <text x="790" y="192" font-size="10.5" class="cBead">+ short ids, injected automatically</text>
+  </g>
+
+  <!-- ============ PHASE C — delegation ============ -->
+  <g class="phC">
+    <!-- left: stock — three sub-agents, results as messages, no isolation, no audit edge -->
+    <text x="32" y="126" font-size="11" class="mono muted">t2 — delegating research</text>
+    <text x="32" y="143" font-size="11" class="muted">supervisor invokes 3 sub-agents</text>
+    <path d="M330 220 C 260 232, 180 242, 135 250" class="flow" marker-end="url(#am)"/>
+    <path d="M330 220 L 315 250" class="flow" marker-end="url(#am)"/>
+    <path d="M330 220 C 400 232, 460 242, 495 250" class="flow" marker-end="url(#am)"/>
+    <text x="335" y="238" font-size="9.5" class="muted" text-anchor="middle">invoke</text>
+    <rect x="60" y="250" width="150" height="70" rx="7" class="stockbox"/>
+    <text x="70" y="268" font-size="10" class="mono">pgvector agent</text>
+    <text x="70" y="282" font-size="9" class="mono muted">(subgraph call)</text>
+    <rect x="240" y="250" width="150" height="70" rx="7" class="stockbox"/>
+    <text x="250" y="268" font-size="10" class="mono">qdrant agent</text>
+    <text x="250" y="282" font-size="9" class="mono muted">(subgraph call)</text>
+    <rect x="420" y="250" width="150" height="70" rx="7" class="stockbox"/>
+    <text x="430" y="268" font-size="10" class="mono">weaviate agent</text>
+    <text x="430" y="282" font-size="9" class="mono muted">(subgraph call)</text>
+    <line x1="488" y1="278" x2="502" y2="292" class="edgeSup"/>
+    <line x1="502" y1="278" x2="488" y2="292" class="edgeSup"/>
+    <path d="M135 320 C 200 355, 260 380, 300 400" class="flow" marker-end="url(#am)"/>
+    <path d="M315 320 C 310 355, 305 380, 300 400" class="flow" marker-end="url(#am)"/>
+    <text x="310" y="360" font-size="10" class="muted">returns as messages</text>
+    <text x="310" y="374" font-size="9.5" class="muted">no edge back to the exploration</text>
+    <text x="495" y="335" font-size="9" class="cGone" text-anchor="middle">crash — returns nothing,</text>
+    <text x="495" y="348" font-size="9" class="cGone" text-anchor="middle">parent unaware, silently</text>
+
+    <!-- right: beads — isolated forked namespaces, enforced rollup, crash fallback -->
+    <text x="682" y="126" font-size="11" class="mono muted">t2 — delegating research</text>
+    <text x="682" y="143" font-size="11" class="muted">supervisor forks 3 isolated namespaces</text>
+    <path d="M985 220 C 900 232, 820 242, 775 250" class="flowAgent" marker-end="url(#aa)"/>
+    <path d="M985 220 L 955 250" class="flowAgent" marker-end="url(#aa)"/>
+    <path d="M985 220 C 1070 232, 1110 242, 1135 250" class="flowAgent" marker-end="url(#aa)"/>
+    <text x="985" y="238" font-size="9.5" class="cAgent" text-anchor="middle">forks: hash-suffixed namespace each</text>
+    <rect x="700" y="250" width="150" height="70" rx="7" class="lanebox"/>
+    <text x="710" y="268" font-size="10" class="mono">pgvector</text>
+    <text x="710" y="282" font-size="9" class="mono muted">task/sub-3f2a</text>
+    <rect x="880" y="250" width="150" height="70" rx="7" class="lanebox"/>
+    <text x="890" y="268" font-size="10" class="mono">qdrant</text>
+    <text x="890" y="282" font-size="9" class="mono muted">task/sub-91cc</text>
+    <rect x="1060" y="250" width="150" height="70" rx="7" class="lanebox"/>
+    <text x="1070" y="268" font-size="10" class="mono">weaviate</text>
+    <text x="1070" y="282" font-size="9" class="mono muted">task/sub-d04e</text>
+    <circle cx="865" cy="285" r="7" fill="none" class="edgeSup"/>
+    <line x1="861" y1="281" x2="869" y2="289" class="edgeSup"/>
+    <text x="865" y="345" font-size="9" class="cGone" text-anchor="middle">siblings never see each other</text>
+    <line x1="1128" y1="278" x2="1142" y2="292" class="edgeSup"/>
+    <line x1="1142" y1="278" x2="1128" y2="292" class="edgeSup"/>
+    <path d="M775 320 C 850 380, 950 420, 990 442" class="flowRollup" marker-end="url(#aa)"/>
+    <path d="M955 320 C 1000 380, 1040 420, 1060 442" class="flowRollup" marker-end="url(#aa)"/>
+    <path d="M1135 320 C 1135 380, 1132 420, 1130 442" class="flowFallback" marker-end="url(#am)"/>
+    <text x="900" y="382" font-size="9.5" class="cAgent" text-anchor="middle">conclude_task (enforced) →</text>
+    <text x="900" y="395" font-size="9.5" class="cAgent" text-anchor="middle">one Σ each, rollup_of raw facts</text>
+    <text x="1135" y="335" font-size="9" class="cGone" text-anchor="middle">no call —</text>
+    <text x="1135" y="348" font-size="8.5" class="muted" text-anchor="middle">wrapper synthesizes; rollup_of still recorded</text>
+  </g>
+
+  <!-- ============ PHASE D — correction ($100k → $50k) ============ -->
+  <g class="phD">
+    <!-- left: stock — untyped second document -->
+    <text x="32" y="126" font-size="11" class="mono muted">t2 — correction</text>
+    <text x="32" y="146" font-size="12">"Correction: budget is <tspan font-weight="650">$50k</tspan>, not $100k."</text>
+    <text x="32" y="166" font-size="10.5" class="cStock">if saved at all, this becomes a second document</text>
+    <text x="32" y="182" font-size="9.5" class="muted">(illustrative — run 0 wrote no first document to begin with)</text>
+    <rect x="140" y="248" width="130" height="56" rx="6" class="stockDoc"/>
+    <text x="205" y="272" font-size="10" text-anchor="middle" class="mono">budget:</text>
+    <text x="205" y="288" font-size="11" text-anchor="middle" class="mono" font-weight="650">$100k</text>
+    <rect x="320" y="248" width="130" height="56" rx="6" class="stockDoc"/>
+    <text x="385" y="272" font-size="10" text-anchor="middle" class="mono">budget:</text>
+    <text x="385" y="288" font-size="11" text-anchor="middle" class="mono" font-weight="650">$50k</text>
+    <path d="M270 300 C 300 330, 320 330, 350 302" class="flowStock" marker-end="url(#as)"/>
+    <path d="M350 302 C 320 330, 300 330, 270 300" class="flowStock" marker-end="url(#as)"/>
+    <text x="310" y="352" font-size="10" class="cGone" text-anchor="middle">both retrievable — nothing marks</text>
+    <text x="310" y="366" font-size="10" class="cGone" text-anchor="middle">which value is current</text>
+
+    <!-- right: beads — typed supersedes edge -->
+    <text x="682" y="126" font-size="11" class="mono muted">t2 — correction</text>
+    <text x="682" y="146" font-size="12">"Correction: budget is <tspan font-weight="650">$50k</tspan>, not $100k."</text>
+    <text x="682" y="166" font-size="10.5" class="cGone">remember_fact() writes a typed supersedes edge</text>
+    <text x="682" y="182" font-size="9.5" class="muted">stale $100k flips to superseded — retired, kept for audit</text>
+    <path d="M1220 220 C 1220 300, 1220 380, 1220 442" class="flow" marker-end="url(#am)"/>
+    <text x="1000" y="270" font-size="10.5" class="muted">captures the correction as a new fact</text>
+  </g>
+
+  <!-- ============ PHASE E — outcome (conv-3, real measured answers) ============ -->
+  <g class="phE">
+    <!-- left: stock -->
+    <text x="32" y="126" font-size="11" class="mono muted">conversation 3 · thread_id: t3 (new)</text>
+    <text x="32" y="146" font-size="12">"So — which DB should we pick, and why?"</text>
+    <text x="32" y="166" font-size="10.5" class="muted">real answer (run 0): no budget figure mentioned —</text>
+    <text x="32" y="184" font-size="11">"...if you have any additional information or</text>
+    <text x="32" y="201" font-size="11">constraints, please let me know."</text>
+    <path d="M175 356 C 250 320, 300 260, 330 220" class="flowStock" marker-end="url(#as)"/>
+    <text x="345" y="270" font-size="10.5" class="cStock">recall: nothing relevant found (∅)</text>
+
+    <!-- right: beads -->
+    <text x="682" y="126" font-size="11" class="mono muted">conversation 3 · thread_id: t3 (new)</text>
+    <text x="682" y="146" font-size="12">"So — which DB should we pick, and why?"</text>
+    <text x="682" y="166" font-size="10.5" class="muted">real answer (run 0):</text>
+    <text x="682" y="184" font-size="11">"...given the updated budget constraint of $50,000,</text>
+    <text x="682" y="201" font-size="11"><tspan font-weight="650">Qdrant</tspan> is the most suitable choice." ✓</text>
+    <path d="M770 442 C 770 380, 770 300, 770 220" class="flowRecall" marker-end="url(#ab)"/>
+    <path d="M1220 442 C 1220 380, 1220 300, 1220 220" class="flowRecall" marker-end="url(#ab)"/>
+    <text x="990" y="260" font-size="10.5" class="cBead" text-anchor="middle">recalls active facts only —</text>
+    <text x="990" y="276" font-size="10.5" class="cBead" text-anchor="middle">superseded $100k stays excluded</text>
+
+    <text x="660" y="410" font-size="10.5" class="muted" text-anchor="middle" font-style="italic">N=1, directional — not a benchmark.</text>
+  </g>
+
+  <!-- ============ memory store strip (accumulates through A–E) ============ -->
+  <text x="40" y="428" font-size="9.5" class="mono muted frameAE">BaseStore (namespaced KV documents)</text>
+  <text x="680" y="428" font-size="9.5" class="mono muted frameAE">fact graph (session-scoped)</text>
+  <line x1="670" y1="452" x2="1290" y2="452" class="string frameAE"/>
+
+  <!-- left store contents: what actually accumulated in run 0 (nothing) -->
+  <g class="stA">
+    <rect x="40" y="438" width="170" height="30" rx="5" class="ghostbox"/>
+    <text x="125" y="457" font-size="9.5" text-anchor="middle" class="muted">manage_memory: not called ✗</text>
+  </g>
+  <g class="stC">
+    <rect x="230" y="438" width="240" height="30" rx="5" class="ghostbox"/>
+    <text x="350" y="457" font-size="9" text-anchor="middle" class="muted">delegation → messages only, not persisted</text>
+  </g>
+
+  <!-- right store contents: the accumulating fact graph -->
+  <g class="stA budgetBead">
+    <circle cx="700" cy="452" r="10" class="beadUser"/>
+    <text x="700" y="476" font-size="9" text-anchor="middle" class="mono">$100k</text>
+  </g>
+  <g class="stA">
+    <circle cx="770" cy="452" r="10" class="beadUser"/>
+    <text x="770" y="476" font-size="9" text-anchor="middle" class="mono">selfhost</text>
+    <circle cx="840" cy="452" r="10" class="beadUser"/>
+    <text x="840" y="476" font-size="9" text-anchor="middle" class="mono">primary</text>
+    <circle cx="910" cy="452" r="10" class="beadConcl"/>
+    <text x="910" y="476" font-size="9" text-anchor="middle" class="mono">concl◆</text>
+  </g>
+  <g class="stC">
+    <circle cx="990" cy="452" r="10" class="beadSum"/>
+    <text x="990" y="476" font-size="9" text-anchor="middle" class="mono">pgvΣ</text>
+    <circle cx="1060" cy="452" r="10" class="beadSum"/>
+    <text x="1060" y="476" font-size="9" text-anchor="middle" class="mono">qdrΣ</text>
+    <circle cx="1130" cy="452" r="10" class="beadFallback"/>
+    <text x="1130" y="476" font-size="9" text-anchor="middle" class="mono">wvtΣ*</text>
+  </g>
+  <g class="stD">
+    <circle cx="1220" cy="452" r="10" class="beadUser"/>
+    <text x="1220" y="476" font-size="9" text-anchor="middle" class="mono">$50k</text>
+    <path d="M1208 444 C 1000 388, 800 388, 714 444" class="edgeSup" marker-end="url(#ag)"/>
+    <line x1="690" y1="444" x2="710" y2="462" class="strike"/>
+    <text x="960" y="378" font-size="10.5" class="cGone" text-anchor="middle">supersedes — stale retired, kept for audit</text>
+  </g>
+
+  <!-- ============ rolling captions (phases A-E) ============ -->
+  <g font-size="11">
+    <text class="phA" x="20" y="498">Within a thread, the checkpointer keeps full history — genuinely solid. Cross-thread continuity needs</text>
+    <text class="phA" x="20" y="516">the agent to call manage_memory; in run 0 it didn't.</text>
+    <text class="phB" x="20" y="498">A new thread_id means fresh message history. Continuity now depends on the agent choosing to</text>
+    <text class="phB" x="20" y="516">search_memory — and on something having been saved to find.</text>
+    <text class="phC" x="20" y="498">Sub-agent results return as messages into the parent's history. No enforced boundary between</text>
+    <text class="phC" x="20" y="516">siblings, and no edge from a conclusion back to the exploration that produced it.</text>
+    <text class="phD" x="20" y="498">A correction would become a second, separate document. Nothing marks which one is current —</text>
+    <text class="phD" x="20" y="516">similarity search can return either value.</text>
+    <text class="phE" x="20" y="498">Real answer (run 0): no budget figure mentioned, ending with a request for "any additional</text>
+    <text class="phE" x="20" y="516">information or constraints."</text>
+
+    <text class="phA" x="680" y="498">Every user message and the turn's final answer are captured as facts automatically — verbatim,</text>
+    <text class="phA" x="680" y="516">no extraction LLM, no tool-call decision required.</text>
+    <text class="phB" x="680" y="498">Session scope spans thread_ids. Relevant facts are recalled by similarity and injected automatically,</text>
+    <text class="phB" x="680" y="516">with short ids the agent can cite.</text>
+    <text class="phC" x="680" y="498">Each sub-agent forks an isolated, hash-suffixed namespace and cannot see its siblings. conclude_task</text>
+    <text class="phC" x="680" y="516">is enforced; a crash still yields a synthesized fallback fact — nothing vanishes silently.</text>
+    <text class="phD" x="680" y="498">A typed supersedes edge flips the old fact to superseded — retired from retrieval, kept for audit.</text>
+    <text class="phD" x="680" y="516">Only $50k is retrievable now.</text>
+    <text class="phE" x="680" y="498">Real answer (run 0): "given the updated budget constraint of $50,000, Qdrant is the most</text>
+    <text class="phE" x="680" y="516">suitable choice."</text>
+  </g>
+
+  <!-- ============ PHASE F — honest scorecard ============ -->
+  <g class="phF">
+    <!-- left: stock scorecard -->
+    <rect x="20" y="108" width="630" height="426" rx="8" class="panelbox"/>
+    <text x="36" y="132" font-size="13" font-weight="650">Honest scorecard — stock memory</text>
+    <text x="36" y="152" font-size="10.5" class="muted">strengths (genuinely real, not a strawman):</text>
+    <text x="36" y="170" font-size="11">+ First-party — no extra dependency</text>
+    <text x="36" y="187" font-size="11">+ Full message history within a thread (checkpointer)</text>
+    <text x="36" y="204" font-size="11">+ Real vector search in BaseStore</text>
+    <text x="36" y="221" font-size="11">+ Verified separately: correct save + cross-thread recall works</text>
+    <text x="36" y="248" font-size="10.5" class="muted">structural weaknesses:</text>
+    <text x="36" y="266" font-size="11">– Capture is model-dependent (<tspan class="cGone">not called in run 0</tspan>)</text>
+    <text x="36" y="283" font-size="11">– No typed invalidation between old and new values</text>
+    <text x="36" y="300" font-size="11">– No audit edge from a summary back to its exploration</text>
+    <text x="36" y="317" font-size="11">– A crashed sub-agent leaves nothing</text>
+    <text x="36" y="350" font-size="9.5" class="mono muted">measured tokens (N=1)</text>
+    <text x="36" y="372" font-size="10">input</text>
+    <rect x="90" y="360" width="342" height="14" class="stockbox"/>
+    <text x="440" y="371" font-size="10" class="mono">15,190</text>
+    <text x="36" y="396" font-size="10">output</text>
+    <rect x="90" y="384" width="432" height="14" class="stockbox"/>
+    <text x="530" y="395" font-size="10" class="mono">2,144</text>
+    <text x="36" y="424" font-size="10" class="muted" font-style="italic">N=1, directional — not a benchmark. Fuller N=3 run in progress.</text>
+
+    <!-- right: beads scorecard -->
+    <rect x="670" y="108" width="630" height="426" rx="8" class="panelbox"/>
+    <text x="686" y="132" font-size="13" font-weight="650">Honest scorecard — beads-memory</text>
+    <text x="686" y="152" font-size="10.5" class="muted">what the typed graph buys:</text>
+    <text x="686" y="170" font-size="11">+ Automatic capture — no tool-call dependency</text>
+    <text x="686" y="187" font-size="11">+ Session scope spans thread_ids</text>
+    <text x="686" y="204" font-size="11">+ supersedes — typed invalidation</text>
+    <text x="686" y="221" font-size="11">+ rollup_of — audit trail back to raw exploration</text>
+    <text x="686" y="238" font-size="11">+ Crash fallback fact — never silent</text>
+    <text x="686" y="265" font-size="10.5" class="muted">honest costs:</text>
+    <text x="686" y="283" font-size="11">– ~46% more input tokens — facts injected every call</text>
+    <text x="686" y="300" font-size="11">– Extra dependency + Postgres schema</text>
+    <text x="686" y="350" font-size="9.5" class="mono muted">measured tokens (N=1)</text>
+    <text x="686" y="372" font-size="10">input</text>
+    <rect x="740" y="360" width="500" height="14" class="lanebox"/>
+    <text x="1248" y="371" font-size="10" class="mono">22,225</text>
+    <text x="686" y="396" font-size="10">output</text>
+    <rect x="740" y="384" width="500" height="14" class="lanebox"/>
+    <text x="1248" y="395" font-size="10" class="mono">2,483</text>
+    <text x="686" y="424" font-size="10" class="muted" font-style="italic">N=1, directional — not a benchmark. Fuller N=3 run in progress.</text>
+  </g>
+
+  <!-- ============ persistent legend ============ -->
+  <g font-size="9.5" class="mono">
+    <line x1="20" y1="558" x2="36" y2="558" class="flow" marker-end="url(#am)"/>
+    <text x="42" y="561" class="muted">captures</text>
+    <line x1="233" y1="558" x2="249" y2="558" class="flowStock" marker-end="url(#as)"/>
+    <text x="255" y="561" class="cStock">searches</text>
+    <line x1="447" y1="558" x2="463" y2="558" class="flowAgent" marker-end="url(#aa)"/>
+    <text x="469" y="561" class="cAgent">forks</text>
+    <line x1="660" y1="558" x2="676" y2="558" class="flowRollup" marker-end="url(#aa)"/>
+    <text x="682" y="561" class="cAgent">rollup_of</text>
+    <line x1="873" y1="558" x2="889" y2="558" class="edgeSup" marker-end="url(#ag)"/>
+    <text x="895" y="561" class="cGone">supersedes</text>
+    <line x1="1087" y1="558" x2="1103" y2="558" class="flowRecall" marker-end="url(#ab)"/>
+    <text x="1109" y="561" class="cBead">recalls</text>
+  </g>
+  <text x="660" y="600" font-size="9.5" class="mono muted" text-anchor="middle">loop: capture → new thread → delegate → correction (supersedes) → outcome → scorecard · ~42s</text>
+
+  <!-- ============ reduced-motion static fallback ============ -->
+  <g class="reducedSummary" font-size="11">
+    <text x="40" y="150" font-weight="650">Same session, three conversations, one correction — both memory designs, side by side.</text>
+    <text x="40" y="168" class="muted">(N=1, directional — not a benchmark.)</text>
+    <text x="40" y="194">Capture: beads-memory saves every user message and final answer automatically; stock memory needs</text>
+    <text x="40" y="211">the agent to call manage_memory — it didn't, in run 0 (checkpointer history within-thread is solid).</text>
+    <text x="40" y="237">New thread: beads-memory recalls top-K facts across thread_ids automatically; stock memory needs the</text>
+    <text x="40" y="254">agent to call search_memory, and found nothing saved.</text>
+    <text x="40" y="280">Delegation: beads-memory forks isolated namespaces with enforced conclude_task and rollup_of audit</text>
+    <text x="40" y="297">edges, plus a crash fallback fact; stock memory returns results as plain messages with no isolation,</text>
+    <text x="40" y="314">no audit edge, and a crashed sub-agent returns nothing, silently.</text>
+    <text x="40" y="340">Correction ($100k → $50k): beads-memory flips a typed supersedes edge — old value retired, kept for</text>
+    <text x="40" y="357">audit. Stock memory would hold both values with nothing marking which is current.</text>
+    <text x="40" y="383">Measured: treatment answered "given the updated budget constraint of $50,000, Qdrant is the most</text>
+    <text x="40" y="400">suitable choice." Baseline mentioned no budget figure at all.</text>
+    <text x="40" y="426">Honest cost: beads-memory used ~46% more input tokens (22,225 vs 15,190) — it's also an extra</text>
+    <text x="40" y="443">dependency and Postgres schema. See the scorecard panels below for the full breakdown.</text>
+  </g>
+</svg>

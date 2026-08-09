@@ -7,12 +7,15 @@ from langchain_ollama import ChatOllama
 MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
 
 
-# NOTE: client-side timeouts do not work here. Tested directly against a socket
-# that accepts and never replies: ChatOllama(client_kwargs={"timeout": 6}) hung
-# past 180s. So this value is best-effort only and must NOT be relied on to
-# bound a call. The real protection against a wedged server is (a) not
-# triggering it — see MAX_CONCURRENCY in demo/conditions.py — and (b) the
-# harness monitor's stall detection.
+# CORRECTION: an earlier comment here claimed client-side timeouts do not work.
+# That was wrong — the test behind it was faulty. Verified against a socket that
+# accepts and never replies, client_kwargs={"timeout": 5} raises ReadTimeout in
+# 5.0s exactly.
+#
+# It is still not sufficient on its own. httpx's is a *per-read* timeout, so a
+# response that trickles bytes resets it indefinitely — which is how a real run
+# hung for 8.5 minutes with this set to 300s. The harness therefore also applies
+# a hard per-turn deadline; see demo/harness.py.
 REQUEST_TIMEOUT_S = float(os.environ.get("BEADS_DEMO_TIMEOUT", "300"))
 
 

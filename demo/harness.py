@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import pathlib
+import signal
 import time
 import traceback
 import uuid
@@ -16,6 +19,44 @@ from demo.conditions import build_baseline, build_treatment
 from demo.scenario import CONVERSATIONS
 
 RAW = pathlib.Path(__file__).parent.parent / "results" / "raw"
+
+
+# Hard wall-clock ceiling for one scripted turn. A per-read HTTP timeout is not
+# enough: it resets on every byte, so a response that trickles never trips it —
+# a real run hung 8.5 minutes with a 300s read timeout configured, blocked in
+# sock_recv while Ollama had already unloaded the model. SIGALRM interrupts the
+# blocking syscall itself, which is the only thing that reliably breaks that.
+# The harness already records a failed turn and continues, so a fired deadline
+# costs one turn; no deadline costs the whole run.
+TURN_DEADLINE_S = int(os.environ.get("BEADS_DEMO_TURN_DEADLINE", "900"))
+
+
+class TurnTimeout(Exception):
+    pass
+
+
+@contextlib.contextmanager
+def turn_deadline(seconds: int):
+    """Abort the enclosing block if it outlasts `seconds`.
+
+    Main-thread only (SIGALRM's restriction); the harness drives turns from the
+    main thread. Falls back to no-op where signals are unavailable rather than
+    refusing to run.
+    """
+    if seconds <= 0 or not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    def _fire(signum, frame):
+        raise TurnTimeout(f"turn exceeded {seconds}s deadline")
+
+    previous = signal.signal(signal.SIGALRM, _fire)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
 
 
 def run_once(condition: str, run_idx: int) -> dict:
@@ -37,7 +78,8 @@ def run_once(condition: str, run_idx: int) -> dict:
                 )
                 turn_started = time.monotonic()
                 try:
-                    result = invoke(thread_id, user_text)
+                    with turn_deadline(TURN_DEADLINE_S):
+                        result = invoke(thread_id, user_text)
                     msgs = result["messages"]
                 except Exception as e:  # noqa: BLE001 - a crashed turn must be recorded, not fatal
                     errors.append(

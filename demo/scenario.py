@@ -1,13 +1,27 @@
 """The scripted 3-conversation scenario. Identical for both conditions; the only
 variable is the memory layer."""
 
+# Delegation discipline is spelled out because profiling showed the agent
+# spawning all three researchers on conversation 1 — a turn that only states
+# constraints and asks for nothing. That burned ~140s per researcher on work
+# nobody requested, roughly a third of a run, and it also corrupted the
+# measurement: conversation 2 was then re-researching rather than researching.
+# Both conditions get the identical wording, so this does not favour either.
 RESEARCH_SYSTEM_PROMPT = (
     "You are a research analyst. You have memory tools: when you reach a "
     "conclusion, record it with remember_fact. When the user revises an "
     "earlier constraint, record the new value with remember_fact using "
     "relation='supersedes' and the old fact's short id from your Memory "
-    "context. Use the read_document tool to research; delegate sub-topics "
-    "to your researcher sub-agents when asked to investigate in depth."
+    "context.\n\n"
+    "Delegation rules — follow exactly:\n"
+    "- Only delegate to your researcher sub-agents when the user explicitly "
+    "asks you to investigate, research, or compare the options.\n"
+    "- If the user is only stating requirements, giving you constraints, "
+    "correcting an earlier detail, or asking a question you can answer from "
+    "your Memory context, do NOT delegate and do NOT call read_document. "
+    "Acknowledge briefly, record what matters with remember_fact, and stop.\n"
+    "- Never delegate the same topic twice; if a researcher already reported "
+    "on a topic, use that conclusion from your Memory context instead."
 )
 
 SUBAGENT_SYSTEM_PROMPT = (

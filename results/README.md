@@ -82,17 +82,61 @@ The pattern is the point: three literal metrics, three wrong readings. Treat the
 objective metrics as coarse signals and weight the judge's dimensions more
 heavily.
 
-**One scenario change, made after seeing results (run 0):** the buried-detail
-question originally asked about "the strongest runner-up" without naming it. Its
-referent depends on which database the agent picked, so it measured *choice*
-rather than *recall* — in run 0 the treatment picked Qdrant, read "runner-up" as
-Weaviate, and hallucinated an optimization for it, while the baseline scored the
-point only because it declined to pick anything. The question now names Qdrant.
-Rationale is recorded in `demo/scenario.py`.
+**Two scenario changes, both made after seeing data.**
 
-Because of that change, **run 0 is archived rather than pooled** — it answers a
-different question and cannot be averaged with later runs. It is kept in
-`archive/` because it is the evidence behind all four corrections above.
+*The buried-detail question (after run 0).* It originally asked about "the
+strongest runner-up" without naming it. Its referent depends on which database
+the agent picked, so it measured *choice* rather than *recall* — in run 0 the
+treatment picked Qdrant, read "runner-up" as Weaviate, and hallucinated an
+optimization for it, while the baseline scored the point only because it
+declined to pick anything. The question now names Qdrant.
+
+*Delegation discipline in the system prompt (after profiling).* A span profile
+of conversation 1 — a turn that only states constraints and asks for nothing —
+showed the agent spawning all three researchers, ~140s each, ~199s for a turn
+that needs a single 11.6s model call. The prompt now states when *not* to
+delegate; the same turn then took 13s with one model call and no delegation.
+
+This was a **correctness** fix as much as a speed one: with conversation 1 doing
+the full research, conversation 2 was re-researching rather than researching, so
+the delegation the demo claims to measure was not the delegation being measured.
+The identical wording goes to both conditions (the baseline's version is a
+string substitution of the same text, verified not to leak `remember_fact` or
+`supersedes` into it), so it favours neither side.
+
+Rationale for both is recorded inline in `demo/scenario.py`.
+
+Because of these changes, **run 0 is archived rather than pooled** — it answers
+a different question under different delegation behaviour and cannot be averaged
+with later runs. It is kept in `archive/` because it is the evidence behind
+every correction above.
+
+## Profiling
+
+`uv run python -m demo.profile_run [--condition baseline] [--conversations conv-1]`
+runs one scenario under a span profiler and prints where the time went, writing
+the raw spans to `results/profile-*.json` so a slow run can be re-analysed
+without paying for it twice.
+
+It records a span per model call and per tool call via LangChain callbacks, plus
+wrappers on the embedder and the Postgres connection, so time is attributed to
+the work that caused it rather than inferred from turn boundaries. Because
+sub-agents run concurrently and a tool span contains the model calls made inside
+it, a naive sum exceeds the wall clock — the report shows *busy* time (union of
+intervals, overlap counted once) next to the raw sum, and their ratio as
+effective concurrency.
+
+What it established on this hardware (M4, 16GB, qwen3:8b):
+
+- Runs are **GPU-bound**. `OLLAMA_NUM_PARALLEL=3` does produce real concurrency
+  (~2.4x measured), but per-call throughput falls proportionally — 4.6 output
+  tok/s under three concurrent streams versus ~17 tok/s single-stream. Total
+  throughput is roughly fixed; concurrency redistributes it.
+- **Postgres and embeddings are negligible**: 107 queries totalling 0.3s and 35
+  embeddings totalling 5.0s in one conversation, together under 3% of wall time.
+  Optimising either would be wasted effort.
+- The one large win available was **not doing unnecessary work** — the
+  over-delegation above.
 
 `demo/aggregate.py` rescores every transcript with current metric code rather
 than trusting the `constraint_carry` snapshot stored in each JSON, so runs

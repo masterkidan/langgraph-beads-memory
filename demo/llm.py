@@ -7,6 +7,15 @@ from langchain_ollama import ChatOllama
 MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
 
 
+# A hung request must fail, not stall forever. ChatOllama has no default
+# timeout, and an N=3 run once sat for an hour with both the client and Ollama
+# idle and five connections open — no error, no progress, nothing in the log.
+# The harness records a failed turn and continues, so a timeout costs one turn;
+# no timeout costs the whole run. Generous enough that a slow-but-healthy call
+# on this hardware (~35s typical, long contexts slower) is never cut off.
+REQUEST_TIMEOUT_S = float(os.environ.get("BEADS_DEMO_TIMEOUT", "300"))
+
+
 def make_llm(temperature: float = 0.0, reasoning: bool | None = False) -> ChatOllama:
     """Build the demo LLM.
 
@@ -21,4 +30,9 @@ def make_llm(temperature: float = 0.0, reasoning: bool | None = False) -> ChatOl
 
     Pass `reasoning=True` to opt back in for a specific call site.
     """
-    return ChatOllama(model=MODEL, temperature=temperature, reasoning=reasoning)
+    return ChatOllama(
+        model=MODEL,
+        temperature=temperature,
+        reasoning=reasoning,
+        client_kwargs={"timeout": REQUEST_TIMEOUT_S},
+    )

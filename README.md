@@ -2,7 +2,23 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **design phase**. The architecture below is specced and committed; implementation hasn't started yet. See [Project status](#project-status).
+> Status: **package implemented, benchmark in progress.** The core library is built and tested (65 tests, real Postgres); the comparison demo runs end to end. Scored results are not published yet — see [Project status](#project-status).
+
+## How it compares to LangGraph's built-in memory
+
+![Side-by-side comparison: stock LangGraph memory (checkpointer plus LangMem extraction store) versus langgraph-beads-memory (typed fact graph), running the same three-conversation scenario in lockstep through capture, a new thread, delegation, a corrected constraint, and the final answer.](docs/assets/comparison.svg)
+
+Both lanes run the **same scenario**, step for step. The structural differences that matter:
+
+| | stock LangGraph memory | langgraph-beads-memory |
+|---|---|---|
+| capture | agent must call `manage_memory` — if it doesn't, nothing persists | user input + final answers captured automatically, verbatim |
+| across threads | new `thread_id` resets history; agent must decide to search the store | one `session_id` spans threads; relevant facts injected automatically |
+| revising a fact | old and new documents coexist; nothing marks which is current | typed `supersedes` edge retires the stale fact, keeps it for audit |
+| sub-agents | results return as messages; no link back to what produced them | isolated namespaces, enforced `conclude_task`, `rollup_of` audit edges |
+| a crashed sub-agent | silently returns nothing | wrapper synthesizes a "did not complete" fact |
+
+**What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema, and injecting facts on every call measured **~46% more input tokens** in a single run. It buys reliability of capture and typed invalidation, not efficiency.
 
 ## How it works
 
@@ -56,15 +72,28 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 
 ## Project status
 
-This repo currently holds the design work; implementation is next.
-
 - [x] Architecture design ([spec](docs/superpowers/specs/2026-07-31-beads-memory-design.md))
 - [x] Competitive landscape research ([brief](docs/superpowers/specs/2026-07-31-beads-memory-competitive-brief.md))
-- [x] Demo/benchmark design ([spec](docs/superpowers/specs/2026-08-08-beads-memory-demo-design.md)) — a local, scripted 3-session scenario comparing this adapter against LangGraph's `BaseStore`+LangMem baseline on recall accuracy, delegation quality, and final-answer quality, judged by an LLM rubric
-- [ ] `langgraph-beads-memory` package (demo-scoped subset)
-- [ ] Comparison harness + results
-- [ ] Explainer animation
+- [x] Demo/benchmark design ([spec](docs/superpowers/specs/2026-08-08-beads-memory-demo-design.md))
+- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 65 tests against real Postgres.
+- [x] **Comparison harness** — scripted scenario, both conditions, objective metrics, blinded LLM judge
+- [x] **Explainer animations** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg)
+- [ ] Scored N=3 results (**in progress**) — see [results/](results/README.md) for method and disclosed corrections
 - [ ] Publish write-up
+
+Running the demo needs Docker (Postgres + pgvector) and Ollama; see
+[results/README.md](results/README.md) for exact steps.
+
+### Honest status of the evidence
+
+The mechanism is verified working end to end with a real LLM — forked child
+namespaces, genuine `conclude_task` rollups, and `rollup_of` audit edges all
+confirmed against live Postgres, not just in unit tests. The *comparative*
+numbers are another matter: only a single scored run exists so far, a fuller
+N=3 run is underway, and that first run surfaced three metric bugs and one
+ambiguous scenario question, all corrected and documented in
+[results/README.md](results/README.md). Treat any figure quoted here as
+directional until the scored results land.
 
 ## Docs
 

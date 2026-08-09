@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 from langchain_core.tools import tool
 from pydantic import BaseModel, model_validator
 
@@ -113,7 +111,16 @@ def make_remember_fact(
             kind="conclusion",
             body=body,
             source="remember_tool",
-            source_key=f"remember:{uuid.uuid4()}",
+            # Stable, content-derived key — NOT a random uuid. Fact ids are
+            # derive_fact_id(namespace, source_key, body), so a random key here
+            # defeated idempotency on this path entirely: recording the same
+            # sentence twice produced two rows. Observed in a real run, where the
+            # model called remember_fact three times with byte-identical text and
+            # the store kept all three. With a constant key, an identical body in
+            # the same namespace resolves to the same id and ON CONFLICT DO
+            # NOTHING collapses the repeat. Different namespaces still get
+            # distinct facts, because namespace_id is part of the derivation.
+            source_key="remember",
             agent_id=agent_id,
             acting_on_behalf_of=acting_on_behalf_of,
             embedding=embedder.embed(body),

@@ -243,3 +243,44 @@ def test_conclude_task_bad_supersedes_short_id_writes_no_summary(conn, embedder)
     assert "Error" in out
     assert "fact_id" not in holder
     assert store.facts_in_namespace(root.id) == []
+
+
+def test_remember_fact_same_body_twice_is_one_fact(conn, embedder):
+    """Regression: remember_fact used a random uuid as source_key, so identical
+    bodies produced different content-derived ids and duplicated rows. Observed
+    in a real run: the model called remember_fact three times with byte-identical
+    text and the store kept all three."""
+    store, root = _setup(conn, embedder)
+    tool = make_remember_fact(store, root, embedder, agent_id="root", acting_on_behalf_of="user")
+    body = "The annual budget for the vector database is $50,000, not $100,000."
+    first = tool.invoke({"body": body})
+    second = tool.invoke({"body": body})
+    third = tool.invoke({"body": body})
+    assert first == second == third  # same short id returned each time
+    facts = store.facts_in_namespace(root.id)
+    assert len(facts) == 1, [f.body for f in facts]
+
+
+def test_remember_fact_different_bodies_are_distinct_facts(conn, embedder):
+    """Dedup must not collapse genuinely different conclusions."""
+    store, root = _setup(conn, embedder)
+    tool = make_remember_fact(store, root, embedder, agent_id="root", acting_on_behalf_of="user")
+    tool.invoke({"body": "pgvector fits the budget."})
+    tool.invoke({"body": "Qdrant fits the budget."})
+    assert len(store.facts_in_namespace(root.id)) == 2
+
+
+def test_remember_fact_same_body_different_namespaces_not_deduped(conn, embedder):
+    """Dedup is scoped to a namespace: a sub-agent recording the same sentence
+    in its own namespace is a separate fact from the parent's."""
+    store, root = _setup(conn, embedder)
+    child = store.fork_namespace(root)
+    body = "Qdrant needs 32GB RAM."
+    make_remember_fact(store, root, embedder, agent_id="root", acting_on_behalf_of="user").invoke(
+        {"body": body}
+    )
+    make_remember_fact(store, child, embedder, agent_id="sub", acting_on_behalf_of="root").invoke(
+        {"body": body}
+    )
+    assert len(store.facts_in_namespace(root.id)) == 1
+    assert len(store.facts_in_namespace(child.id)) == 1

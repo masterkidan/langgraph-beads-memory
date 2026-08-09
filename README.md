@@ -2,7 +2,7 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **package implemented, benchmark in progress.** The core library is built and tested (65 tests, real Postgres); the comparison demo runs end to end. Scored results are not published yet — see [Project status](#project-status).
+> Status: **package implemented, N=3 results measured.** Core library built and tested (87 tests, real Postgres); scored comparison complete — see [results](results/2026-08-09-results.md).
 
 ## How it compares to LangGraph's built-in memory
 
@@ -20,7 +20,7 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 
 **What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema.
 
-**Token cost is unsettled.** An early run measured this library using ~46% *more* input tokens (facts are injected every call). After a scenario fix, a later run measured it using ~42% *fewer* (18,638 → 10,799), because injecting a compact fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. Both figures are single runs and they point in opposite directions, so neither is a claim — treat token cost as unmeasured until the N=3 results land. The published diagram still carries the older figure.
+**Measured token cost (N=3): this library used ~45% *fewer* input tokens** (10,083 vs 18,220 mean), consistently across all three runs. An earlier single run had suggested the opposite (~46% more); that run predated a scenario fix and is superseded. Injecting a compact, relevance-ranked fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. The comparison diagram above still shows the old figure and is pending an update.
 
 ## How it works
 
@@ -80,7 +80,7 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 65 tests against real Postgres.
 - [x] **Comparison harness** — scripted scenario, both conditions, objective metrics, blinded LLM judge
 - [x] **Explainer animations** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg)
-- [ ] Scored N=3 results (**in progress**) — see [results/](results/README.md) for method and disclosed corrections
+- [x] **Scored N=3 results** — [results](results/2026-08-09-results.md); method and disclosed corrections in [results/README.md](results/README.md)
 - [ ] Publish write-up
 
 Running the demo needs Docker (Postgres + pgvector) and Ollama; see
@@ -89,13 +89,18 @@ Running the demo needs Docker (Postgres + pgvector) and Ollama; see
 ### Honest status of the evidence
 
 The mechanism is verified working end to end with a real LLM — forked child
-namespaces, genuine `conclude_task` rollups, and `rollup_of` audit edges all
-confirmed against live Postgres, not just in unit tests. The *comparative*
-numbers are another matter: only a single scored run exists so far, a fuller
-N=3 run is underway, and that first run surfaced three metric bugs and one
-ambiguous scenario question, all corrected and documented in
-[results/README.md](results/README.md). Treat any figure quoted here as
-directional until the scored results land.
+namespaces, genuine `conclude_task` rollups, and `rollup_of` audit edges
+confirmed against live Postgres, not just in unit tests.
+
+On the comparison: at N=3, one metric separates cleanly — carrying a *revised*
+constraint into a later thread, 0/3 for the built-in memory versus 3/3 here —
+and the blinded judge favours this library on all three dimensions. Most other
+metrics are tied or noisy, and the baseline beat us on one (recalling a specific
+buried detail, 3/3 vs 2/3, which inspection showed was model variance rather
+than architecture). The scenario was designed to exercise this mechanism, so
+treat it as a demonstration on a case built for it. Full numbers, the failure
+analysis, and every disclosed correction are in
+[results/2026-08-09-results.md](results/2026-08-09-results.md).
 
 ## Docs
 

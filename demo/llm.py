@@ -7,12 +7,12 @@ from langchain_ollama import ChatOllama
 MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
 
 
-# A hung request must fail, not stall forever. ChatOllama has no default
-# timeout, and an N=3 run once sat for an hour with both the client and Ollama
-# idle and five connections open — no error, no progress, nothing in the log.
-# The harness records a failed turn and continues, so a timeout costs one turn;
-# no timeout costs the whole run. Generous enough that a slow-but-healthy call
-# on this hardware (~35s typical, long contexts slower) is never cut off.
+# NOTE: client-side timeouts do not work here. Tested directly against a socket
+# that accepts and never replies: ChatOllama(client_kwargs={"timeout": 6}) hung
+# past 180s. So this value is best-effort only and must NOT be relied on to
+# bound a call. The real protection against a wedged server is (a) not
+# triggering it — see MAX_CONCURRENCY in demo/conditions.py — and (b) the
+# harness monitor's stall detection.
 REQUEST_TIMEOUT_S = float(os.environ.get("BEADS_DEMO_TIMEOUT", "300"))
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import uuid
 
@@ -29,10 +30,28 @@ def read_document(name: str) -> str:
 SUBTOPICS = ["pgvector", "qdrant", "weaviate"]
 
 
+# LangGraph's ToolNode dispatches a message's tool calls across a thread pool,
+# so the three researchers hit Ollama simultaneously. That reproducibly wedges
+# the server: two separate N=3 attempts stalled with the client blocked, Ollama
+# idle, and five or six connections open — no error, no progress, and it stayed
+# wedged until a restart (a fresh request got no response in 45s, versus ~6s on
+# a healthy server). Client-side timeouts do not rescue this; see demo/llm.py.
+#
+# get_executor_for_config honours max_concurrency, so 1 serialises tool calls
+# and avoids the condition entirely. The cost is real — profiling measured
+# ~2.4x effective concurrency — but a run that finishes slowly beats a run that
+# hangs, and the earlier microbenchmark put the throughput gain at only ~1.05x
+# because the GPU is already saturated by a single stream.
+MAX_CONCURRENCY = int(os.environ.get("BEADS_DEMO_MAX_CONCURRENCY", "1"))
+
+
 def _config(thread_id: str, callbacks: list | None = None) -> dict:
     """Run config. `callbacks` is how the profiler observes a run; it is None in
     normal operation, so this adds no overhead to the benchmark itself."""
-    config: dict = {"configurable": {"thread_id": thread_id}}
+    config: dict = {
+        "configurable": {"thread_id": thread_id},
+        "max_concurrency": MAX_CONCURRENCY,
+    }
     if callbacks:
         config["callbacks"] = callbacks
     return config

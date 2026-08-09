@@ -1597,7 +1597,7 @@ import os
 
 from langchain_ollama import ChatOllama
 
-MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen2.5:14b")
+MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
 
 
 def make_llm(temperature: float = 0.0) -> ChatOllama:
@@ -1678,7 +1678,7 @@ if __name__ == "__main__":
 
 Run:
 ```bash
-ollama pull qwen2.5:14b && ollama pull nomic-embed-text && uv run python -m demo.smoke_test
+ollama pull qwen3:8b && ollama pull nomic-embed-text && uv run python -m demo.smoke_test
 ```
 Expected: three PASS lines, exit 0. If tool-calling FAILs, try `BEADS_DEMO_MODEL=llama3.1:8b` (then re-run); record the winning model in `demo/llm.py`'s default. Do not proceed to Task 10 until this passes — that's the point of the gate.
 

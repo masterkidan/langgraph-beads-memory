@@ -188,7 +188,7 @@ def test_resolve_short_id_ambiguous_raises(conn, monkeypatch):
     fixed_uuid_2 = uuid_mod.UUID(shared_prefix + "-0000-4000-8000-000000000002")
     calls = iter([fixed_uuid_1, fixed_uuid_2])
 
-    def fake_derive(namespace_id, source, source_key, body):
+    def fake_derive(session_id, namespace_id, source, source_key, body):
         return next(calls)
 
     monkeypatch.setattr("beads_memory.store.derive_fact_id", fake_derive)

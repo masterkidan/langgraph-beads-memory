@@ -29,14 +29,14 @@ NS_B = uuid.UUID("00000000-0000-0000-0000-0000000000bb")
 
 def test_same_inputs_are_stable():
     """The whole point: identical inputs must give an identical id."""
-    a = derive_fact_id(NS_A, "passive_capture", "msg-1", "hello")
-    b = derive_fact_id(NS_A, "passive_capture", "msg-1", "hello")
+    a = derive_fact_id("sess-1", NS_A, "passive_capture", "msg-1", "hello")
+    b = derive_fact_id("sess-1", NS_A, "passive_capture", "msg-1", "hello")
     assert a == b
 
 
 def test_different_namespace_never_collides():
-    a = derive_fact_id(NS_A, "remember_tool", "remember", "same text")
-    b = derive_fact_id(NS_B, "remember_tool", "remember", "same text")
+    a = derive_fact_id("sess-1", NS_A, "remember_tool", "remember", "same text")
+    b = derive_fact_id("sess-1", NS_B, "remember_tool", "remember", "same text")
     assert a != b
 
 
@@ -45,8 +45,8 @@ def test_different_write_path_never_collides():
     are different facts. Before `source` was part of the derivation these
     produced the same id, because passive capture falls back to using the body
     as its source_key when a message carries no id."""
-    passive = derive_fact_id(NS_A, "passive_capture", "remember", "remember")
-    tool = derive_fact_id(NS_A, "remember_tool", "remember", "remember")
+    passive = derive_fact_id("sess-1", NS_A, "passive_capture", "remember", "remember")
+    tool = derive_fact_id("sess-1", NS_A, "remember_tool", "remember", "remember")
     assert passive != tool
 
 
@@ -64,8 +64,8 @@ def test_different_write_path_never_collides():
     ],
 )
 def test_adversarial_separator_text_never_collides(key_a, body_a, key_b, body_b):
-    a = derive_fact_id(NS_A, "remember_tool", key_a, body_a)
-    b = derive_fact_id(NS_A, "remember_tool", key_b, body_b)
+    a = derive_fact_id("sess-1", NS_A, "remember_tool", key_a, body_a)
+    b = derive_fact_id("sess-1", NS_A, "remember_tool", key_b, body_b)
     assert a != b, f"({key_a!r},{body_a!r}) collided with ({key_b!r},{body_b!r})"
 
 
@@ -80,7 +80,7 @@ def test_no_collisions_across_a_large_generated_space():
         for source in sources:
             for key in keys:
                 for body in bodies:
-                    combo = (ns, source, key, body)
+                    combo = ("sess-1", ns, source, key, body)
                     fid = derive_fact_id(*combo)
                     assert fid not in seen, f"{combo} collided with {seen[fid]}"
                     seen[fid] = combo
@@ -203,3 +203,86 @@ def test_replay_across_many_turns_is_idempotent(conn, embedder):
 
     facts = store.facts_in_namespace(ns.id)
     assert len(facts) == 9, [f.body for f in facts]
+
+
+# --------------------------------------------------------------------------
+# Content-addressing: reproducibility and fingerprinting
+# --------------------------------------------------------------------------
+
+
+def test_namespace_id_is_derived_not_random(conn):
+    """Namespace ids must be content-derived from (session_id, extra_path).
+
+    Fact ids are derived from the namespace id, so a random namespace id makes
+    the whole chain irreproducible: tear the database down, replay the identical
+    conversation, and every fact gets a new id. Deriving the namespace id keeps
+    the content-addressing property true end to end.
+    """
+    from beads_memory.ids import derive_namespace_id
+
+    store = _store(conn)
+    ns = store.get_or_create_namespace("session-repro")
+    assert ns.id == derive_namespace_id("session-repro", [])
+
+
+def test_facts_survive_a_full_rebuild_with_identical_ids(conn, embedder):
+    """The reproducibility guarantee, end to end: same session, same input,
+    same ids — even after the schema is dropped and recreated."""
+    store = _store(conn)
+    body = "The annual budget is $50,000."
+
+    def write_once():
+        ns = store.get_or_create_namespace("session-repro")
+        make_remember_fact(store, ns, embedder, agent_id="root", acting_on_behalf_of="user").invoke(
+            {"body": body}
+        )
+        return store.facts_in_namespace(ns.id)[0].id
+
+    first = write_once()
+    conn.execute("DROP TABLE fact_edges, facts, namespaces CASCADE")
+    store.init_schema()
+    assert write_once() == first
+
+
+def test_fingerprint_is_sha256_and_stable():
+    import hashlib
+
+    from beads_memory.ids import fingerprint
+
+    assert fingerprint("hello") == hashlib.sha256(b"hello").hexdigest()
+    assert fingerprint("hello") == fingerprint("hello")
+    assert fingerprint("hello") != fingerprint("hellO")
+
+
+def test_passive_capture_never_uses_raw_body_as_key(conn, embedder):
+    """A message without an id must key on a labelled content fingerprint, not
+    on the raw body. Raw bodies are arbitrary text that collide with real keys."""
+    store = _store(conn)
+    ns = store.get_or_create_namespace("session-1")
+    mw = BeadsMemoryMiddleware(
+        store=store,
+        namespace=ns,
+        embedder=embedder,
+        agent_id="root",
+        acting_on_behalf_of="user",
+    )
+    # A body that looks exactly like another path's source key.
+    mw.before_model({"messages": [HumanMessage("remember")]}, None)
+    mw.before_model({"messages": [HumanMessage("remember")]}, None)  # replay
+    facts = store.facts_in_namespace(ns.id)
+    assert len(facts) == 1, "replay must still collapse"
+
+    make_remember_fact(store, ns, embedder, agent_id="root", acting_on_behalf_of="user").invoke(
+        {"body": "remember"}
+    )
+    assert len(store.facts_in_namespace(ns.id)) == 2
+
+
+def test_long_body_does_not_bloat_the_derivation_input(conn):
+    """Bodies are fingerprinted before derivation, so a megabyte of text costs
+    the same as a sentence."""
+    from beads_memory.ids import _canonical, fingerprint
+
+    huge = "x" * 1_000_000
+    assert len(fingerprint(huge)) == 64
+    assert len(_canonical("s", "p", "k", fingerprint(huge))) < 200

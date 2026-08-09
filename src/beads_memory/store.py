@@ -8,7 +8,7 @@ import uuid
 
 import psycopg
 
-from .ids import derive_fact_id, random_fork_suffix
+from .ids import derive_fact_id, derive_namespace_id, random_fork_suffix
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,7 +57,7 @@ class BeadsStore:
             ON CONFLICT (session_id, extra_path) DO UPDATE SET session_id = EXCLUDED.session_id
             RETURNING id, session_id, extra_path, parent_id
             """,
-            (uuid.uuid4(), session_id, extra_path, parent_id),
+            (derive_namespace_id(session_id, extra_path), session_id, extra_path, parent_id),
         ).fetchone()
         return Namespace(id=row[0], session_id=row[1], extra_path=list(row[2]), parent_id=row[3])
 
@@ -88,7 +88,7 @@ class BeadsStore:
         acting_on_behalf_of: str,
         embedding: list[float] | None = None,
     ) -> Fact:
-        fid = derive_fact_id(namespace.id, source, source_key, body)
+        fid = derive_fact_id(namespace.session_id, namespace.id, source, source_key, body)
         self._conn.execute(
             """
             INSERT INTO facts (id, namespace_id, session_id, kind, body, embedding,

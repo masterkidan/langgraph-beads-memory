@@ -6,7 +6,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .embeddings import Embedder
-from .ids import derive_fact_id, short_id
+from .ids import content_key, derive_fact_id, short_id
 from .store import BeadsStore, Namespace
 from .tools import make_remember_fact
 
@@ -54,7 +54,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                     kind="user_input",
                     body=body,
                     source="passive_capture",
-                    source_key=msg.id or body,
+                    source_key=msg.id or content_key(body),
                     agent_id=self.agent_id,
                     acting_on_behalf_of=self.acting_on_behalf_of,
                     embedding=self.embedder.embed(body),
@@ -74,7 +74,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 kind="conclusion",
                 body=body,
                 source="passive_capture",
-                source_key=last.id or body,
+                source_key=last.id or content_key(body),
                 agent_id=self.agent_id,
                 acting_on_behalf_of=self.acting_on_behalf_of,
                 embedding=self.embedder.embed(body),
@@ -91,9 +91,10 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         # fallback — or the derived ids diverge and dedup silently stops working.
         exclude = [
             derive_fact_id(
+                self.namespace.session_id,
                 self.namespace.id,
                 "passive_capture",
-                m.id or str(m.content),
+                m.id or content_key(str(m.content)),
                 str(m.content),
             )
             for m in windowed

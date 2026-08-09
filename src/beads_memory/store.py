@@ -88,7 +88,7 @@ class BeadsStore:
         acting_on_behalf_of: str,
         embedding: list[float] | None = None,
     ) -> Fact:
-        fid = derive_fact_id(namespace.id, source_key, body)
+        fid = derive_fact_id(namespace.id, source, source_key, body)
         self._conn.execute(
             """
             INSERT INTO facts (id, namespace_id, session_id, kind, body, embedding,

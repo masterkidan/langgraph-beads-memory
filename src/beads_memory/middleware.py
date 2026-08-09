@@ -87,8 +87,15 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         windowed = msgs[-self.window :] if self.window else msgs
 
         # Dedup: facts derived from messages still visible raw must not re-inject.
+        # This must mirror before_model's write exactly — same source, same key
+        # fallback — or the derived ids diverge and dedup silently stops working.
         exclude = [
-            derive_fact_id(self.namespace.id, m.id or str(m.content), str(m.content))
+            derive_fact_id(
+                self.namespace.id,
+                "passive_capture",
+                m.id or str(m.content),
+                str(m.content),
+            )
             for m in windowed
             if isinstance(m, HumanMessage)
         ]

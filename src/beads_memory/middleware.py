@@ -110,8 +110,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
             memory_block = (
                 "\n\n## Memory (beads)\n"
                 "Durable facts from this session. Cite short ids in remember_fact"
-                " when a new conclusion supersedes/contradicts/relates to one.\n"
-                + "\n".join(lines)
+                " when a new conclusion supersedes/contradicts/relates to one.\n" + "\n".join(lines)
             )
             system = SystemMessage(str(system.content) + memory_block)
         return handler(request.override(messages=windowed, system_message=system))

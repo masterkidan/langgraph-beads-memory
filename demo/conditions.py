@@ -29,6 +29,15 @@ def read_document(name: str) -> str:
 SUBTOPICS = ["pgvector", "qdrant", "weaviate"]
 
 
+def _config(thread_id: str, callbacks: list | None = None) -> dict:
+    """Run config. `callbacks` is how the profiler observes a run; it is None in
+    normal operation, so this adds no overhead to the benchmark itself."""
+    config: dict = {"configurable": {"thread_id": thread_id}}
+    if callbacks:
+        config["callbacks"] = callbacks
+    return config
+
+
 def _crash_safe(t: StructuredTool) -> StructuredTool:
     """Wrap a langmem tool so a bad call degrades to a ToolMessage instead of
     crashing the whole graph run.
@@ -102,7 +111,7 @@ def build_treatment(session_id: str, run_schema: str):
             def run(task: str) -> str:
                 result = agent.invoke(
                     {"messages": [("user", task)]},
-                    {"configurable": {"thread_id": f"sub-{uuid.uuid4()}"}},
+                    _config(f"sub-{uuid.uuid4()}", None),
                 )
                 return str(result["messages"][-1].content)
 
@@ -117,7 +126,7 @@ def build_treatment(session_id: str, run_schema: str):
             build_agent=build_agent,
         )
 
-    def invoke(thread_id: str, user_text: str) -> dict:
+    def invoke(thread_id: str, user_text: str, callbacks: list | None = None) -> dict:
         middleware = BeadsMemoryMiddleware(
             store=store,
             namespace=root_ns,
@@ -133,7 +142,7 @@ def build_treatment(session_id: str, run_schema: str):
         )
         return agent.invoke(
             {"messages": [("user", user_text)]},
-            {"configurable": {"thread_id": thread_id}},
+            _config(thread_id, callbacks),
         )
 
     return invoke, conn.close
@@ -184,7 +193,7 @@ def build_baseline(session_id: str, run_schema: str):
             description=f"Delegate in-depth research on {topic} to a focused researcher.",
         )
 
-    def invoke(thread_id: str, user_text: str) -> dict:
+    def invoke(thread_id: str, user_text: str, callbacks: list | None = None) -> dict:
         agent = create_agent(
             model=make_llm(),
             tools=[read_document] + mem_tools + [make_researcher(t) for t in SUBTOPICS],
@@ -198,7 +207,7 @@ def build_baseline(session_id: str, run_schema: str):
         )
         return agent.invoke(
             {"messages": [("user", user_text)]},
-            {"configurable": {"thread_id": thread_id}},
+            _config(thread_id, callbacks),
         )
 
     def cleanup():

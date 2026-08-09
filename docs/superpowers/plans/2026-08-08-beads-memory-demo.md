@@ -1282,13 +1282,18 @@ git add src/beads_memory/middleware.py tests/test_middleware.py
 git commit -m "feat: BeadsMemoryMiddleware (passive capture, window trim, fact injection)"
 ```
 
-**Integration risk note for the implementer:** the `request.override(...)` /
-`request.system_message` shapes were taken from the langchain 1.x custom-
-middleware docs. If the installed version differs (e.g. system prompt lives in
-`request.system_prompt`, or `override` is named `replace`), adapt the
-middleware AND the stub in the test the same way — the test's stub is the
-contract mirror, not an independent spec. Verify against the real API in
-Task 9's smoke test before declaring this task truly done.
+**Integration risk note — VERIFIED 2026-08-08 against the installed langchain
+1.3.14 / langgraph 1.2.10.** The API matches this plan's assumptions:
+- `before_model(self, state, runtime) -> dict[str, Any] | None` ✓
+- `after_model(self, state, runtime) -> dict[str, Any] | None` ✓
+- `wrap_model_call(self, request, handler)` ✓
+- `AgentMiddleware.tools: Sequence[BaseTool]` class attribute ✓
+- `ModelRequest` fields include `messages`, `system_message`, `tools`, `state`,
+  `runtime`; `ModelRequest.override()` exists ✓
+
+Write the code as specified. If any detail still diverges at build time, adapt
+the middleware AND the test stub the same way — the stub mirrors the real
+contract, it is not an independent spec.
 
 ---
 

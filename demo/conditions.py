@@ -236,9 +236,19 @@ def build_baseline(session_id: str, run_schema: str):
     from langgraph.store.postgres import PostgresStore
     from langmem import create_manage_memory_tool, create_search_memory_tool
 
+    # A connection pool, for the same reason the treatment uses per-thread
+    # connections: sub-agents run on ToolNode's thread pool, and a single shared
+    # psycopg connection serialises on an internal lock. A worker holding it
+    # while blocked leaves the main thread parked in `lock_PyThread_acquire_lock`
+    # forever — observed hanging this condition on the delegation turn.
+    #
+    # Fixing only the treatment would also have been a fairness bug: one
+    # condition protected from a deadlock the other still suffers is not a
+    # comparison of memory architectures.
     store_cm = PostgresStore.from_conn_string(
         DSN,
         index={"dims": 768, "embed": OllamaEmbeddings(model="nomic-embed-text")},
+        pool_config={"min_size": 1, "max_size": 8},
     )
     store = store_cm.__enter__()
     store.setup()

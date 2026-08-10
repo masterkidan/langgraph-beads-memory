@@ -1,0 +1,345 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 760" width="1360" height="760" role="img" aria-label="Animated diagram of the memory hierarchy inside one langgraph-beads-memory session, in six parts. Scope: one session_id spans many LangGraph thread_ids; a root namespace belongs to the supervisor, and each forked sub-agent gets its own child namespace named by a random hash suffix, with namespace ids otherwise derived deterministically from session_id and extra_path; sub-agents read their own namespace plus their ancestors, never a sibling's. Anatomy: a single fact card exploded to show its kind, status, source, body, embedding, and content-addressed short id, derived from session, namespace, source, and body hash. Kinds: a user message splits into one fact per claim; user_input, conclusion, and summary facts are retrievable by default, while directive facts -- questions, instructions, or goals -- are captured and queryable but held out of default retrieval so they don't crowd out real constraints. Lifecycle: active facts are retrievable; a supersedes edge or compaction retires a fact to superseded or archived, excluded from retrieval but kept for audit -- nothing is ever deleted. Edges: rollup_of links a summary fact back to every raw fact behind it for audit; a supersedes edge retires a stale fact but is guarded, refused unless the two facts are semantically close, cosine similarity at least 0.55; contradicts, relates_to, and derived_from are also part of the relation set. Retrieval: a query pulls its top-K matches from facts that are active, non-directive, and in the caller's own namespace or its ancestors, never a sibling's, and injects them with short ids the agent can cite.">
+  <title>langgraph-beads-memory: the memory hierarchy inside one session</title>
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .stitle { font-size: 12.5px; font-weight: 650; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    .lanebox { fill: #d5ebe8; stroke: #0f766e; }
+    .ghostbox { fill: none; stroke: #8a8175; stroke-dasharray: 5 4; }
+    .retiredbox { fill: none; stroke: #b91c1c; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .beadUser { fill: #f5e3cd; stroke: #b45309; stroke-width: 2; }
+    .beadConcl { fill: #b45309; stroke: #b45309; stroke-width: 2; }
+    .beadSum { fill: #0f766e; stroke: #0f766e; stroke-width: 2; }
+    .flow { stroke: #8a8175; stroke-width: 1.3; fill: none; }
+    .flowRecall { stroke: #b45309; stroke-width: 1.4; fill: none; stroke-dasharray: 4 4; }
+    .flowRollup { stroke: #0f766e; stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+    .edgeSup { stroke: #b91c1c; stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; }
+    .cBead { fill: #b45309; }
+    .cAgent { fill: #0f766e; }
+    .cGone { fill: #b91c1c; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; }
+      text { fill: #ece5da; }
+      .muted { fill: #93897b; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+      .lanebox { fill: #12332f; stroke: #2dd4bf; }
+      .ghostbox { stroke: #93897b; }
+      .retiredbox { stroke: #f87171; }
+      .beadUser { fill: #3a2c17; stroke: #f59e0b; }
+      .beadConcl { fill: #f59e0b; stroke: #f59e0b; }
+      .beadSum { fill: #2dd4bf; stroke: #2dd4bf; }
+      .flow { stroke: #93897b; }
+      .flowRecall { stroke: #f59e0b; }
+      .flowRollup { stroke: #2dd4bf; }
+      .edgeSup { stroke: #f87171; }
+      .cBead { fill: #f59e0b; }
+      .cAgent { fill: #2dd4bf; }
+      .cGone { fill: #f87171; }
+    }
+
+    /* six panels build up over a 36s loop, each appearing then staying */
+    .p2,.p3,.p4,.p5,.p6,.cap1,.cap2,.cap3,.cap4,.cap5,.cap6 {
+      animation-duration: 36s; animation-iteration-count: infinite; animation-timing-function: ease;
+    }
+    .p2 { animation-name: k2; } .p3 { animation-name: k3; } .p4 { animation-name: k4; }
+    .p5 { animation-name: k5; } .p6 { animation-name: k6; }
+    .cap1 { animation-name: cc1; } .cap2 { animation-name: cc2; } .cap3 { animation-name: cc3; }
+    .cap4 { animation-name: cc4; } .cap5 { animation-name: cc5; } .cap6 { animation-name: cc6; }
+
+    @keyframes k2 { 0%,16.7% { opacity: 0; } 19.7%,100% { opacity: 1; } }
+    @keyframes k3 { 0%,33.3% { opacity: 0; } 36.3%,100% { opacity: 1; } }
+    @keyframes k4 { 0%,50%   { opacity: 0; } 53%,100%   { opacity: 1; } }
+    @keyframes k5 { 0%,66.7% { opacity: 0; } 69.7%,100% { opacity: 1; } }
+    @keyframes k6 { 0%,83.3% { opacity: 0; } 86.3%,100% { opacity: 1; } }
+
+    @keyframes cc1 { 0%,0.5%,15.2% { opacity: 1; } 16.7%,100% { opacity: 0; } }
+    @keyframes cc2 { 0%,16.7% { opacity: 0; } 18.2%,31.8% { opacity: 1; } 33.3%,100% { opacity: 0; } }
+    @keyframes cc3 { 0%,33.3% { opacity: 0; } 34.8%,48.5% { opacity: 1; } 50%,100% { opacity: 0; } }
+    @keyframes cc4 { 0%,50%   { opacity: 0; } 51.5%,65.2% { opacity: 1; } 66.7%,100% { opacity: 0; } }
+    @keyframes cc5 { 0%,66.7% { opacity: 0; } 68.2%,81.8% { opacity: 1; } 83.3%,100% { opacity: 0; } }
+    @keyframes cc6 { 0%,83.3% { opacity: 0; } 84.8%,98.5% { opacity: 1; } 100% { opacity: 0; } }
+
+    .pulse {
+      animation-name: pulseOp; animation-duration: 2.2s;
+      animation-iteration-count: infinite; animation-timing-function: ease-in-out;
+    }
+    @keyframes pulseOp { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .p2,.p3,.p4,.p5,.p6 { animation: none; opacity: 1; }
+      .pulse { animation: none; opacity: 1; }
+      .cap1,.cap2,.cap3,.cap4,.cap5,.cap6 { animation: none; opacity: 0; }
+      .capStatic { opacity: 1; }
+    }
+    .capStatic { opacity: 0; }
+  </style>
+
+  <defs>
+    <marker id="am" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="muted" fill="#8a8175"/></marker>
+    <marker id="ab" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cBead" fill="#b45309"/></marker>
+    <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cAgent" fill="#0f766e"/></marker>
+    <marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" class="cGone" fill="#b91c1c"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1360" height="760"/>
+
+  <text x="24" y="30" font-size="15" font-weight="650">langgraph-beads-memory — the memory hierarchy inside one session</text>
+  <text x="24" y="48" font-size="10.5" class="muted">Structure, not flow: what a memory consists of, where it lives, and what can retrieve it.</text>
+
+  <!-- panel backgrounds -->
+  <rect x="24" y="70" width="426" height="300" rx="8" class="panelbox"/>
+  <rect x="466" y="70" width="426" height="300" rx="8" class="panelbox"/>
+  <rect x="908" y="70" width="426" height="300" rx="8" class="panelbox"/>
+  <rect x="24" y="380" width="426" height="300" rx="8" class="panelbox"/>
+  <rect x="466" y="380" width="426" height="300" rx="8" class="panelbox"/>
+  <rect x="908" y="380" width="426" height="300" rx="8" class="panelbox"/>
+
+  <!-- ============ 1 · SCOPE HIERARCHY (always visible) ============ -->
+  <g id="p1">
+    <text x="36" y="90" class="stitle">1 · Scope hierarchy — one session, many namespaces</text>
+
+    <rect x="152" y="104" width="170" height="34" rx="6" class="panelbox"/>
+    <text x="237" y="122" text-anchor="middle" font-weight="650" font-size="10.5" class="mono">session_id</text>
+    <text x="237" y="134" text-anchor="middle" font-size="8.5" class="muted">spans many thread_ids</text>
+
+    <path d="M237,138 L237,160" class="flow" marker-end="url(#am)"/>
+
+    <rect x="152" y="160" width="170" height="32" rx="6" class="panelbox"/>
+    <text x="237" y="177" text-anchor="middle" font-size="10">root namespace</text>
+    <text x="237" y="189" text-anchor="middle" font-size="8.5" class="muted">extra_path = {} — supervisor's memory</text>
+
+    <path d="M237,192 C 237,200 150,205 102,216" class="flow" marker-end="url(#am)"/>
+    <path d="M237,192 L237,216" class="flow" marker-end="url(#am)"/>
+    <path d="M237,192 C 237,200 324,205 372,216" class="flow" marker-end="url(#am)"/>
+
+    <rect x="42" y="216" width="120" height="58" rx="7" class="lanebox"/>
+    <text x="102" y="234" text-anchor="middle" font-weight="650" font-size="9">child namespace</text>
+    <text x="102" y="247" text-anchor="middle" font-size="8.5" class="mono muted">{task, sub-3f2a}</text>
+
+    <rect x="177" y="216" width="120" height="58" rx="7" class="lanebox"/>
+    <text x="237" y="234" text-anchor="middle" font-weight="650" font-size="9">child namespace</text>
+    <text x="237" y="247" text-anchor="middle" font-size="8.5" class="mono muted">{task, sub-91cc}</text>
+
+    <rect x="312" y="216" width="120" height="58" rx="7" class="lanebox"/>
+    <text x="372" y="234" text-anchor="middle" font-weight="650" font-size="9">child namespace</text>
+    <text x="372" y="247" text-anchor="middle" font-size="8.5" class="mono muted">{task, sub-d04e}</text>
+
+    <circle cx="169.5" cy="245" r="9" fill="none" class="edgeSup"/>
+    <line x1="163.5" y1="239" x2="175.5" y2="251" class="edgeSup"/>
+    <circle cx="304.5" cy="245" r="9" fill="none" class="edgeSup"/>
+    <line x1="298.5" y1="239" x2="310.5" y2="251" class="edgeSup"/>
+
+    <text x="237" y="290" text-anchor="middle" font-size="8.5" class="muted">forked sub-agent — the hash suffix (sub-3f2a) is the one random part</text>
+    <text x="237" y="304" text-anchor="middle" font-size="8.5" class="cGone">reads: self + ancestors only — siblings never see each other</text>
+    <text x="237" y="320" text-anchor="middle" font-size="8.5" class="mono muted">namespace_id = uuid5(session_id, extra_path) — deterministic replay</text>
+  </g>
+
+  <!-- ============ 2 · ANATOMY OF ONE FACT ============ -->
+  <g class="p2">
+    <text x="478" y="90" class="stitle">2 · Anatomy of one fact</text>
+
+    <rect x="478" y="110" width="130" height="170" rx="8" class="beadUser"/>
+    <text x="543" y="132" text-anchor="middle" font-weight="650" font-size="11">fact</text>
+    <text x="543" y="150" text-anchor="middle" font-size="8.5" class="mono muted">fact-a3f8b2c1</text>
+
+    <circle cx="608" cy="119" r="2.5" class="muted"/><line x1="608" y1="119" x2="620" y2="119" class="flow"/>
+    <circle cx="608" cy="147" r="2.5" class="muted"/><line x1="608" y1="147" x2="620" y2="147" class="flow"/>
+    <circle cx="608" cy="175" r="2.5" class="muted"/><line x1="608" y1="175" x2="620" y2="175" class="flow"/>
+    <circle cx="608" cy="203" r="2.5" class="muted"/><line x1="608" y1="203" x2="620" y2="203" class="flow"/>
+    <circle cx="608" cy="231" r="2.5" class="muted"/><line x1="608" y1="231" x2="620" y2="231" class="flow"/>
+    <circle cx="608" cy="259" r="2.5" class="muted"/><line x1="608" y1="259" x2="620" y2="259" class="flow"/>
+
+    <text x="624" y="122" font-size="10"><tspan font-weight="650">kind </tspan><tspan class="mono">conclusion</tspan></text>
+    <text x="624" y="150" font-size="10"><tspan font-weight="650">status </tspan><tspan class="mono">active</tspan></text>
+    <text x="624" y="178" font-size="10"><tspan font-weight="650">source </tspan><tspan class="mono">remember_tool</tspan></text>
+    <text x="624" y="206" font-size="10"><tspan font-weight="650">body </tspan><tspan class="mono" font-style="italic">"budget is $50k, not $100k"</tspan></text>
+    <text x="624" y="234" font-size="10"><tspan font-weight="650">embedding </tspan><tspan class="mono muted">[0.02, -0.11, 0.87, …]</tspan></text>
+    <text x="624" y="262" font-size="10"><tspan font-weight="650">id </tspan><tspan class="mono">fact-a3f8b2c1</tspan></text>
+
+    <text x="478" y="300" font-size="8" class="mono muted">id = sha256(session_id, namespace_id, source, source_key, body)</text>
+    <text x="478" y="311" font-size="8" class="muted">— content-addressed; a checkpoint replay writes nothing new.</text>
+    <text x="478" y="326" font-size="8" class="mono muted">source ∈ {passive_capture, remember_tool, conclude_task,</text>
+    <text x="478" y="337" font-size="8" class="mono muted">fallback_conclude, compaction}</text>
+  </g>
+
+  <!-- ============ 3 · FACT KINDS ============ -->
+  <g class="p3">
+    <text x="920" y="90" class="stitle">3 · Fact kinds — one claim per fact</text>
+
+    <rect x="920" y="104" width="280" height="54" rx="6" class="panelbox"/>
+    <text x="930" y="120" font-size="9.5">"Pick us a vector DB. Budget $100k,</text>
+    <text x="930" y="134" font-size="9.5">must self-host, primary sources only."</text>
+    <text x="930" y="150" font-size="8" class="muted">splits into:</text>
+
+    <path d="M1060,158 C 1020,166 990,170 967,176" class="flow" marker-end="url(#am)"/>
+    <path d="M1060,158 C 1063,164 1066,170 1069,176" class="flow" marker-end="url(#am)"/>
+    <path d="M1060,158 C 1110,166 1140,170 1171,176" class="flow" marker-end="url(#am)"/>
+    <path d="M1060,158 C 1150,166 1220,170 1273,176" class="flow" marker-end="url(#am)"/>
+
+    <rect x="920" y="176" width="94" height="104" rx="6" class="panelbox"/>
+    <text x="967" y="196" text-anchor="middle" font-weight="650" font-size="9.5">user_input</text>
+    <text x="967" y="212" text-anchor="middle" font-size="8" class="muted">claim, verbatim</text>
+    <text x="967" y="228" text-anchor="middle" font-size="8" class="mono">"$100k"</text>
+    <text x="967" y="266" text-anchor="middle" font-size="8.5" class="cAgent">retrievable: yes</text>
+
+    <rect x="1022" y="176" width="94" height="104" rx="6" class="panelbox"/>
+    <text x="1069" y="196" text-anchor="middle" font-weight="650" font-size="9.5">directive</text>
+    <text x="1069" y="212" text-anchor="middle" font-size="8" class="muted">instruction / goal</text>
+    <text x="1069" y="228" text-anchor="middle" font-size="8" class="mono">"pick us a DB"</text>
+    <text x="1069" y="266" text-anchor="middle" font-size="8.5" class="cGone">NO — held out</text>
+
+    <rect x="1124" y="176" width="94" height="104" rx="6" class="panelbox"/>
+    <text x="1171" y="196" text-anchor="middle" font-weight="650" font-size="9.5">conclusion</text>
+    <text x="1171" y="212" text-anchor="middle" font-size="8" class="muted">agent's conclusion</text>
+    <text x="1171" y="228" text-anchor="middle" font-size="8" class="mono">"Qdrant fits…"</text>
+    <text x="1171" y="266" text-anchor="middle" font-size="8.5" class="cAgent">retrievable: yes</text>
+
+    <rect x="1226" y="176" width="94" height="104" rx="6" class="panelbox"/>
+    <text x="1273" y="196" text-anchor="middle" font-weight="650" font-size="9.5">summary</text>
+    <text x="1273" y="212" text-anchor="middle" font-size="8" class="muted">sub-agent's rollup</text>
+    <text x="1273" y="228" text-anchor="middle" font-size="8" class="mono">"pgv Σ"</text>
+    <text x="1273" y="266" text-anchor="middle" font-size="8.5" class="cAgent">retrievable: yes</text>
+
+    <path d="M967,280 L967,296" class="flowRecall" marker-end="url(#ab)"/>
+    <path d="M1171,280 L1171,296" class="flowRecall" marker-end="url(#ab)"/>
+    <path d="M1273,280 L1273,296" class="flowRecall" marker-end="url(#ab)"/>
+    <line x1="1069" y1="280" x2="1069" y2="288" class="edgeSup"/>
+    <text x="1069" y="296" text-anchor="middle" font-size="10" class="cGone">✗</text>
+
+    <rect x="920" y="296" width="400" height="34" rx="6" class="panelbox"/>
+    <text x="1120" y="317" text-anchor="middle" font-size="9">default retrieval pool — active, non-directive</text>
+  </g>
+
+  <!-- ============ 4 · LIFECYCLE ============ -->
+  <g class="p4">
+    <text x="36" y="400" class="stitle">4 · Lifecycle — nothing is deleted</text>
+
+    <rect x="162" y="410" width="150" height="44" rx="6" class="panelbox"/>
+    <text x="237" y="428" text-anchor="middle" font-weight="650" font-size="10">active</text>
+    <text x="237" y="442" text-anchor="middle" font-size="8.5" class="muted">retrievable</text>
+
+    <path d="M190,454 C 160,462 140,464 127,468" class="edgeSup" marker-end="url(#ag)"/>
+    <path d="M284,454 C 292,462 296,464 299,468" class="flow" marker-end="url(#am)"/>
+    <text x="150" y="462" text-anchor="middle" font-size="8" class="cGone">supersedes</text>
+    <text x="300" y="462" text-anchor="middle" font-size="8" class="muted">compaction</text>
+
+    <rect x="42" y="468" width="170" height="48" rx="6" class="retiredbox"/>
+    <text x="127" y="486" text-anchor="middle" font-weight="650" font-size="9.5" class="cGone">superseded</text>
+    <text x="127" y="500" text-anchor="middle" font-size="8" class="muted">retired, kept for audit</text>
+
+    <rect x="214" y="468" width="170" height="48" rx="6" class="retiredbox"/>
+    <text x="299" y="486" text-anchor="middle" font-weight="650" font-size="9.5" class="cGone">archived</text>
+    <text x="299" y="500" text-anchor="middle" font-size="8" class="muted">compacted, kept for audit</text>
+
+    <path d="M127,516 C 127,535 180,540 200,550" class="flow" marker-end="url(#am)"/>
+    <path d="M299,516 C 299,535 240,540 220,550" class="flow" marker-end="url(#am)"/>
+
+    <rect x="87" y="550" width="300" height="44" rx="6" class="ghostbox"/>
+    <text x="237" y="568" text-anchor="middle" font-weight="650" font-size="9.5">audit trail — kept, not deleted</text>
+    <text x="237" y="582" text-anchor="middle" font-size="8" class="muted">excluded from retrieval only</text>
+
+    <text x="237" y="606" text-anchor="middle" font-size="8.5" class="muted">retirement and deletion are different things</text>
+  </g>
+
+  <!-- ============ 5 · EDGES ============ -->
+  <g class="p5">
+    <text x="478" y="400" class="stitle">5 · Edges — how facts relate</text>
+
+    <rect x="624" y="414" width="110" height="40" rx="6" class="lanebox"/>
+    <text x="679" y="434" text-anchor="middle" font-weight="650" font-size="10" class="mono">summary Σ</text>
+    <text x="679" y="447" text-anchor="middle" font-size="8" class="muted">conclude_task</text>
+
+    <path d="M679,454 C 630,464 570,472 536,480" class="flowRollup" marker-end="url(#aa)"/>
+    <path d="M679,454 L663,480" class="flowRollup" marker-end="url(#aa)"/>
+    <path d="M679,454 C 720,464 770,472 790,480" class="flowRollup" marker-end="url(#aa)"/>
+    <text x="679" y="468" text-anchor="middle" font-size="8.5" class="cAgent">rollup_of — audit trail</text>
+
+    <rect x="486" y="480" width="100" height="36" rx="6" class="panelbox"/>
+    <text x="536" y="500" text-anchor="middle" font-size="9" class="mono">raw fact</text>
+    <text x="536" y="512" text-anchor="middle" font-size="8" class="muted mono">fact-71a2c9d4</text>
+
+    <rect x="613" y="480" width="100" height="36" rx="6" class="panelbox"/>
+    <text x="663" y="500" text-anchor="middle" font-size="9" class="mono">raw fact</text>
+    <text x="663" y="512" text-anchor="middle" font-size="8" class="muted mono">fact-e05f1478</text>
+
+    <rect x="740" y="480" width="100" height="36" rx="6" class="panelbox"/>
+    <text x="790" y="500" text-anchor="middle" font-size="9" class="mono">raw fact</text>
+    <text x="790" y="512" text-anchor="middle" font-size="8" class="muted mono">fact-9c3d20b6</text>
+
+    <rect x="486" y="540" width="140" height="40" rx="6" class="beadUser"/>
+    <text x="556" y="564" text-anchor="middle" font-size="9.5" class="mono">$50k (new)</text>
+
+    <rect x="680" y="540" width="140" height="40" rx="6" class="retiredbox"/>
+    <text x="750" y="564" text-anchor="middle" font-size="9.5" class="mono cGone">$100k (old)</text>
+
+    <path d="M626,560 L680,560" class="edgeSup" marker-end="url(#ag)"/>
+    <text x="653" y="552" text-anchor="middle" font-size="8.5" class="cGone">supersedes</text>
+
+    <text x="486" y="596" font-size="8" class="muted">guarded: refused unless the two facts are</text>
+    <text x="486" y="608" font-size="8" class="muted">semantically close (cosine similarity ≥ 0.55)</text>
+
+    <text x="478" y="628" font-size="8.5" class="mono muted">contradicts — asserted conflict</text>
+    <text x="478" y="640" font-size="8.5" class="mono muted">relates_to — associated</text>
+    <text x="478" y="652" font-size="8.5" class="mono muted">derived_from — compaction summary → what it replaced</text>
+  </g>
+
+  <!-- ============ 6 · RETRIEVAL ============ -->
+  <g class="p6">
+    <text x="920" y="400" class="stitle">6 · Retrieval — top-K, active, in-scope</text>
+
+    <rect x="920" y="414" width="240" height="48" rx="6" class="panelbox"/>
+    <text x="932" y="432" font-size="9.5">query: "which DB fits our</text>
+    <text x="932" y="446" font-size="9.5">constraints?"</text>
+
+    <path d="M1040,462 L1040,478" class="flow" marker-end="url(#am)"/>
+
+    <rect x="920" y="478" width="340" height="56" rx="6" class="ghostbox"/>
+    <text x="1090" y="496" text-anchor="middle" font-weight="650" font-size="9">filter</text>
+    <text x="1090" y="510" text-anchor="middle" font-size="8" class="mono muted">status=active ∧ kind≠directive</text>
+    <text x="1090" y="522" text-anchor="middle" font-size="8" class="mono muted">∧ namespace ∈ self+ancestors</text>
+
+    <path d="M1090,534 L1090,556" class="flow" marker-end="url(#am)"/>
+
+    <circle cx="940" cy="556" r="9" class="beadUser pulse"/>
+    <circle cx="1008" cy="556" r="9" class="ghostbox"/>
+    <circle cx="1076" cy="556" r="9" class="beadConcl pulse"/>
+    <circle cx="1144" cy="556" r="9" class="retiredbox"/>
+    <circle cx="1212" cy="556" r="9" class="beadSum pulse"/>
+    <circle cx="1280" cy="556" r="9" class="ghostbox"/>
+    <line x1="1274" y1="550" x2="1286" y2="562" class="edgeSup"/>
+
+    <text x="940" y="574" text-anchor="middle" font-size="8.5" class="muted">active</text>
+    <text x="1008" y="574" text-anchor="middle" font-size="8.5" class="muted">directive</text>
+    <text x="1076" y="574" text-anchor="middle" font-size="8.5" class="muted">active</text>
+    <text x="1144" y="574" text-anchor="middle" font-size="8.5" class="muted">superseded</text>
+    <text x="1212" y="574" text-anchor="middle" font-size="8.5" class="muted">active</text>
+    <text x="1280" y="574" text-anchor="middle" font-size="8.5" class="muted">sibling ns</text>
+
+    <text x="920" y="592" font-size="8.5" class="muted">filled = selected · outlined/dashed = excluded</text>
+
+    <path d="M1090,566 L1090,606" class="flow" marker-end="url(#am)"/>
+
+    <rect x="920" y="606" width="340" height="40" rx="6" class="panelbox"/>
+    <text x="1090" y="624" text-anchor="middle" font-size="9" class="mono">fact-a3f8b2c1, fact-71a2c9d4, fact-9c3d20b6</text>
+    <text x="1090" y="638" text-anchor="middle" font-size="8" class="muted">injected into context, cited by short id</text>
+
+    <text x="920" y="660" font-size="8.5" class="muted">same rule applies inside a sub-agent — self + ancestors only</text>
+  </g>
+
+  <!-- ============ rolling captions ============ -->
+  <g font-size="13">
+    <text class="cap1" x="24" y="712">1 · Scope — one session_id spans many thread_ids. Root namespace is the supervisor's; each forked sub-agent gets its own child namespace with a random hash suffix.</text>
+    <text class="cap2" x="24" y="712">2 · Anatomy — a fact carries kind, status, source, body, and an embedding; its id is content-addressed from session, namespace, source, and body.</text>
+    <text class="cap3" x="24" y="712">3 · Kinds — a message splits into one fact per claim. Directives are captured but held out of default retrieval — they'd otherwise crowd out real constraints.</text>
+    <text class="cap4" x="24" y="712">4 · Lifecycle — active facts are retrievable; supersedes or compaction retires a fact to superseded or archived. Nothing is ever deleted, only excluded.</text>
+    <text class="cap5" x="24" y="712">5 · Edges — rollup_of links a summary back to every raw fact behind it; supersedes is guarded, refused unless the two facts are semantically close (cosine ≥ 0.55).</text>
+    <text class="cap6" x="24" y="712">6 · Retrieval — top-K is drawn from facts that are active, non-directive, and in the caller's own namespace or its ancestors, never a sibling's.</text>
+    <text class="capStatic" x="24" y="700">The memory hierarchy inside one session: a session_id spanning many threads, forked</text>
+    <text class="capStatic" x="24" y="716">namespaces read by self+ancestors only, four fact kinds (directives held out of retrieval),</text>
+    <text class="capStatic" x="24" y="732">a lifecycle where nothing is deleted, typed edges, and retrieval scoped to active, in-scope facts.</text>
+  </g>
+</svg>

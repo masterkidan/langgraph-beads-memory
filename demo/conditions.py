@@ -247,7 +247,13 @@ def build_baseline(session_id: str, run_schema: str):
     # comparison of memory architectures.
     store_cm = PostgresStore.from_conn_string(
         DSN,
-        index={"dims": 768, "embed": OllamaEmbeddings(model="nomic-embed-text")},
+        # Same bounded timeout the treatment's embedder uses. Untimed embedding
+        # calls hung both conditions: Ollama accepts the request, never answers,
+        # and the blocked thread takes the run with it.
+        index={
+            "dims": 768,
+            "embed": OllamaEmbeddings(model="nomic-embed-text", client_kwargs={"timeout": 120.0}),
+        },
         pool_config={"min_size": 1, "max_size": 8},
     )
     store = store_cm.__enter__()

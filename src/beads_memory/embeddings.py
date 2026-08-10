@@ -13,14 +13,23 @@ class Embedder(Protocol):
 
 
 class OllamaEmbedder:  # pragma: no cover
-    """nomic-embed-text via langchain-ollama; dim must match schema vector(768)."""
+    """nomic-embed-text via langchain-ollama; dim must match schema vector(768).
+
+    `timeout` is not optional in practice. Embedding runs inside passive
+    capture, which runs inside the model-call hot path — an embedding request
+    that Ollama accepts and never answers blocks that thread forever, and
+    because sub-agents run on a thread pool it takes the rest of the run with
+    it. Observed twice: the harness parked with threads in socket reads and
+    lock waits while Ollama sat idle with no model loaded. Chat calls were
+    already bounded; these were not.
+    """
 
     dim = 768
 
-    def __init__(self, model: str = "nomic-embed-text"):
+    def __init__(self, model: str = "nomic-embed-text", timeout: float = 120.0):
         from langchain_ollama import OllamaEmbeddings
 
-        self._emb = OllamaEmbeddings(model=model)
+        self._emb = OllamaEmbeddings(model=model, client_kwargs={"timeout": timeout})
 
     def embed(self, text: str) -> list[float]:
         return self._emb.embed_query(text)

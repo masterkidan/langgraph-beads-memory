@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
+import threading
 import uuid
 
 import psycopg
@@ -57,6 +59,57 @@ def _config(thread_id: str, callbacks: list | None = None) -> dict:
     return config
 
 
+class _ThreadLocalConnection:
+    """A psycopg connection per thread, sharing one schema.
+
+    The demo previously handed a single connection to the root agent and every
+    sub-agent. psycopg3 guards a connection with an internal lock, so concurrent
+    use does not corrupt anything — it serialises. But LangGraph's ToolNode runs
+    tool calls on a thread pool, and a worker holding that lock while blocked on
+    a slow operation leaves the main thread parked in
+    `lock_PyThread_acquire_lock` indefinitely. Observed repeatedly: the run hung
+    on the delegation turn with the main thread and a worker both waiting on
+    locks, and no in-process deadline could break it — Python only runs signal
+    handlers between bytecodes, which a blocking lock acquire never yields.
+
+    Giving each thread its own connection removes the contention entirely.
+    Each new connection re-applies the search_path and pgvector registration,
+    so every thread sees the same schema.
+    """
+
+    def __init__(self, dsn: str, schema: str):
+        self._dsn = dsn
+        self._schema = schema
+        self._local = threading.local()
+
+    def _get(self):
+        conn = getattr(self._local, "conn", None)
+        if conn is None or conn.closed:
+            conn = psycopg.connect(self._dsn, autocommit=True)
+            conn.execute(f'SET search_path TO "{self._schema}", public')
+            register_vector(conn)
+            self._local.conn = conn
+            with self._lock_all:
+                self._all.append(conn)
+        return conn
+
+    _all: list = []
+    _lock_all = threading.Lock()
+
+    def execute(self, *args, **kwargs):
+        return self._get().execute(*args, **kwargs)
+
+    def close(self):
+        with self._lock_all:
+            for c in self._all:
+                with contextlib.suppress(Exception):  # a dead connection is fine
+                    c.close()
+            self._all.clear()
+
+    def __getattr__(self, name):
+        return getattr(self._get(), name)
+
+
 def _crash_safe(t: StructuredTool) -> StructuredTool:
     """Wrap a langmem tool so a bad call degrades to a ToolMessage instead of
     crashing the whole graph run.
@@ -104,10 +157,12 @@ def build_treatment(session_id: str, run_schema: str):
         make_subagent_tool,
     )
 
-    conn = psycopg.connect(DSN, autocommit=True)
-    conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{run_schema}"')
-    conn.execute(f'SET search_path TO "{run_schema}", public')
-    register_vector(conn)
+    bootstrap = psycopg.connect(DSN, autocommit=True)
+    bootstrap.execute(f'CREATE SCHEMA IF NOT EXISTS "{run_schema}"')
+    bootstrap.close()
+    # Per-thread connections: sub-agents run on ToolNode's thread pool and a
+    # shared connection deadlocks them on psycopg's internal lock (see above).
+    conn = _ThreadLocalConnection(DSN, run_schema)
     store = BeadsStore(conn)
     store.init_schema()
     embedder = OllamaEmbedder()

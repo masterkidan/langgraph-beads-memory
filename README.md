@@ -13,8 +13,10 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 | | stock LangGraph memory | langgraph-beads-memory |
 |---|---|---|
 | capture | agent must call `manage_memory` — if it doesn't, nothing persists | user input + final answers captured automatically, verbatim |
+| granularity | one memory per saved document | one fact per claim, each separately embedded and supersedable |
 | across threads | new `thread_id` resets history; agent must decide to search the store | one `session_id` spans threads; relevant facts injected automatically |
 | revising a fact | old and new documents coexist; nothing marks which is current | typed `supersedes` edge retires the stale fact, keeps it for audit |
+| questions vs claims | undifferentiated | `directive` kind kept for provenance but held out of retrieval |
 | sub-agents | results return as messages; no link back to what produced them | isolated namespaces, enforced `conclude_task`, `rollup_of` audit edges |
 | a crashed sub-agent | silently returns nothing | wrapper synthesizes a "did not complete" fact |
 
@@ -33,6 +35,73 @@ One session (`session_id: vecdb-research`) spanning three conversations. Facts a
 3. **Enforced rollup** — each sub-agent must call `conclude_task`. One summary lands on the parent, linked by `rollup_of` edges back to its raw exploration. A crashed sub-agent leaves a "did not complete" fact rather than vanishing.
 4. **Supersede** — when the user revises a constraint, the new fact supersedes the old one. The stale value is retired from retrieval but kept for audit.
 5. **Recall** — a brand-new thread starts warm, and only *active* facts can reach the model. This is exactly where thread-scoped memory starts cold, and where extraction stores surface both the old and new value with nothing marking which is current.
+
+## The memory model
+
+![Memory hierarchy: a session scope containing a root namespace and isolated child namespaces per sub-agent; the anatomy of a single fact with its kind, status and source; the four fact kinds with directives held out of retrieval; the active/superseded/archived lifecycle; and the typed edges between facts.](docs/assets/memory-hierarchy.svg)
+
+### Scope: sessions, namespaces, and what can read what
+
+```
+session_id                          one long-lived memory scope, spanning many thread_ids
+ └── root namespace  {}             the supervisor's memory
+     ├── {task, sub-3f2a}           a forked sub-agent
+     ├── {task, sub-91cc}           another, isolated from its siblings
+     └── {task, sub-d04e}
+```
+
+A sub-agent reads **its own namespace plus its ancestors, never a sibling's**. That is what stops three parallel researchers contaminating each other's context.
+
+Namespace ids are *derived* — `uuid5(session_id, extra_path)` — so replaying the same conversation into an empty database reproduces the same ids. The one deliberately random element is the child suffix (`sub-3f2a`), because two concurrently spawned sub-agents must not collide.
+
+### Kinds: what a memory is
+
+| kind | what it holds | retrieved by default? |
+|---|---|---|
+| `user_input` | a claim the user stated, captured verbatim | yes |
+| `directive` | a question, instruction, or stated goal | **no** — stored and queryable, held out of retrieval |
+| `conclusion` | something the agent concluded | yes |
+| `summary` | a sub-agent's rollup into its parent | yes |
+
+A user message is split into **one fact per claim**: *"the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data"* becomes three facts, not one. Each then gets its own embedding, and a `supersedes` edge can retire one without touching the others.
+
+`directive` exists because questions rank highly against a query precisely *by resembling it*. Measured: four of eight injected slots were question fragments, displacing the constraint the answer needed. Directives are provenance — they explain why work happened — so they are kept and remain queryable via `search(include_directives=True)`; they just don't compete for the retrieval budget.
+
+### Status: retirement is not deletion
+
+| status | meaning |
+|---|---|
+| `active` | retrievable |
+| `superseded` | replaced by a newer fact — out of retrieval, **kept for audit** |
+| `archived` | compacted — out of retrieval, kept for audit |
+
+**Nothing is ever deleted.** A superseded fact stays queryable, so "what did we believe before, and what replaced it?" is always answerable.
+
+### Source: which path wrote it
+
+| source | when |
+|---|---|
+| `passive_capture` | user messages and final answers — automatic, no tool call, no LLM |
+| `remember_tool` | the agent deliberately called `remember_fact` |
+| `conclude_task` | a sub-agent's enforced rollup |
+| `fallback_conclude` | the sub-agent crashed or forgot; the wrapper synthesised one |
+| `compaction` | produced by compaction (designed; not exercised in the demo) |
+
+### Edges: how facts relate
+
+| relation | meaning |
+|---|---|
+| `supersedes` | replaces. **Guarded** — refused unless the two facts are semantically close (cosine ≥ 0.55) |
+| `rollup_of` | a summary points back at every raw exploration fact behind it — the audit trail |
+| `contradicts` | asserted to conflict |
+| `relates_to` | associated |
+| `derived_from` | a compaction summary points at what it replaced |
+
+The `supersedes` guard exists because an agent once retired the user's entire constraints message with *"The investigation into Weaviate has been completed."* Nothing checked the two facts were about the same thing. A rule based on fact *kind* would not have worked — the one legitimate revision had the identical shape — so the guard uses similarity instead.
+
+### Identity
+
+A fact's id is derived from `(session_id, namespace_id, source, source_key, sha256(body))`. Content-addressed, so a LangGraph checkpoint replay re-running a capture hook writes nothing new rather than duplicating.
 
 ## The problem
 

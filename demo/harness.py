@@ -31,8 +31,18 @@ RAW = pathlib.Path(__file__).parent.parent / "results" / "raw"
 TURN_DEADLINE_S = int(os.environ.get("BEADS_DEMO_TURN_DEADLINE", "900"))
 
 
-class TurnTimeout(Exception):
-    pass
+class TurnTimeout(BaseException):
+    """Deliberately a BaseException, not an Exception.
+
+    The deadline is raised from a signal handler, so it surfaces at whatever
+    line happens to be executing — deep inside LangGraph, a tool, or httpx. This
+    codebase has broad `except Exception` handlers on purpose (`_crash_safe`
+    around langmem's tools, and the sub-agent wrapper, which must not let a
+    crashed researcher kill the run). Any of them would have caught a plain
+    Exception and quietly resumed waiting, defeating the deadline entirely.
+    Inheriting from BaseException makes it pass through them, like
+    KeyboardInterrupt.
+    """
 
 
 @contextlib.contextmanager
@@ -81,7 +91,7 @@ def run_once(condition: str, run_idx: int) -> dict:
                     with turn_deadline(TURN_DEADLINE_S):
                         result = invoke(thread_id, user_text)
                     msgs = result["messages"]
-                except Exception as e:  # noqa: BLE001 - a crashed turn must be recorded, not fatal
+                except (Exception, TurnTimeout) as e:  # noqa: BLE001 - record, do not abort the run
                     errors.append(
                         {
                             "conversation": conv_id,

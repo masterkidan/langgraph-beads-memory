@@ -186,9 +186,17 @@ class BeadsStore:
         *,
         k: int = 8,
         exclude_ids: list[uuid.UUID] | None = None,
+        include_directives: bool = False,
     ) -> list[Fact]:
         """Top-k active facts by cosine similarity across self + ancestor chain.
-        Facts without embeddings are invisible to search."""
+
+        Facts without embeddings are invisible to search. `directive` facts —
+        questions, instructions, stated goals — are excluded by default: they
+        rank highly against a query precisely because they resemble it, and in a
+        measured run four of eight injected slots were question fragments that
+        displaced the constraint the answer needed. They remain stored and
+        queryable; pass include_directives=True to retrieve them.
+        """
         chain = self.ancestor_chain(namespace_id)
         rows = self._conn.execute(
             """
@@ -197,12 +205,13 @@ class BeadsStore:
             FROM facts
             WHERE namespace_id = ANY(%s)
               AND status = 'active'
+              AND (%s OR kind <> 'directive')
               AND embedding IS NOT NULL
               AND NOT (id = ANY(%s))
             ORDER BY embedding <=> %s::vector
             LIMIT %s
             """,
-            (chain, exclude_ids or [], query_embedding, k),
+            (chain, include_directives, exclude_ids or [], query_embedding, k),
         ).fetchall()
         return [Fact(*r) for r in rows]
 

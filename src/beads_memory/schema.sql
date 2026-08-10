@@ -13,7 +13,12 @@ CREATE TABLE IF NOT EXISTS facts (
     id                  uuid PRIMARY KEY,
     namespace_id        uuid NOT NULL REFERENCES namespaces(id),
     session_id          text NOT NULL,
-    kind                text NOT NULL CHECK (kind IN ('user_input','conclusion','summary')),
+    -- 'directive': a question, instruction or stated goal. Captured and kept
+    -- queryable because it is the provenance of downstream choices, but held
+    -- out of default retrieval: injecting text that is nearly the current
+    -- query wastes a top-K slot that a claim would use.
+    kind                text NOT NULL CHECK (kind IN
+                        ('user_input','conclusion','summary','directive')),
     body                text NOT NULL,
     embedding           vector(768),
     status              text NOT NULL DEFAULT 'active'

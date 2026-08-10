@@ -124,3 +124,118 @@ def split_into_facts(text: str) -> list[str]:
             facts.append(sentence)
 
     return [f for f in facts if f.strip()] or [text]
+
+
+# --------------------------------------------------------------------------
+# Claim vs directive
+# --------------------------------------------------------------------------
+
+STATEMENT = "statement"
+DIRECTIVE = "directive"
+
+# Verbs that open an instruction. Matched only at the start of a fragment, so
+# "Compare them on cost" is a directive while "the comparison is done" is not.
+_IMPERATIVE_OPENERS = (
+    "please",
+    "tell",
+    "show",
+    "give",
+    "list",
+    "find",
+    "compare",
+    "investigate",
+    "research",
+    "delegate",
+    "explain",
+    "describe",
+    "summarize",
+    "summarise",
+    "remind",
+    "check",
+    "look",
+    "consider",
+    "be ",
+    "make",
+    "help",
+    "let ",
+    "recommend",
+    "suggest",
+    "pick",
+    "choose",
+    "evaluate",
+    "assess",
+    "review",
+)
+
+# Fragments opening with these are questions even without a question mark —
+# small models drop terminal punctuation often enough to matter.
+_INTERROGATIVE_OPENERS = (
+    "which",
+    "what",
+    "who",
+    "whom",
+    "whose",
+    "when",
+    "where",
+    "why",
+    "how",
+    "is ",
+    "are ",
+    "was ",
+    "were ",
+    "do ",
+    "does ",
+    "did ",
+    "can ",
+    "could ",
+    "should ",
+    "would ",
+    "will ",
+    "shall ",
+    "may ",
+    "might ",
+    "and remind",
+)
+
+# First-person intent framing: "we need to X", "I want you to X" are goals, not
+# claims about the world, even though they parse as declaratives.
+_INTENT_PREFIXES = (
+    "we need to",
+    "we want to",
+    "we should",
+    "we must decide",
+    "i need to",
+    "i want to",
+    "i would like",
+    "we have to",
+    "let's",
+    "lets ",
+)
+
+
+def classify_fragment(text: str) -> str:
+    """STATEMENT if the fragment asserts something, DIRECTIVE otherwise.
+
+    Directives (questions, instructions, stated goals) are still captured and
+    remain queryable — they are the provenance of every downstream choice, and
+    dropping them would break the audit trail. They are classified apart so
+    retrieval does not spend its top-K budget re-injecting text that is nearly
+    the current query.
+
+    Degenerate input classifies as DIRECTIVE: an empty fragment must never be
+    treated as an assertable fact.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        return DIRECTIVE
+    lowered = stripped.lower()
+
+    if stripped.endswith("?"):
+        return DIRECTIVE
+    if any(lowered.startswith(p) for p in _INTENT_PREFIXES):
+        return DIRECTIVE
+    if any(lowered.startswith(p) for p in _INTERROGATIVE_OPENERS):
+        return DIRECTIVE
+    if any(lowered.startswith(p) for p in _IMPERATIVE_OPENERS):
+        return DIRECTIVE
+    return STATEMENT

@@ -196,3 +196,42 @@ def test_split_facts_still_dedup_against_the_raw_window(conn, embedder):
     injected = str(captured["system"].content)
     assert "self-hostable" not in injected, injected
     assert "primary benchmark" not in injected, injected
+
+
+def test_directives_are_captured_but_not_injected(conn, embedder):
+    """Questions and instructions are provenance, so they must be stored and
+    stay queryable — but they must not consume retrieval slots. They rank high
+    against a query precisely because they resemble it; a measured run spent
+    four of eight injected slots on question fragments, displacing the
+    constraint the answer needed."""
+    store, ns, mw = _mw(conn, embedder, window=2)
+    mw.before_model(
+        {
+            "messages": [
+                HumanMessage(
+                    "We need to pick a vector database. Constraints: the budget is "
+                    "$100k per year, and it must be self-hostable.",
+                    id="u1",
+                )
+            ]
+        },
+        None,
+    )
+    facts = store.facts_in_namespace(ns.id)
+    kinds = {f.kind for f in facts}
+    assert "directive" in kinds, [(f.kind, f.body) for f in facts]
+    assert "user_input" in kinds, [(f.kind, f.body) for f in facts]
+
+    # the goal fragment is stored...
+    assert any("We need to pick" in f.body for f in facts)
+    # ...but default retrieval never returns it
+    hits = store.search(ns.id, embedder.embed("which database should we pick?"), k=8)
+    assert not any(h.kind == "directive" for h in hits), [h.body for h in hits]
+    # ...and it is still reachable when explicitly asked for
+    hits = store.search(
+        ns.id,
+        embedder.embed("which database should we pick?"),
+        k=8,
+        include_directives=True,
+    )
+    assert any(h.kind == "directive" for h in hits)

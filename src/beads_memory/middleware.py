@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .embeddings import Embedder
 from .ids import content_key, derive_fact_id, short_id
-from .segment import split_into_facts
+from .segment import DIRECTIVE, classify_fragment, split_into_facts
 from .store import BeadsStore, Namespace
 from .tools import make_remember_fact
 
@@ -83,9 +83,13 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         same message still collapses onto the same ids.
         """
         for source_key, body in self._user_fact_specs(msg):
+            # Questions, instructions and stated goals are kept — they are the
+            # provenance of every downstream choice — but marked so retrieval
+            # does not spend a top-K slot re-injecting the current query.
+            kind = "directive" if classify_fragment(body) == DIRECTIVE else "user_input"
             self.store.write_fact(
                 self.namespace,
-                kind="user_input",
+                kind=kind,
                 body=body,
                 source="passive_capture",
                 source_key=source_key,

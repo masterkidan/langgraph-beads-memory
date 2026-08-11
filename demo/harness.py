@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import faulthandler
 import json
 import os
 import pathlib
@@ -43,6 +44,26 @@ class TurnTimeout(BaseException):
     Inheriting from BaseException makes it pass through them, like
     KeyboardInterrupt.
     """
+
+
+# Fires after the SIGALRM deadline, so the in-process path gets first refusal
+# and only a genuinely unbreakable hang reaches the hard dump-and-exit.
+DEADLOCK_DUMP_S = int(os.environ.get("BEADS_DEMO_DEADLOCK_DUMP", str(TURN_DEADLINE_S + 120)))
+
+
+def arm_deadlock_dump(seconds: int) -> None:
+    """Dump every thread's Python stack and exit if a turn outlives `seconds`.
+
+    A C-level watchdog thread, so it works when the interpreter itself is stuck.
+    exit=True is deliberate: a deadlocked run cannot be salvaged in-process, and
+    the driver loop starts the next one.
+    """
+    faulthandler.enable()
+    faulthandler.dump_traceback_later(seconds, repeat=False, exit=True)
+
+
+def disarm_deadlock_dump() -> None:
+    faulthandler.cancel_dump_traceback_later()
 
 
 @contextlib.contextmanager
@@ -88,10 +109,22 @@ def run_once(condition: str, run_idx: int) -> dict:
                 )
                 turn_started = time.monotonic()
                 try:
+                    # Belt and braces. turn_deadline uses SIGALRM, which cannot
+                    # interrupt a thread parked in lock_PyThread_acquire_lock —
+                    # Python only runs signal handlers between bytecodes, and a
+                    # blocking lock acquire never yields. Every observed hang had
+                    # that exact shape, so SIGALRM alone has never fired on one.
+                    # faulthandler's watchdog is a C thread: it fires regardless
+                    # of GIL or lock state, dumps every thread's Python stack,
+                    # and exits. The dump is the point — each earlier hang cost a
+                    # diagnosis because the process had to be killed blind.
+                    arm_deadlock_dump(DEADLOCK_DUMP_S)
                     with turn_deadline(TURN_DEADLINE_S):
                         result = invoke(thread_id, user_text)
+                    disarm_deadlock_dump()
                     msgs = result["messages"]
                 except (Exception, TurnTimeout) as e:  # noqa: BLE001 - record, do not abort the run
+                    disarm_deadlock_dump()
                     errors.append(
                         {
                             "conversation": conv_id,

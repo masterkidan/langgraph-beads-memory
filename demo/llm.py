@@ -4,7 +4,15 @@ import os
 
 from langchain_ollama import ChatOllama
 
-MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
+# qwen3:4b, not 8b. On a 16 GB machine 8b needs ~5.2 GB of *wired* Metal
+# memory, which can neither swap nor compress; with ~0.1 GB free the model was
+# evicted and reloaded repeatedly, turning a 6-second generation into 35 seconds
+# and a delegation turn into an apparent hang. 4b needs ~2.5 GB and fits.
+#
+# It is not a downgrade for this workload: 4b passed the same pre-flight gate and
+# emitted a *better-formed* tool call than 8b, which reliably nests the fact
+# reference into a dict (the reason tools.py needs a coercion layer at all).
+MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:4b")
 
 
 # CORRECTION: an earlier comment here claimed client-side timeouts do not work.

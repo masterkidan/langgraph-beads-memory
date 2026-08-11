@@ -112,6 +112,53 @@ class BeadsStore:
         ).fetchall()
         return [r[0] for r in rows]
 
+    def children(self, namespace_id: uuid.UUID) -> list[Namespace]:
+        """Direct sub-namespaces. One level, not the whole subtree.
+
+        Lets an orchestrator enumerate what it delegated to, which demoted
+        descendant *search* cannot do — that is similarity-driven and only
+        surfaces a child fact when the query happens to match it.
+        """
+        rows = self._conn.execute(
+            "SELECT id, session_id, extra_path, parent_id FROM namespaces"
+            " WHERE parent_id = %s ORDER BY created_at",
+            (namespace_id,),
+        ).fetchall()
+        return [
+            Namespace(id=r[0], session_id=r[1], extra_path=list(r[2]), parent_id=r[3]) for r in rows
+        ]
+
+    def subtree_facts(
+        self,
+        namespace_id: uuid.UUID,
+        *,
+        agent_id: str | None = None,
+        limit: int = 50,
+    ) -> list[Fact]:
+        """Active facts beneath this namespace, newest first. Excludes self.
+
+        Deliberate drill-down rather than a similarity guess: an orchestrator
+        that delegated Qdrant can ask what that researcher recorded, instead of
+        hoping the embedding of "what was that memory optimization?" lands near
+        it. The measured failure had exactly this shape — the fact existed in a
+        child and the parent never reached it.
+
+        Retired facts are excluded, matching `search`: a superseded value should
+        not resurface through a side door.
+        """
+        scope = self.descendant_scope(namespace_id)
+        if not scope:
+            return []
+        rows = self._conn.execute(
+            "SELECT id, namespace_id, session_id, kind, body, status, source,"
+            " agent_id, acting_on_behalf_of FROM facts"
+            " WHERE namespace_id = ANY(%s) AND status = 'active'"
+            "   AND (%s::text IS NULL OR agent_id = %s)"
+            " ORDER BY created_at DESC, id LIMIT %s",
+            (scope, agent_id, agent_id, limit),
+        ).fetchall()
+        return [Fact(*r) for r in rows]
+
     def write_fact(
         self,
         namespace: Namespace,

@@ -2,7 +2,7 @@ from .embeddings import Embedder, FakeEmbedder, FakeRanker, OllamaEmbedder
 from .middleware import BeadsMemoryMiddleware
 from .store import BeadsStore, Fact, Namespace
 from .subagent import make_subagent_tool
-from .tools import make_conclude_task, make_remember_fact
+from .tools import make_conclude_task, make_recall_from_subagents, make_remember_fact
 
 __all__ = [
     "BeadsMemoryMiddleware",
@@ -15,5 +15,6 @@ __all__ = [
     "OllamaEmbedder",
     "make_subagent_tool",
     "make_remember_fact",
+    "make_recall_from_subagents",
     "make_conclude_task",
 ]

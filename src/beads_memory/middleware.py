@@ -9,7 +9,7 @@ from .embeddings import Embedder
 from .ids import content_key, derive_fact_id, short_id
 from .segment import DIRECTIVE, classify_fragment, split_into_facts
 from .store import BeadsStore, Namespace
-from .tools import make_remember_fact
+from .tools import make_recall_from_subagents, make_remember_fact
 
 
 class BeadsMemoryMiddleware(AgentMiddleware):
@@ -44,6 +44,14 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 acting_on_behalf_of=acting_on_behalf_of,
             )
         ] + (extra_tools or [])
+        if capture_final:
+            # Orchestrator-only. Demoted descendant search is similarity-driven
+            # and may or may not surface a child's finding; this lets an agent
+            # that knows it delegated a topic go and read what the researcher
+            # actually recorded. Bound where capture_final is set — the same
+            # flag that distinguishes a root agent from a forked sub-agent —
+            # so sub-agents cannot use it to reach across at their siblings.
+            self.tools.append(make_recall_from_subagents(store, namespace))
 
     # -- write path 1: passive user-input capture ---------------------------
     def before_model(self, state, runtime):

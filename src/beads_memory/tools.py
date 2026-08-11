@@ -185,3 +185,38 @@ def make_conclude_task(
         return f"Task concluded [{short_id(fact.id)}]"
 
     return conclude_task
+
+
+def make_recall_from_subagents(store: BeadsStore, namespace: Namespace):
+    """Tool: read what this agent's sub-agents actually recorded.
+
+    Demoted descendant search is similarity-driven, so a child fact surfaces
+    only when the query happens to match it. An orchestrator usually knows
+    something stronger — it delegated a topic to a named researcher — and should
+    be able to look directly.
+
+    This exists because of a measured failure: a researcher read "Binary
+    quantization reduces RAM usage up to 32x", its rollup summarised deployment
+    instead, and when later asked for the optimization the orchestrator
+    hallucinated a number. The detail was in the store the whole time, one
+    namespace below, with no way to ask for it.
+    """
+
+    @tool
+    def recall_from_subagents(agent_id: str | None = None) -> str:
+        """Read the raw findings your sub-agents recorded, beyond the one-line
+        summary each reported back. Pass agent_id (e.g. 'researcher_qdrant') to
+        read one researcher's findings, or omit it to see all of them. Use this
+        when asked about a specific detail a researcher investigated."""
+        available = sorted({f.agent_id for f in store.subtree_facts(namespace.id, limit=200)})
+        if not available:
+            return "No sub-agent findings recorded yet."
+        if agent_id and agent_id not in available:
+            return f"No findings from {agent_id!r}. Available sub-agents: " + ", ".join(available)
+        facts = store.subtree_facts(namespace.id, agent_id=agent_id, limit=25)
+        if not facts:
+            return "No sub-agent findings recorded yet."
+        lines = [f"- [{short_id(f.id)}] ({f.agent_id}) {f.body}" for f in facts]
+        return "Sub-agent findings:\n" + "\n".join(lines)
+
+    return recall_from_subagents

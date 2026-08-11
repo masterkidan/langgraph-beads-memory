@@ -63,6 +63,25 @@ Postgres connections, a pooled store for the baseline, bounded timeouts on both
 chat and embedding calls, and a faulthandler watchdog that dumps every thread's
 Python stack on an unbreakable hang. None of them was the cause.
 
+## Results index
+
+Three scored rounds, each superseding the last. They are **not poolable** — the
+memory behaviour changed between them, which is the point of running them
+separately.
+
+| round | change under test | headline |
+|---|---|---|
+| [2026-08-09](2026-08-09-results.md) | first scored comparison | budget recall 0/3 vs 3/3; `primary_sources` 1/3 |
+| [2026-08-10 postfix](2026-08-10-postfix-results.md) | per-claim splitting + `supersedes` similarity guard | guard eliminated spurious edges; `primary_sources` unmoved at 1/3 |
+| [2026-08-10 directive](2026-08-10-directive-results.md) | `directive` kind held out of retrieval | `primary_sources` 1/3 → 3/3; `buried_detail` fell to 0/3 |
+
+A fourth round (demoted descendant recall, aimed at `buried_detail`) is in
+progress at the time of writing.
+
+An aborted qwen3:4b attempt is kept in `aborted-4b/` — it wrote ~12,000 output
+tokens per run against 8b's ~1,400 and was reverted. It is not pooled with
+anything.
+
 ## Method
 
 One scripted narrative, run identically under two conditions. The **only**

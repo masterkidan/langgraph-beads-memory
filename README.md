@@ -2,7 +2,7 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **package implemented, N=3 results measured.** Core library built and tested (87 tests, real Postgres); scored comparison complete — see [results](results/2026-08-09-results.md).
+> Status: **package implemented, measured over three N=3 rounds.** Core library built and tested (148 tests against real Postgres). Latest results: [2026-08-10](results/2026-08-10-directive-results.md).
 
 ## How it compares to LangGraph's built-in memory
 
@@ -17,7 +17,8 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 | across threads | new `thread_id` resets history; agent must decide to search the store | one `session_id` spans threads; relevant facts injected automatically |
 | revising a fact | old and new documents coexist; nothing marks which is current | typed `supersedes` edge retires the stale fact, keeps it for audit |
 | questions vs claims | undifferentiated | `directive` kind kept for provenance but held out of retrieval |
-| sub-agents | results return as messages; no link back to what produced them | isolated namespaces, enforced `conclude_task`, `rollup_of` audit edges |
+| sub-agents | results return as messages; no link back to what produced them | own namespace, enforced `conclude_task`, `rollup_of` audit edges |
+| a sub-agent's raw findings | mixed into one flat store | demoted in the orchestrator's retrieval, and directly readable via `recall_from_subagents` |
 | a crashed sub-agent | silently returns nothing | wrapper synthesizes a "did not complete" fact |
 
 **What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema.
@@ -31,7 +32,7 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 One session (`session_id: vecdb-research`) spanning three conversations. Facts are beads on the session string — threads come and go, the string stays.
 
 1. **Capture** — every user message is written verbatim onto the session string, no extraction LLM involved. The turn's final answer is captured as a conclusion automatically, so durable memory never depends on the model remembering a tool call.
-2. **Fork** — delegating research gives each sub-agent an isolated child namespace. It reads its ancestors; it never sees its siblings.
+2. **Fork** — delegating research gives each sub-agent its own child namespace. It reads upward (its ancestors) and never sideways (a sibling). The orchestrator reads downward too, demoted — see [Ranking](#ranking).
 3. **Enforced rollup** — each sub-agent must call `conclude_task`. One summary lands on the parent, linked by `rollup_of` edges back to its raw exploration. A crashed sub-agent leaves a "did not complete" fact rather than vanishing.
 4. **Supersede** — when the user revises a constraint, the new fact supersedes the old one. The stale value is retired from retrieval but kept for audit.
 5. **Recall** — a brand-new thread starts warm, and only *active* facts can reach the model. This is exactly where thread-scoped memory starts cold, and where extraction stores surface both the old and new value with nothing marking which is current.
@@ -157,6 +158,55 @@ LangGraph ships two memory primitives: a checkpointer for thread-scoped state, a
 - **Postgres-only.** No Neo4j, no separate vector database — namespaces, facts, and edges all live in one Postgres schema (`pgvector` for embeddings).
 - **Session-scoped, not identity-coupled.** The core schema is anchored on `session_id` alone — a long-lived memory scope that deliberately spans LangGraph threads, so a new conversation that continues the same work recalls everything from earlier ones. `langgraph-beads-memory` doesn't need to know what a "user" is; if an application wants a user↔session mapping, it owns that table itself.
 
+## Using it
+
+```python
+from beads_memory import BeadsMemoryMiddleware, BeadsStore, OllamaEmbedder, make_subagent_tool
+
+store = BeadsStore(conn)          # any psycopg connection; one per thread
+store.init_schema()
+ns = store.get_or_create_namespace("vecdb-research")   # the session scope
+
+agent = create_agent(
+    model=llm,
+    tools=[...],
+    middleware=[BeadsMemoryMiddleware(
+        store=store, namespace=ns, embedder=OllamaEmbedder(),
+        agent_id="root", acting_on_behalf_of="user",
+    )],
+)
+```
+
+Capture and injection then happen automatically; there are no store calls to
+write in the common path.
+
+**Tools the middleware binds for the agent**
+
+| tool | who gets it | what it does |
+|---|---|---|
+| `remember_fact` | every agent | record a conclusion, optionally `supersedes`/`contradicts`/`relates_to` an existing fact by short id |
+| `conclude_task` | forked sub-agents | required before returning; writes one summary into the parent with `rollup_of` edges back to the raw work |
+| `recall_from_subagents` | orchestrators only | read what a named sub-agent actually recorded, past its one-line summary |
+
+`recall_from_subagents` exists because demoted search is a *guess* — a child's
+fact surfaces only if the query happens to match it. An orchestrator usually
+knows something stronger: it delegated a topic to a named researcher. This lets
+it look rather than hope. It is bound only where `capture_final` is set, the
+same flag that distinguishes a root agent from a fork, so sub-agents cannot use
+it to read siblings.
+
+**Reading the store directly**
+
+```python
+store.search(ns.id, embedder.embed(q), k=8)   # self + ancestors + demoted descendants
+store.children(ns.id)                          # direct sub-namespaces
+store.subtree_facts(ns.id, agent_id="researcher_qdrant")   # what one sub-agent found
+store.facts_in_namespace(ns.id)                # everything here, including retired
+```
+
+`search` and `subtree_facts` return only `active` facts. `facts_in_namespace`
+does not filter, which is how you audit what was superseded and by what.
+
 ## How it fits into a LangGraph app
 
 It's an **agent middleware** (LangGraph's `create_agent` pre/post-model hook API) — not a `BaseStore` implementation and not a checkpointer replacement. Thread-level state/replay stays with LangGraph's own `PostgresSaver`; this owns a separate schema for durable, structured memory and wires in purely through hooks, so there are no explicit store calls to write in the common path.
@@ -189,7 +239,11 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 65 tests against real Postgres.
 - [x] **Comparison harness** — scripted scenario, both conditions, objective metrics, blinded LLM judge
 - [x] **Explainer animations** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg)
-- [x] **Scored N=3 results** — [results](results/2026-08-09-results.md); method and disclosed corrections in [results/README.md](results/README.md)
+- [x] **Scored results, three rounds** (newest first):
+  - [2026-08-10 · directive fix](results/2026-08-10-directive-results.md) — current
+  - [2026-08-10 · granularity + supersede guard](results/2026-08-10-postfix-results.md)
+  - [2026-08-09 · first scored run](results/2026-08-09-results.md)
+  - method, disclosed corrections and operational notes: [results/README.md](results/README.md)
 - [ ] Publish write-up
 
 Running the demo needs Docker (Postgres + pgvector) and Ollama; see
@@ -209,7 +263,7 @@ buried detail, 3/3 vs 2/3, which inspection showed was model variance rather
 than architecture). The scenario was designed to exercise this mechanism, so
 treat it as a demonstration on a case built for it. Full numbers, the failure
 analysis, and every disclosed correction are in
-[results/2026-08-09-results.md](results/2026-08-09-results.md).
+[results/2026-08-10-directive-results.md](results/2026-08-10-directive-results.md).
 
 ## Docs
 

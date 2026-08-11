@@ -5,5 +5,21 @@ services:
       POSTGRES_USER: beads
       POSTGRES_PASSWORD: beads
       POSTGRES_DB: beads
+      # Postgres sizes its cache from what it can see, not from what it needs.
+      # This workload is a few thousand small rows plus 768-d vectors, so the
+      # defaults are wildly generous.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=128MB
+      -c max_connections=50
     ports:
       - "5433:5432"
+    # Hard ceiling. Not the cause of the memory pressure seen while developing
+    # this — that was the model's wired Metal allocation, which lives outside
+    # Docker — but an unbounded database container is a latent problem on a
+    # 16 GB machine, and the demo genuinely needs well under this.
+    mem_limit: 1g
+    memswap_limit: 1g

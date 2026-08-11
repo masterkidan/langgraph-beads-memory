@@ -24,6 +24,34 @@ structured tool calls guts the treatment; a model that cannot extract facts
 guts the baseline. Either failure produces a meaningless comparison, so fix the
 model rather than proceeding.
 
+## Running this without losing hours to a wedged server
+
+**Restart Ollama after any system sleep, and hold sleep off for the whole run.**
+
+```bash
+brew services restart ollama          # after ANY sleep/wake, not just when it looks stuck
+caffeinate -dimsu uv run python -m demo.harness --runs 3
+```
+
+This was learned expensively. Five separate runs hung with the same signature —
+the client blocked, Ollama idle with no model loaded, an accepted connection
+that never answered. It was diagnosed as several different code bugs before the
+power log showed the actual pattern: every hang occurred in a run started after
+a system wake.
+
+Ollama's GPU context does not appear to survive sleep. The already-loaded model
+becomes unusable, and requests **hang rather than failing**, which is
+indistinguishable from a slow generation until several minutes have passed.
+
+A self-inflicted amplifier is worth naming: stopping the harness also kills
+`caffeinate`, so the machine sleeps while you edit, and the next run meets a
+damaged server. Restart Ollama whenever you restart the harness after a pause.
+
+The code fixes made while chasing this are real and worth keeping — per-thread
+Postgres connections, a pooled store for the baseline, bounded timeouts on both
+chat and embedding calls, and a faulthandler watchdog that dumps every thread's
+Python stack on an unbreakable hang. None of them was the cause.
+
 ## Method
 
 One scripted narrative, run identically under two conditions. The **only**

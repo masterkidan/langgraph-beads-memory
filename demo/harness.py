@@ -182,20 +182,35 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--conditions", nargs="+", default=["baseline", "treatment"])
+    ap.add_argument(
+        "--only",
+        default=None,
+        metavar="CONDITION:INDEX",
+        help="run exactly one run, e.g. 'treatment:2'. Lets a driver script bound "
+        "each run in its own process and restart Ollama between them, so memory "
+        "pressure cannot accumulate across a six-run set. The run index is "
+        "preserved in the filename so the judge can still pair runs correctly.",
+    )
     args = ap.parse_args()
     RAW.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    for condition in args.conditions:
-        for i in range(args.runs):
-            print(f"=== {condition} run {i} ===", flush=True)
-            record = run_once(condition, i)
-            out = RAW / f"{stamp}-{condition}-{i}.json"
-            out.write_text(json.dumps(record, indent=2, default=str))
-            print(
-                f"  tokens={record['tokens']}  carry={record['constraint_carry']}"
-                f"  errors={len(record['errors'])}",
-                flush=True,
-            )
+
+    if args.only:
+        condition, _, idx = args.only.partition(":")
+        plan = [(condition.strip(), int(idx))]
+    else:
+        plan = [(c, i) for c in args.conditions for i in range(args.runs)]
+
+    for condition, i in plan:
+        print(f"=== {condition} run {i} ===", flush=True)
+        record = run_once(condition, i)
+        out = RAW / f"{stamp}-{condition}-{i}.json"
+        out.write_text(json.dumps(record, indent=2, default=str))
+        print(
+            f"  tokens={record['tokens']}  carry={record['constraint_carry']}"
+            f"  errors={len(record['errors'])}",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

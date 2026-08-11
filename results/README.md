@@ -26,26 +26,37 @@ model rather than proceeding.
 
 ## Running this without losing hours to a wedged server
 
-**Restart Ollama after any system sleep, and hold sleep off for the whole run.**
+**Restart Ollama between runs. It wedges under sustained load — roughly every 20 minutes of active use on this hardware.**
 
 ```bash
 brew services restart ollama          # after ANY sleep/wake, not just when it looks stuck
 caffeinate -dimsu uv run python -m demo.harness --runs 3
 ```
 
-This was learned expensively. Five separate runs hung with the same signature —
-the client blocked, Ollama idle with no model loaded, an accepted connection
-that never answered. It was diagnosed as several different code bugs before the
-power log showed the actual pattern: every hang occurred in a run started after
-a system wake.
+Six separate runs hung with the same signature: the client blocked in
+`sock_recv` on an accepted-but-unanswered request, `ollama runner` absent, and
+`/api/ps` reporting no model loaded. Control endpoints stay healthy while
+generation is dead:
 
-Ollama's GPU context does not appear to survive sleep. The already-loaded model
-becomes unusable, and requests **hang rather than failing**, which is
-indistinguishable from a slow generation until several minutes have passed.
+```
+/api/version   200
+/api/ps        200
+/api/generate  000   <- accepted, never answered
+```
 
-A self-inflicted amplifier is worth naming: stopping the harness also kills
-`caffeinate`, so the machine sleeps while you edit, and the next run meets a
-damaged server. Restart Ollama whenever you restart the harness after a pause.
+Only a full daemon restart clears it. This is
+[ollama#15950](https://github.com/ollama/ollama/issues/15950).
+
+**A wrong diagnosis worth recording.** This was first attributed to system
+sleep, because every early hang followed a wake. That correlation was an
+artifact — the daemon was being restarted at the same time sleep was eliminated,
+so the recovery came from the restart, not from staying awake. It then
+reproduced on a 21-minute-old daemon with zero sleep events. Sustained load is
+sufficient on its own.
+
+Requests **hang rather than failing**, which is indistinguishable from a slow
+generation until minutes have passed — so a stall detector that probes
+`/api/generate` is worth more than one that only watches for log silence.
 
 The code fixes made while chasing this are real and worth keeping — per-thread
 Postgres connections, a pooled store for the baseline, bounded timeouts on both

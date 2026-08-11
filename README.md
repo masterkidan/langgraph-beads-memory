@@ -50,7 +50,13 @@ session_id                          one long-lived memory scope, spanning many t
      └── {task, sub-d04e}
 ```
 
-A sub-agent reads **its own namespace plus its ancestors, never a sibling's**. That is what stops three parallel researchers contaminating each other's context.
+A sub-agent reads **its own namespace plus its ancestors, never a sibling's**. That is what
+stops three parallel researchers contaminating each other's context.
+
+The relationship is deliberately **asymmetric**: a parent additionally reads its
+whole subtree, with a rank penalty. Descendant visibility is a parent privilege,
+not a general relaxation — children still read only upward, so siblings remain
+mutually invisible.
 
 Namespace ids are *derived* — `uuid5(session_id, extra_path)` — so replaying the same conversation into an empty database reproduces the same ids. The one deliberately random element is the child suffix (`sub-3f2a`), because two concurrently spawned sub-agents must not collide.
 
@@ -99,6 +105,40 @@ A user message is split into **one fact per claim**: *"the budget is $100k per y
 
 The `supersedes` guard exists because an agent once retired the user's entire constraints message with *"The investigation into Weaviate has been completed."* Nothing checked the two facts were about the same thing. A rule based on fact *kind* would not have worked — the one legitimate revision had the identical shape — so the guard uses similarity instead.
 
+### Ranking
+
+The retrieval score is deliberately simple, and worth stating plainly rather
+than leaving implied by the machinery around it:
+
+```
+score = cosine_distance(fact.embedding, query)
+      + 0.15   if the fact lives in a descendant namespace
+take top 8
+```
+
+Everything else is a **filter**, not a ranking signal: `status = 'active'`,
+`kind <> 'directive'`, has an embedding, not already visible in the raw message
+window, namespace in scope.
+
+**The typed graph barely participates.** `kind` and `status` are consulted only
+as binary excludes, and `fact_edges` is not consulted at all — a `supersedes`
+edge influences retrieval solely by flipping a status, while `rollup_of` and
+`relates_to` have no effect on what gets injected. This is a typed store with a
+largely type-blind ranker.
+
+That gap is visible in the measured results. The revised budget survives partly
+because it gets *restated* repeatedly, and the ranker has no frequency or
+reinforcement term to make that deliberate. Directives had to be excluded
+outright rather than down-weighted, because there was no weighting lever. And
+with no diversity term, near-duplicate facts can occupy several of the eight
+slots.
+
+Signals a fuller ranker would likely carry, none of which exist here: recency,
+`kind` weighting (a stated constraint arguably outranking an agent's own
+conclusion), edge awareness, and diversity. The contribution of this project is
+the typed, auditable *store*; retrieval is currently a thin layer over pgvector
+sitting on top of it.
+
 ### Identity
 
 A fact's id is derived from `(session_id, namespace_id, source, source_key, sha256(body))`. Content-addressed, so a LangGraph checkpoint replay re-running a capture hook writes nothing new rather than duplicating.
@@ -113,7 +153,7 @@ LangGraph ships two memory primitives: a checkpointer for thread-scoped state, a
 
 - **Explicit, dual-path capture.** User input is captured verbatim as it arrives — no extraction LLM call needed. Agent conclusions are captured only when the agent deliberately calls a `remember_fact` tool. Nothing gets written to memory the agent (or user) didn't put there.
 - **A typed fact graph, not a blob.** Facts relate to each other through typed edges — `supersedes`, `contradicts`, `relates_to`, `derived_from`, `rollup_of` — so "this replaced that" and "this summary was derived from these five facts" are first-class, queryable relationships.
-- **Durable, auditable, enforced sub-agent rollups.** LangGraph sub-agents already have isolated context — that's not the claim. The claim: when a supervisor spawns a sub-agent, its memory forks into a child namespace, and its conclusion is *required* — the adapter synthesizes a "task did not complete" fact if the sub-agent crashes or forgets, so no delegated task ever vanishes silently. The rollup summary is a durable fact (not a message that scrolls away), linked by `rollup_of` edges back to every exploration fact that produced it, so any conclusion can be audited by drill-down. Raw exploration stays in the child namespace; only the rollup reaches the parent.
+- **Durable, auditable, enforced sub-agent rollups.** LangGraph sub-agents already have isolated context — that's not the claim. The claim: when a supervisor spawns a sub-agent, its memory forks into a child namespace, and its conclusion is *required* — the adapter synthesizes a "task did not complete" fact if the sub-agent crashes or forgets, so no delegated task ever vanishes silently. The rollup summary is a durable fact (not a message that scrolls away), linked by `rollup_of` edges back to every exploration fact that produced it, so any conclusion can be audited by drill-down. Raw exploration stays in the child namespace and is **demoted, not hidden** — a parent can still reach it (see [Ranking](#ranking)), because a summary written by a small model is lossy and the detail it drops is sometimes the one you need later.
 - **Postgres-only.** No Neo4j, no separate vector database — namespaces, facts, and edges all live in one Postgres schema (`pgvector` for embeddings).
 - **Session-scoped, not identity-coupled.** The core schema is anchored on `session_id` alone — a long-lived memory scope that deliberately spans LangGraph threads, so a new conversation that continues the same work recalls everything from earlier ones. `langgraph-beads-memory` doesn't need to know what a "user" is; if an application wants a user↔session mapping, it owns that table itself.
 
@@ -124,7 +164,7 @@ It's an **agent middleware** (LangGraph's `create_agent` pre/post-model hook API
 Per turn, the middleware:
 1. Passively captures new user messages as facts (no LLM call).
 2. Keeps a sliding window of the last ~10 raw messages in context; older messages get distilled into facts as they roll off.
-3. Runs semantic search over the current namespace (plus ancestor read-through if forked) and injects the top-K relevant facts.
+3. Runs semantic search over the current namespace, its ancestors, and (for a parent) its demoted descendants, then injects the top-K relevant facts.
 
 Full schema, hook lifecycle, idempotency guarantees, and error handling are in the design spec (linked below).
 

@@ -17,6 +17,15 @@ from .ids import derive_fact_id, derive_namespace_id, random_fork_suffix
 # gap separates them. 0.55 sits near the middle.
 SUPERSEDE_MIN_SIMILARITY = float(os.environ.get("BEADS_SUPERSEDE_MIN_SIMILARITY", "0.55"))
 
+# Cosine-distance penalty added to facts from a descendant namespace, so a
+# sub-agent's raw exploration is reachable but never competes with the parent's
+# own facts on equal terms. Isolation was protecting the parent's working
+# context from noise — a ranking concern, which gets a ranking answer rather
+# than a wall. Large enough that loosely-related child chatter loses to a
+# directly relevant parent fact; small enough that a pointed question ("what was
+# that memory optimization?") still reaches a strongly-matching child fact.
+DESCENDANT_RANK_PENALTY = float(os.environ.get("BEADS_DESCENDANT_PENALTY", "0.15"))
+
 
 @dataclasses.dataclass(frozen=True)
 class Namespace:
@@ -78,6 +87,26 @@ class BeadsStore:
                 FROM namespaces n JOIN chain c ON n.id = c.parent_id
             )
             SELECT id FROM chain ORDER BY depth
+            """,
+            (namespace_id,),
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def descendant_scope(self, namespace_id: uuid.UUID) -> list[uuid.UUID]:
+        """Namespaces below this one. Parents may read their whole subtree.
+
+        Deliberately asymmetric with `ancestor_chain`: a child reads only itself
+        and its ancestors, so siblings still cannot see each other. Descendant
+        visibility is a parent privilege, not a general relaxation.
+        """
+        rows = self._conn.execute(
+            """
+            WITH RECURSIVE sub AS (
+                SELECT id FROM namespaces WHERE parent_id = %s
+                UNION ALL
+                SELECT n.id FROM namespaces n JOIN sub ON n.parent_id = sub.id
+            )
+            SELECT id FROM sub
             """,
             (namespace_id,),
         ).fetchall()
@@ -190,6 +219,13 @@ class BeadsStore:
     ) -> list[Fact]:
         """Top-k active facts by cosine similarity across self + ancestor chain.
 
+        Scope is self + ancestors + descendants. Descendant facts carry a rank
+        penalty (DESCENDANT_RANK_PENALTY) so a sub-agent's raw exploration is
+        reachable without competing on equal terms — a specific question can
+        find a specific detail, but child chatter cannot displace the parent's
+        own constraints. Siblings remain mutually invisible, since a child's
+        scope is still only itself plus its ancestors.
+
         Facts without embeddings are invisible to search. `directive` facts —
         questions, instructions, stated goals — are excluded by default: they
         rank highly against a query precisely because they resemble it, and in a
@@ -198,6 +234,7 @@ class BeadsStore:
         queryable; pass include_directives=True to retrieve them.
         """
         chain = self.ancestor_chain(namespace_id)
+        descendants = self.descendant_scope(namespace_id)
         rows = self._conn.execute(
             """
             SELECT id, namespace_id, session_id, kind, body, status, source,
@@ -208,10 +245,19 @@ class BeadsStore:
               AND (%s OR kind <> 'directive')
               AND embedding IS NOT NULL
               AND NOT (id = ANY(%s))
-            ORDER BY embedding <=> %s::vector
+            ORDER BY (embedding <=> %s::vector)
+                     + CASE WHEN namespace_id = ANY(%s) THEN %s ELSE 0 END
             LIMIT %s
             """,
-            (chain, include_directives, exclude_ids or [], query_embedding, k),
+            (
+                chain + descendants,
+                include_directives,
+                exclude_ids or [],
+                query_embedding,
+                descendants,
+                DESCENDANT_RANK_PENALTY,
+                k,
+            ),
         ).fetchall()
         return [Fact(*r) for r in rows]
 

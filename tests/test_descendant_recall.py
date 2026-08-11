@@ -29,8 +29,14 @@ def _store(conn):
 
 def _w(store, ns, body, embedder, kind="conclusion"):
     return store.write_fact(
-        ns, kind=kind, body=body, source="remember_tool", source_key=body,
-        agent_id="a", acting_on_behalf_of="user", embedding=embedder.embed(body),
+        ns,
+        kind=kind,
+        body=body,
+        source="remember_tool",
+        source_key=body,
+        agent_id="a",
+        acting_on_behalf_of="user",
+        embedding=embedder.embed(body),
     )
 
 

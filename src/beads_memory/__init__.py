@@ -1,4 +1,4 @@
-from .embeddings import Embedder, FakeEmbedder, OllamaEmbedder
+from .embeddings import Embedder, FakeEmbedder, FakeRanker, OllamaEmbedder
 from .middleware import BeadsMemoryMiddleware
 from .store import BeadsStore, Fact, Namespace
 from .subagent import make_subagent_tool
@@ -11,6 +11,7 @@ __all__ = [
     "Namespace",
     "Embedder",
     "FakeEmbedder",
+    "FakeRanker",
     "OllamaEmbedder",
     "make_subagent_tool",
     "make_remember_fact",

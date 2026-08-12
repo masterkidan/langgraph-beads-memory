@@ -31,22 +31,28 @@ DESCENDANT_RANK_PENALTY = float(os.environ.get("BEADS_DESCENDANT_PENALTY", "0.15
 # BeadsStore._cascade_supersede — because similarity alone cannot tell "$100k"
 # from "$50k".
 #
-# Chosen from the run that motivated the cascade, not by analogy. Against the
-# retired fact "the budget is $100k per year", the facts written before the
-# correction scored:
+# DELIBERATELY CONSERVATIVE, and the reason is measured. Two real runs give
+# incompatible answers, because a verbatim restatement and a paraphrased one
+# score very differently while a merely-topical fact sits between them.
 #
-#   0.720  "The annual budget for the vector database is $100,000."   stale
-#   0.681  "All three ... fall within the $100,000 annual budget"     stale
-#   0.680  "I have recorded your requirements: a $100,000 budget..."  stale
-#   ------------------------------- gap -------------------------------
-#   0.500  "Qdrant was evaluated as a vector database option..."      keep
-#   0.480  "Weaviate was evaluated as a viable option..."             keep
+#   incident, superseding "deployed at 13:50 UTC":
+#     0.973 / 0.972  "Release 2.14 was deployed at 13:50 UTC."      stale
+#     0.689          "Synthesis: the issue is the application tier"  MUST KEEP
 #
-# The lower pair merely mention the budget while being about something else;
-# retiring them would discard real findings. 0.65 sits in the gap. An earlier
-# guess of 0.75 was measured against this data and would have retired NOTHING —
-# including the restatement the answer actually cited.
-CASCADE_MIN_SIMILARITY = float(os.environ.get("BEADS_CASCADE_MIN_SIMILARITY", "0.65"))
+#   vecdb, superseding "the budget is $100k per year":
+#     0.720          "The annual budget ... is $100,000."            stale
+#     0.500          "Qdrant was evaluated as a ..."                 keep
+#
+# A threshold low enough to catch vecdb's paraphrase (0.72) would also retire
+# incident's root-cause synthesis (0.689) — deleting the finding that lets the
+# agent name the cause, which is far worse than leaving a stale value behind.
+# 0.85 catches near-verbatim restatements safely and MISSES paraphrased ones.
+#
+# So this is a partial fix, and the limitation is real: a stale value that has
+# been reworded rather than repeated still survives its supersede. Closing that
+# needs `derived_from` edges emitted at capture time, which the no-LLM hot path
+# cannot currently do. Recorded in results/README.md rather than papered over.
+CASCADE_MIN_SIMILARITY = float(os.environ.get("BEADS_CASCADE_MIN_SIMILARITY", "0.85"))
 
 
 @dataclasses.dataclass(frozen=True)

@@ -338,7 +338,32 @@ figure. Token cost improved and supersede effectiveness plausibly degraded in
 the same commit. Both effects are measured; the causal link between them is
 inference, not measurement.
 
-Candidate remedies, none yet implemented:
+**Partially fixed 2026-08-12** by cascading a supersede to *earlier* facts
+similar to the one being retired (`BeadsStore._cascade_supersede`). The time
+ordering is what makes it safe: embeddings cannot tell "$100k" from "$50k", so
+similarity alone would retire the correction itself.
+
+It is a partial fix and the gap is measured, not assumed. Two real runs demand
+incompatible thresholds:
+
+| run | stale restatement | nearest fact that must be KEPT |
+|---|---|---|
+| incident | 0.973 / 0.972 (verbatim repeat) | 0.689 — the root-cause synthesis |
+| vecdb | 0.720 (paraphrase) | 0.500 |
+
+A threshold low enough to catch vecdb's paraphrase would retire incident's
+root-cause synthesis — deleting the finding that lets the agent name the cause,
+which is worse than leaving a stale value. So the floor is 0.85: **near-verbatim
+restatements are retired, reworded ones survive.** vecdb's regression is
+therefore still open.
+
+Closing it properly needs `derived_from` edges emitted when a conclusion is
+captured, so invalidation can follow provenance instead of guessing from
+similarity. Passive capture runs in the model-call hot path and cannot afford an
+LLM to identify what a conclusion was derived from, so this is unresolved rather
+than merely unimplemented.
+
+Candidate remedies for the remaining gap:
 
 1. Demote `passive_capture` conclusions in ranking — a restatement derived
    from memory is weaker evidence than the fact it came from. Cheapest, reuses

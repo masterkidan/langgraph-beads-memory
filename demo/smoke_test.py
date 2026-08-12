@@ -70,8 +70,27 @@ def check_extraction_prereq() -> bool:
         ]
     )
     text = _strip_think(str(resp.content))
-    ok = "100k" in text and "primary sources" in text and "[" in text
-    print(f"extraction-shaped output: {'PASS' if ok else 'FAIL'} ({text[:160]})")
+    low = text.lower()
+    # Accept any surface form of the figure. A literal "100k" check FAILED
+    # qwen3.5:9b for answering ["The user\'s budget is $100,000.", "The user
+    # trusts only primary sources."] — a correct extraction of both facts.
+    # This is a gate: a false FAIL excludes a capable model from the benchmark
+    # entirely, which is a worse error than a false PASS. It is also the same
+    # bug the objective metrics already had ("50k" vs "$50,000"), never
+    # propagated here.
+    budget = any(v in low for v in ("100k", "100,000", "100000"))
+    sources = "primary source" in low
+    listish = "[" in text
+    ok = budget and sources and listish
+    if not ok:
+        missing = [
+            n
+            for n, v in (("budget", budget), ("primary-sources", sources), ("json-list", listish))
+            if not v
+        ]
+        print(f"extraction-shaped output: FAIL (missing: {', '.join(missing)}) ({text[:160]})")
+    else:
+        print(f"extraction-shaped output: PASS ({text[:160]})")
     return ok
 
 

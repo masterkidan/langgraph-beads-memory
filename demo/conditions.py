@@ -56,12 +56,24 @@ def make_read_document(scenario: Scenario):
 MAX_CONCURRENCY = int(os.environ.get("BEADS_DEMO_MAX_CONCURRENCY", "1"))
 
 
+# Bound on graph super-steps for one agent invocation. Set explicitly, and
+# identically for both conditions, so a tool-call loop terminates as a recorded
+# error instead of consuming the whole turn deadline. A measured baseline
+# investigation issued 70 manage_memory calls that persisted 3 memories — the
+# model re-inventing a rejected argument each time. That specific loop is fixed
+# at the schema (see _permissive_args_schema), but a limit is the general
+# safety net: legitimate work here is a document read plus a handful of writes
+# and a conclusion, well inside this.
+RECURSION_LIMIT = int(os.environ.get("BEADS_DEMO_RECURSION_LIMIT", "40"))
+
+
 def _config(thread_id: str, callbacks: list | None = None) -> dict:
     """Run config. `callbacks` is how the profiler observes a run; it is None in
     normal operation, so this adds no overhead to the benchmark itself."""
     config: dict = {
         "configurable": {"thread_id": thread_id},
         "max_concurrency": MAX_CONCURRENCY,
+        "recursion_limit": RECURSION_LIMIT,
     }
     if callbacks:
         config["callbacks"] = callbacks
@@ -154,12 +166,26 @@ def _permissive_args_schema(base):
             if not isinstance(data, dict):
                 return data
             data = dict(data)
-            # An absent id is valid; an empty-string id is not a UUID. Dropping
-            # it lets `create` succeed, and leaves `update`/`delete` to fail in
-            # langmem's own logic, where _crash_safe turns it into a readable
-            # ToolMessage the agent can retry from.
-            if not data.get("id"):
-                data.pop("id", None)
+
+            # An id the model invented ("incident_1", "") is not a UUID, and the
+            # model reliably re-invents the same one when told so — measured as
+            # 70 manage_memory calls yielding 3 persisted memories, a retry loop
+            # that consumed an entire 17-minute turn. Treat an unusable id as
+            # "no id": the intent was to record something new.
+            raw_id = data.get("id")
+            if raw_id is not None:
+                try:
+                    uuid.UUID(str(raw_id))
+                except (ValueError, AttributeError, TypeError):
+                    data.pop("id", None)
+                    # An update/delete without a target is meaningless; what the
+                    # model wanted was to write this down.
+                    if data.get("action") in ("update", "delete"):
+                        data["action"] = "create"
+
+            if data.get("action") not in ("create", "update", "delete"):
+                data["action"] = "create"
+
             content = data.get("content")
             if isinstance(content, dict):
                 data["content"] = "\n".join(f"{k}: {v}" for k, v in content.items())
@@ -349,7 +375,14 @@ def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Ar
         )
 
         def _run(task: str) -> str:
-            result = researcher.invoke({"messages": [("user", task)]})
+            # Same bounded config the treatment's sub-agents get. Without it
+            # this invocation used LangGraph's default recursion limit while
+            # the treatment used the harness's — an asymmetry in how long a
+            # runaway sub-agent may run, which has nothing to do with memory.
+            result = researcher.invoke(
+                {"messages": [("user", task)]},
+                _config(f"sub-{uuid.uuid4()}"),
+            )
             return str(result["messages"][-1].content)
 
         return StructuredTool.from_function(

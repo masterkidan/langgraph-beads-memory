@@ -161,6 +161,16 @@ PLANTED = {
         "cannot be causal",
         "not contributing",
         "did not contribute",
+        # Observed in real output and initially misread as a re-proposal:
+        # "...were all within acceptable thresholds", "no database layer issues
+        # were identified".
+        "within acceptable",
+        "acceptable thresholds",
+        "no issues",
+        "issues were identified",
+        "nothing anomalous",
+        "within threshold",
+        "within normal",
     ],
     # The cause that survives.
     "surviving_cause_variants": [

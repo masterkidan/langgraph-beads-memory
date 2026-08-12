@@ -6,6 +6,8 @@ exactly the failure mode available here, so the distinction between recalling an
 elimination and re-proposing it is pinned down in both directions.
 """
 
+import pytest
+
 from demo.metrics_incident import incident_carry, numeric_grounding, reproposes_ruled_out
 
 
@@ -117,3 +119,46 @@ class TestIncidentCarry:
     def test_reproposed_causes_are_recorded_for_inspection(self):
         c = incident_carry(next_steps="Next: check the connection pool.", buried="", breadth="")
         assert c["_reproposed"] == ["connection pool"]
+
+
+class TestReproposalOnRealProse:
+    """Sentences taken verbatim from real runs.
+
+    Every one of these was, at some point, scored wrongly. They are pinned here
+    because the metric decides demo 2's headline result, and a false positive
+    on it manufactures a separation that does not exist -- which is exactly
+    what happened in an N=1 calibration run before these landed.
+    """
+
+    REAL_RECALLS = [
+        # Scored as a re-proposal because "within acceptable thresholds" was not
+        # in the elimination vocabulary. It is a correct recall.
+        "Connection pool exhaustion, query performance, replication lag, and "
+        "autovacuum activity were all within acceptable thresholds.",
+        # Scored as a re-proposal because the window contained "the CHECKOUT
+        # service's own response time" and "check" was matched as a substring --
+        # the same prefix-matching bug as classify_fragment's "Checkout"/"check".
+        "The latency is due to the checkout service's own response time, not "
+        "transport delay. No database layer issues were identified. Connection "
+        "pool exhaustion was within acceptable thresholds.",
+    ]
+
+    @pytest.mark.parametrize("text", REAL_RECALLS)
+    def test_correct_recall_is_not_flagged(self, text):
+        assert reproposes_ruled_out(text.lower())["any"] is False
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Next steps: 1. Check the connection pool for exhaustion.",
+            "I recommend we investigate DNS resolution end to end.",
+            "We should re-examine the connection pool.",
+        ],
+    )
+    def test_genuine_reproposals_are_still_caught(self, text):
+        assert reproposes_ruled_out(text.lower())["any"] is True
+
+    def test_checkout_does_not_read_as_the_verb_check(self):
+        """Word boundaries, not substrings -- learned twice on this project."""
+        text = "The checkout service is slow; connection pool exhaustion was eliminated."
+        assert reproposes_ruled_out(text)["any"] is False

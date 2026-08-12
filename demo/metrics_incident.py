@@ -36,12 +36,73 @@ def _numbers(text: str) -> set[str]:
     return set(_NUM.findall(text))
 
 
-def _window_has_marker(text: str, start: int, end: int, radius: int = 140) -> bool:
-    """Is this mention marked as an elimination by nearby language?"""
-    lo = max(0, start - radius)
-    hi = min(len(text), end + radius)
-    window = text[lo:hi]
-    return any(m in window for m in PLANTED["elimination_markers"])
+# Language that puts a cause back on the to-do list. This is the narrow
+# vocabulary; "ruled out" has an open-ended number of paraphrases and the first
+# version of this metric tried to enumerate them. It produced a FALSE POSITIVE
+# on real output — "Connection pool exhaustion, query performance, replication
+# lag, and autovacuum activity were all within acceptable thresholds" is a
+# correct recall of an elimination, and was scored as a re-proposal because
+# that phrasing was not in the list. That single call was the entire evidence
+# for the headline separation in an N=1 run.
+_PROPOSAL_MARKERS = (
+    "check",
+    "re-check",
+    "recheck",
+    "investigate",
+    "look at",
+    "look into",
+    "examine",
+    "re-examine",
+    "reexamine",
+    "inspect",
+    "verify",
+    "revisit",
+    "try ",
+    "next step",
+    "we should",
+    "recommend",
+    "suggest",
+    "test ",
+    "monitor",
+    "action item",
+    "to do",
+    "todo",
+)
+
+
+def _window(text: str, start: int, end: int, radius: int = 140) -> str:
+    return text[max(0, start - radius) : min(len(text), end + radius)]
+
+
+def _marker_re(markers) -> re.Pattern:
+    """Whole-word alternation over a marker list.
+
+    Word boundaries are not optional here. Substring matching flagged a correct
+    recall as a re-proposal because the window contained "the CHECKOUT service's
+    own response time" and "check" is a proposal marker. This is the same bug
+    class that made `classify_fragment` read "Checkout p99 latency..." as an
+    imperative — a lesson evidently worth learning twice.
+    """
+    alts = sorted((m.strip() for m in markers), key=len, reverse=True)
+    return re.compile(r"\b(?:" + "|".join(re.escape(a) for a in alts) + r")\b")
+
+
+_PROPOSAL_RE = _marker_re(_PROPOSAL_MARKERS)
+_ELIMINATION_RE = _marker_re(PLANTED["elimination_markers"])
+
+
+def _reads_as_proposal(text: str, start: int, end: int) -> bool:
+    """Does this mention read as "let's go do it" rather than "we did it"?
+
+    Deliberately conservative: a mention is a re-proposal only when proposal
+    language is nearby AND no elimination language is. Anything ambiguous
+    counts as recall, so the metric under-detects rather than penalising an
+    answer for how it happens to phrase a rule-out.
+    """
+    window = _window(text, start, end)
+    if _ELIMINATION_RE.search(window):
+        return False
+    return bool(_PROPOSAL_RE.search(window))
 
 
 def reproposes_ruled_out(answer: str) -> dict:
@@ -52,11 +113,15 @@ def reproposes_ruled_out(answer: str) -> dict:
     language anywhere near it, which reads as a live proposal.
 
     HEURISTIC, with known limits, stated because demo 1's lesson was that
-    literal metrics quietly overclaim:
+    literal metrics quietly overclaim. It is tuned to UNDER-detect:
       - A mention framed as a proposal but sitting close to an unrelated
         elimination sentence scores as recalled (false negative).
-      - An elaborate re-derivation of why something was eliminated, phrased
-        without any marker term, scores as re-proposed (false positive).
+      - A re-proposal phrased without any of the proposal verbs — "the
+        connection pool remains a candidate" — scores as recalled (false
+        negative).
+    The opposite error was measured and removed: keying on elimination
+    vocabulary flagged "...were all within acceptable thresholds" as a
+    re-proposal, penalising a correct recall for its phrasing.
     Every flagged answer is therefore recorded in full in the run JSON so a
     disagreement can be checked by reading it, and the judge sees the same
     answers independently.
@@ -66,7 +131,7 @@ def reproposes_ruled_out(answer: str) -> dict:
     for cause, variants in PLANTED["ruled_out_terms"].items():
         for variant in variants:
             for m in re.finditer(re.escape(variant), low):
-                if not _window_has_marker(low, m.start(), m.end()):
+                if _reads_as_proposal(low, m.start(), m.end()):
                     offenders.append(cause)
                     break
             if cause in offenders:

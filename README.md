@@ -272,6 +272,25 @@ the database showed only **one of three runs** was actually attributable to the
 feature under test; the rest was variance in what sub-agents chose to summarise.
 Single-metric movements of 1/3 at this N are not distinguishable from noise.
 
+> **⚠ These numbers may be measuring the model, not the architecture.**
+> Every round above ran on `qwen3:8b`. In a first clean run on `gemma4:12b`
+> (2026-08-12) the **baseline carried the revised budget correctly** — the
+> metric that is 0/3 for the baseline in every qwen3 round and forms the
+> headline separation here. It also committed to a feasible option, which it
+> never did on qwen3.
+>
+> That is a single run and not yet a refutation. But it is enough that the
+> "0/3 vs 3/3" framing should not be read as an architectural result until it
+> is re-tested at N>1 on a stronger model. A capable model plus a flat blob
+> store may track a single correction across threads perfectly well, in which
+> case what this library buys is bounded context cost and audit provenance —
+> not recall the model could manage on its own.
+>
+> Several other bugs found on 2026-08-12 also degraded only the baseline
+> (empty sub-agent returns, tool calls rejected at the schema boundary, a retry
+> loop). All are fixed, and all of them ran during the rounds above. See
+> [results/README.md](results/README.md).
+
 The scenario was designed to exercise this mechanism, so treat it as a
 demonstration on a case built for it. Full numbers, the attribution analysis and
 every disclosed correction are in

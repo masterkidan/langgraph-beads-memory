@@ -150,6 +150,38 @@ An aborted qwen3:4b attempt is kept in `aborted-4b/` — it wrote ~12,000 output
 tokens per run against 8b's ~1,400 and was reverted. It is not pooled with
 anything.
 
+## A caveat that may supersede all of the above
+
+Every round in the index ran on `qwen3:8b`. On 2026-08-12 a first clean run on
+`gemma4:12b` had the **baseline carry the revised budget correctly** — the
+metric that is 0/3 for the baseline in all four qwen3 rounds and is the
+headline separation of this whole comparison. The same baseline also committed
+to a feasible option, which it never managed on qwen3.
+
+One run is not a refutation, and the paired treatment arm in that run was
+confounded (it delegated on a turn that only states constraints, so the two
+arms did not run the same experiment). But the direction is clear enough to
+state: **part of the measured advantage here may be a measurement of
+`qwen3:8b`'s limitations rather than of memory architecture.**
+
+What would survive a stronger model regardless: bounded context cost —
+injection is k facts per turn no matter how much the session accumulates —
+and audit provenance. What may not: recall separations that a more capable
+model achieves on its own from a flat store.
+
+Two further lessons from the model change, both cheap to repeat and expensive
+to skip:
+
+- **Prompts are model-tuned.** Every delegation rule in both scenarios was
+  shaped against qwen3's failure modes. gemma4:12b ignored them and delegated
+  three researchers on a constraints-only turn (602s versus 33s). Trace the
+  opening turn of every scenario after any model change.
+- **Four of the bugs found while validating demo 2 degraded only the baseline.**
+  The treatment captures passively and enforces its own sub-agent contract, so
+  it fails gracefully exactly where the baseline needs the model to get a tool
+  call right. A comparison that does not repair those is measuring the model's
+  tool-calling, not the architecture.
+
 ## Method
 
 One scripted narrative, run identically under two conditions. The **only**

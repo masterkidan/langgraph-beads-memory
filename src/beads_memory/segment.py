@@ -64,6 +64,36 @@ def _looks_like_clause(text: str) -> bool:
     return any(v in padded for v in _CLAUSE_VERBS)
 
 
+_HAS_DIGIT = re.compile(r"\d")
+
+
+def is_substantive(fragment: str) -> bool:
+    """Is this fragment worth storing as a retrievable fact?
+
+    Conversational frame is not memory. Measured on a real run: "New shift
+    taking over." was the **top-ranked** fact injected for the question "what
+    should we try next", closer to the query than anything in the store that
+    actually answered it, with "Given everything we've established" second.
+    Between them they consumed two of eight injection slots with no content.
+    They rank highly precisely because they echo the phrasing of the question —
+    similarity search rewards restating a question over answering it.
+
+    The test is deliberately two-sided, because a stricter one was measured and
+    rejected. Requiring a clause verb alone would have dropped "Checkout p99
+    latency went from 180ms to 4.2s" and "Correction on the timeline: the
+    deploy actually went out at 13:20 UTC" — the incident's central symptom and
+    the correction the whole `supersedes` mechanism is meant to carry — because
+    `_CLAUSE_VERBS` knows copulas and modals but not "went" or "deployed".
+
+    So a fragment is substantive if it asserts (has a clause verb) OR carries a
+    figure. That keeps every stated constraint ("it must be self-hostable",
+    "I only trust primary benchmark data") and every measurement, while
+    discarding pure discourse framing. Directives are exempt: they are held out
+    of retrieval already and are kept for provenance.
+    """
+    return _looks_like_clause(fragment) or bool(_HAS_DIGIT.search(fragment))
+
+
 def _split_enumeration(sentence: str) -> list[str]:
     """Split one sentence on enumeration separators, then re-join fragments that
     cannot stand alone."""

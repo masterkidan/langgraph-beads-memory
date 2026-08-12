@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .embeddings import Embedder
 from .ids import content_key, derive_fact_id, short_id
-from .segment import DIRECTIVE, classify_fragment, split_into_facts
+from .segment import DIRECTIVE, classify_fragment, is_substantive, split_into_facts
 from .store import BeadsStore, Namespace
 from .tools import make_recall_from_subagents, make_remember_fact
 
@@ -72,9 +72,20 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         whole = str(msg.content)
         fragments = split_into_facts(whole)
         base_key = msg.id or content_key(whole)
-        if len(fragments) == 1:
-            return [(base_key, fragments[0])]
-        return [(f"{base_key}#{i}", body) for i, body in enumerate(fragments)]
+        specs = (
+            [(base_key, fragments[0])]
+            if len(fragments) == 1
+            else [(f"{base_key}#{i}", body) for i, body in enumerate(fragments)]
+        )
+        # Drop conversational framing before it becomes memory. A directive is
+        # kept regardless: it is already held out of retrieval and is the
+        # provenance of downstream choices. See segment.is_substantive for the
+        # measured reason — "New shift taking over." outranked every real fact
+        # for the query "what should we try next".
+        keep = [(k, b) for k, b in specs if classify_fragment(b) == DIRECTIVE or is_substantive(b)]
+        # Never let filtering silence a message entirely; a message made only of
+        # framing still gets recorded whole rather than vanishing from the trail.
+        return keep or [(base_key, whole)]
 
     def _capture_user_message(self, msg) -> None:
         """Capture a user message as one fact per distinct claim.

@@ -23,6 +23,7 @@ from beads_memory.segment import (
     DIRECTIVE,
     STATEMENT,
     classify_fragment,
+    is_substantive,
     split_into_facts,
 )
 
@@ -183,3 +184,42 @@ class TestLeadingConjunctions:
     def test_a_word_merely_starting_with_a_conjunction_is_untouched(self):
         assert classify_fragment("Android adoption rose 12%") == STATEMENT
         assert classify_fragment("Soaring costs forced a rethink") == STATEMENT
+
+
+class TestSubstantiveness:
+    """Conversational framing must not become retrievable memory.
+
+    MEASURED: for the query "what should we try next", the top-ranked injected
+    fact was "New shift taking over." — closer to the query than anything that
+    answered it — with "Given everything we've established" second. Two of eight
+    slots, no content. They rank high precisely because they echo the question.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "New shift taking over.",
+            "Given everything we've established",
+            "One more thing for the postmortem",
+        ],
+    )
+    def test_pure_framing_is_not_substantive(self, text):
+        assert is_substantive(text) is False
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # Would have been dropped by a clause-verb-only test: "went" and
+            # "deployed" are not in _CLAUSE_VERBS. The second is the correction
+            # the whole supersedes mechanism exists to carry.
+            "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC",
+            "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50.",
+            "We deployed release 2.14 at 13:50 UTC.",
+            # Constraints carry no figures and must survive on the clause test.
+            "it must be self-hostable",
+            "I only trust primary benchmark data we measured ourselves",
+            "we are not taking a full outage to fix this.",
+        ],
+    )
+    def test_real_facts_survive(self, text):
+        assert is_substantive(text) is True

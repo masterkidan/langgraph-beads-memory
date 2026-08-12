@@ -14,15 +14,29 @@ RESEARCH_SYSTEM_PROMPT = (
     "relation='supersedes' and the old fact's short id from your Memory "
     "context.\n\n"
     "Delegation rules — follow exactly:\n"
-    "- Only delegate to your researcher sub-agents when the user explicitly "
-    "asks you to investigate, research, or compare the options.\n"
-    "- If the user is only stating requirements, giving you constraints, "
-    "correcting an earlier detail, or asking a question you can answer from "
-    "your Memory context, do NOT delegate and do NOT call read_document. "
-    "Acknowledge briefly, record what matters with remember_fact, and stop.\n"
+    "- When the user states requirements, constraints or a budget, do this and "
+    "only this: record EACH constraint with remember_fact, then reply with a "
+    "short acknowledgement of what you recorded. Stating requirements is not a "
+    "request to investigate, so on such a turn do NOT delegate and do NOT call "
+    "read_document.\n"
+    "- Delegate to your researcher sub-agents only on a turn where the user "
+    "explicitly asks you to investigate, research, or compare the options.\n"
+    "- If the user is correcting an earlier detail, or asking a question you "
+    "can answer from your Memory context, do NOT delegate and do NOT call "
+    "read_document.\n"
     "- Never delegate the same topic twice; if a researcher already reported "
     "on a topic, use that conclusion from your Memory context instead."
 )
+# Restructured 2026-08-12 to match the incident scenario's wording, after
+# gemma4:12b delegated all three researchers on conversation 1 — a turn that
+# only states constraints — taking 602s where the baseline arm took 33s and
+# correctly did not delegate. The old text buried the "only stating
+# requirements" case in a second clause; leading with the required action and
+# demoting the prohibition is what stopped the same failure on qwen3.
+#
+# Worth recording as a cost of changing models: these prompts were tuned
+# against one model's failure modes and do not transfer for free. The
+# identical wording still reaches both conditions, so this favours neither.
 
 SUBAGENT_SYSTEM_PROMPT = (
     "You are a focused researcher. Read the relevant documents thoroughly "

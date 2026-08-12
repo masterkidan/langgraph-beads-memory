@@ -146,3 +146,40 @@ class TestOpenerWordBoundaries:
         the switch to whole-word matching — unpunctuated verb-initial questions
         are exactly why they were added."""
         assert classify_fragment(text) == DIRECTIVE
+
+
+class TestLeadingConjunctions:
+    """A follow-up turn often opens with a conjunction. It is not part of the
+    speech act, so it must not change the classification.
+
+    This replaced a hard-coded "and remind" opener added for one demo-1
+    question; the general rule covers that case and the ones it missed.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "And list everything we investigated and ruled out",
+            "And remind me what we ruled out",
+            "So tell me the next step",
+            "Then check the connection pool",
+            "But explain why it was excluded",
+        ],
+    )
+    def test_conjunction_does_not_hide_a_directive(self, text):
+        assert classify_fragment(text) == DIRECTIVE
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "And the budget is $50k per year",
+            "But Checkout latency stayed flat",
+            "Also the deploy went out at 13:20",
+        ],
+    )
+    def test_conjunction_does_not_turn_a_statement_into_a_directive(self, text):
+        assert classify_fragment(text) == STATEMENT
+
+    def test_a_word_merely_starting_with_a_conjunction_is_untouched(self):
+        assert classify_fragment("Android adoption rose 12%") == STATEMENT
+        assert classify_fragment("Soaring costs forced a rethink") == STATEMENT

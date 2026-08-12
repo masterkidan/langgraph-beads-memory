@@ -194,7 +194,6 @@ _INTERROGATIVE_OPENERS = (
     "shall ",
     "may ",
     "might ",
-    "and remind",
 )
 
 # First-person intent framing: "we need to X", "I want you to X" are goals, not
@@ -220,6 +219,21 @@ def _first_word(lowered: str) -> str:
     """The first alphabetic word, so punctuation and digits do not hide it."""
     m = _WORD.search(lowered)
     return m.group(0) if m else ""
+
+
+# A turn often continues the previous one ("And list everything we ruled out").
+# The conjunction is not part of the speech act, so it is stripped before
+# classifying. This generalises what used to be a single hard-coded phrase,
+# "and remind", added for one demo-1 question; without it "And list ..." and
+# "So tell me ..." were captured as assertions.
+_LEADING_CONJUNCTIONS = ("and", "but", "so", "then", "also", "plus")
+
+
+def _strip_leading_conjunction(lowered: str) -> str:
+    first = _first_word(lowered)
+    if first in _LEADING_CONJUNCTIONS:
+        return lowered[lowered.index(first) + len(first) :].lstrip(" ,;-—")
+    return lowered
 
 
 def _split_openers(openers: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:
@@ -263,6 +277,7 @@ def classify_fragment(text: str) -> str:
 
     if stripped.endswith("?"):
         return DIRECTIVE
+    lowered = _strip_leading_conjunction(lowered)
     # Multi-word prefixes ("i want to", "we need to") are phrases, so a plain
     # prefix test is right for these.
     if any(lowered.startswith(p) for p in _INTENT_PREFIXES):

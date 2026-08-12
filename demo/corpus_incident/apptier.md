@@ -24,9 +24,9 @@ Requests then queued at the acceptor, which is what turned a 3.9s
 dependency into a 4.2s user-visible p99 and produced the 7% error rate as
 queued requests aged out.
 
-## Ruled out within this tier
+## Secondary checks within this tier
 Heap usage was stable at 61%. GC pause p99 was 12ms, unchanged. No memory
-leak signature.
+leak signature. These are secondary checks only and do not clear the tier.
 
 ## Reversibility
 `checkout.fraud_scoring_v2` can be disabled at runtime through the flag
@@ -34,5 +34,6 @@ service. It takes effect in seconds and requires no deploy and no restart.
 A full rollback of 2.14 is also possible but takes roughly 25 minutes.
 
 ## Assessment
-This is the cause. The synchronous fraud-scoring call introduced in 2.14
-put a 3.9s p99 dependency in the checkout hot path with no circuit breaker.
+**Conclusion: the synchronous fraud-scoring call added in release 2.14 IS THE
+CAUSE of the latency spike and error-rate increase.** It put a 3.9s p99
+dependency in the checkout hot path with no circuit breaker and no fallback.

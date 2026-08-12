@@ -134,6 +134,21 @@ are repaired. The pre-registered predictions were written before those repairs,
 so if anything they were written against a weaker baseline than the one that
 will actually run.
 
+**2026-08-11 — apptier.md made structurally parallel.** The apptier
+investigator recorded ZERO conclusions on **both** qwen3:8b and gemma4:12b,
+while db and network concluded reliably on both. Inspection found the cause was
+mine, not the model's: db.md and network.md each carried an explicit bolded
+`**Conclusion: ... RULED OUT.**` line, and apptier.md carried none — its bottom
+line was buried in an unmarked "Assessment" paragraph. The document holding the
+actual root cause was the only one without a quotable conclusion.
+
+apptier.md now states its conclusion the same way the other two do, and its
+"Ruled out within this tier" heading (heap/GC) is renamed to "Secondary
+checks", since an investigator could reasonably read the old heading as
+clearing the whole tier. Both arms read the same corpus, so this helps them
+equally; it removes an asymmetry rather than creating one. No prediction
+changed.
+
 ## Committed limitations
 
 - N=5, one model (`qwen3:8b`), one machine. Demo 1 showed three identical runs

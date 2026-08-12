@@ -46,6 +46,35 @@ Three separate effects, not one:
 2. **A system prompt is replaced; a tool result persists.** This is the structural one — the baseline pays for its recall again on every subsequent call in the same turn.
 3. **Recall needs no tool call.** The baseline must decide to search, spend a call on it, then reason over the result. Here the facts are already in front of the model.
 
+### Retrieval cost is constant, not cumulative
+
+The injected block is **k facts per call, whatever the store holds**. Measured
+across the two scenarios, while the store grew by an order of magnitude:
+
+| | store grew to | injected per call |
+|---|---|---|
+| incident | 9,250 chars (12×) | 8 facts · 596–961 chars |
+| vecdb | 7,655 chars (10×) | 8 facts · 522–1,065 chars |
+
+Injection stops tracking the store the moment there are more than `k` facts to
+choose from. Recall cost is set by `k` and by how big a single claim is — both
+constants — so a session can accumulate indefinitely without the per-turn bill
+following it.
+
+**Be precise about what this does and does not beat.** `search_memory` is also
+bounded per call, by *document count*. The difference is what each bound is on:
+
+```
+stock       N documents × (whatever size the agent chose to save)   ← unbounded per item
+fact graph  k claims    × (one claim)                               ← bounded by construction
+```
+
+In these runs the baseline's documents happened to be small and uniform, so its
+payload was near-constant too (spread of 57 chars). Its ceiling is soft: save
+bigger blobs and retrieval grows. Per-claim capture makes ours hard — a claim is
+a claim. Which ceiling actually binds first is what the scale scenario is for,
+and it is untested until then.
+
 *Caveat:* this library also trims the message window to the last 10 messages. In these turns (2–4 calls each) that almost certainly never binds, so it is unlikely to be contributing — but it has not been isolated, and it would matter in longer turns.
 
 **Measured token cost (N=3): this library used ~36% *fewer* input tokens** (11,587 vs 18,184 mean), consistently across all three runs. An earlier single run had suggested the opposite (~46% more); that run predated a scenario fix and is superseded. Injecting a compact, relevance-ranked fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. The direction has held in every round since that fix; the magnitude has not (~45% in the previous round), so treat it as "cheaper, not dramatically so". Output tokens are near parity and in the latest round slightly higher here (1,424 vs 1,334) — more recalled material to cite makes for longer answers.

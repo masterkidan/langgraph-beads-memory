@@ -235,3 +235,50 @@ def test_directives_are_captured_but_not_injected(conn, embedder):
         include_directives=True,
     )
     assert any(h.kind == "directive" for h in hits)
+
+
+# --------------------------------------------------------------------------
+# The agent's own answers were 58% of everything stored — 7 facts, 5,944
+# chars, largest 1,925 — against 2,457 chars of actual sub-agent findings.
+# They were captured WHOLE while user messages were split per claim, which is
+# an inconsistency in our own capture logic, not a property of the domain.
+# --------------------------------------------------------------------------
+
+
+def test_final_answer_is_split_per_claim_like_a_user_message(conn, embedder):
+    store, ns, mw = _mw(conn, embedder)
+    answer = (
+        "Connection pool exhaustion is ruled out. "
+        "The fraud-scoring call introduced in 2.14 is the cause. "
+        "We recommend disabling the feature flag."
+    )
+    mw.after_model({"messages": [AIMessage(answer, id="a1")]}, None)
+    facts = store.facts_in_namespace(ns.id)
+    assert len(facts) == 3, [f.body for f in facts]
+    assert all(f.kind == "conclusion" for f in facts)
+    # No fact is the whole blob: that is what averaged one embedding across
+    # every topic and consumed most of a top-K injection budget.
+    assert max(len(f.body) for f in facts) < len(answer)
+
+
+def test_restating_a_conclusion_does_not_accumulate_copies(conn, embedder):
+    """Keyed by content, not message id.
+
+    An agent restating a conclusion it already reached is not new information.
+    Keying on the message id meant every turn added another copy, which is how
+    the store filled with the agent re-reading its own prose.
+    """
+    store, ns, mw = _mw(conn, embedder)
+    claim = "The fraud-scoring call introduced in 2.14 is the cause."
+    mw.after_model({"messages": [AIMessage(claim, id="a1")]}, None)
+    mw.after_model({"messages": [AIMessage(claim, id="a2")]}, None)  # different message
+    assert len(store.facts_in_namespace(ns.id)) == 1
+
+
+def test_framing_in_an_answer_is_not_stored(conn, embedder):
+    store, ns, mw = _mw(conn, embedder)
+    mw.after_model(
+        {"messages": [AIMessage("Here is the summary. New shift taking over.", id="a")]}, None
+    )
+    bodies = [f.body for f in store.facts_in_namespace(ns.id)]
+    assert "New shift taking over." not in bodies

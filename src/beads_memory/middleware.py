@@ -119,18 +119,49 @@ class BeadsMemoryMiddleware(AgentMiddleware):
 
     # -- write path 4: passive final-answer capture (root only) -------------
     def after_model(self, state, runtime):
+        """Capture the agent's answer the same way a user message is captured.
+
+        This used to store the whole answer as ONE fact, while user messages
+        were split per claim. That inconsistency was ours, and it dominated the
+        store. Measured on a real run: the root's own previous answers were
+        **58% of all stored text** — 7 facts, 5,944 characters, the largest
+        1,925 — against 2,457 characters of actual sub-agent findings.
+
+        Three consequences, all observed:
+
+        - One embedding averaged over an entire multi-topic answer, which is the
+          exact dilution splitting exists to prevent, applied to only one side.
+        - Token bloat. A 1,925-character fact is ~500 tokens; two or three in a
+          top-8 consume most of the injection budget, which is why the treatment
+          spent MORE input tokens than a flat-blob baseline.
+        - A feedback loop. The answer is derived FROM memory, written back INTO
+          memory, then retrieved and re-read as evidence. A hallucination ("the
+          application tier is not the cause") became a durable fact and was
+          repeated in every later turn.
+
+        Splitting plus a content-derived key fixes all three: claims become
+        individually retrievable, restating a claim collapses onto the same
+        fact id instead of accumulating another copy, and framing is dropped.
+        """
         if not self.capture_final:
             return None
         messages = state["messages"]
         last = messages[-1] if messages else None
-        if isinstance(last, AIMessage) and not last.tool_calls and str(last.content).strip():
-            body = str(last.content)
+        if not (isinstance(last, AIMessage) and not last.tool_calls and str(last.content).strip()):
+            return None
+        whole = str(last.content)
+        for body in split_into_facts(whole):
+            if not is_substantive(body):
+                continue
             self.store.write_fact(
                 self.namespace,
                 kind="conclusion",
                 body=body,
                 source="passive_capture",
-                source_key=last.id or content_key(body),
+                # Content-derived, NOT the message id. An agent restating a
+                # conclusion it already reached is not a new fact, and keying on
+                # the message id meant every turn added another copy.
+                source_key=content_key(body),
                 agent_id=self.agent_id,
                 acting_on_behalf_of=self.acting_on_behalf_of,
                 embedding=self.embedder.embed(body),

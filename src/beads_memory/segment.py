@@ -46,6 +46,41 @@ _CLAUSE_VERBS = (
     " uses ",
     " costs ",
     " cost ",
+    # Assertion and finding verbs. Added when splitting was extended to agent
+    # conclusions: the list knew copulas and modals but not the verbs a
+    # conclusion is actually written with, so "I recommend pgvector." — an
+    # unambiguous conclusion — was discarded as insubstantial. The same gap hid
+    # "Checkout p99 latency WENT from 180ms to 4.2s" on the capture side.
+    " recommend ",
+    " recommends ",
+    " suggest ",
+    " suggests ",
+    " found ",
+    " identified ",
+    " concluded ",
+    " concludes ",
+    " shows ",
+    " showed ",
+    " indicates ",
+    " indicated ",
+    " confirms ",
+    " confirmed ",
+    " ruled ",
+    " remains ",
+    " stayed ",
+    " went ",
+    " deployed ",
+    " introduced ",
+    " caused ",
+    " occurred ",
+    " measured ",
+    " increased ",
+    " decreased ",
+    " rose ",
+    " fell ",
+    " peaked ",
+    " disable ",
+    " roll ",
 )
 
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")

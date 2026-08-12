@@ -33,7 +33,7 @@ wait_for_ollama() {
   # wedged server, so only a real generation proves it can serve.
   for _ in $(seq 1 20); do
     code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
-      -d '{"model":"qwen3:8b","prompt":"hi","stream":false,"options":{"num_predict":3}}' \
+      -d '{"model":"gemma4:12b","prompt":"hi","stream":false,"options":{"num_predict":3}}' \
       http://localhost:11434/api/generate 2>/dev/null || true)
     [ "$code" = "200" ] && return 0
     sleep 5

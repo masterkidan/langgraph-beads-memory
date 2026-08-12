@@ -1,5 +1,6 @@
 import pytest
 
+from beads_memory.embeddings import FakeRanker
 from beads_memory.store import BeadsStore
 
 
@@ -283,3 +284,155 @@ def test_supersedes_allowed_when_an_embedding_is_missing(conn, embedder):
     )  # no embedding
     src = _f(store, ns, "the budget is now 50k", embedder)
     assert store.add_edge(src.id, target.id, "supersedes") is True
+
+
+# --------------------------------------------------------------------------
+# Cascading a supersede to earlier restatements.
+#
+# MEASURED FAILURE: a user corrected a budget $100k -> $50k. The correction
+# fired and the original was retired, but four DERIVED claims stayed active,
+# each still asserting $100,000, and the answer cited the stale figure.
+# --------------------------------------------------------------------------
+
+
+def _seed(conn, ranker):
+    """A target fact, an earlier restatement of it, and an unrelated fact."""
+    store = BeadsStore(conn)
+    store.init_schema()
+    ns = store.get_or_create_namespace("cascade-s")
+    target = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is $100k per year",
+        source="passive_capture",
+        source_key="t",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.query("budget"),
+    )
+    restatement = store.write_fact(
+        ns,
+        kind="conclusion",
+        body="The annual budget is $100,000.",
+        source="passive_capture",
+        source_key="r",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.92),
+    )
+    unrelated = store.write_fact(
+        ns,
+        kind="conclusion",
+        body="pgvector is a Postgres extension.",
+        source="remember_tool",
+        source_key="u",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.20),
+    )
+    return store, ns, target, restatement, unrelated
+
+
+def _status(conn, fact_id):
+    return conn.execute("SELECT status FROM facts WHERE id=%s", (fact_id,)).fetchone()[0]
+
+
+def test_cascade_retires_an_earlier_restatement_of_the_stale_value(conn):
+    ranker = FakeRanker()
+    store, ns, target, restatement, unrelated = _seed(conn, ranker)
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is $50k per year",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.88),
+    )
+    assert store.add_edge(correction.id, target.id, "supersedes") is True
+    assert _status(conn, target.id) == "superseded"
+    assert _status(conn, restatement.id) == "superseded"  # the whole point
+    assert _status(conn, unrelated.id) == "active"  # must not over-retire
+
+
+def test_cascade_never_retires_the_correction_itself(conn):
+    """Similarity alone cannot tell $100k from $50k, so the correction scores
+    highly against the fact it replaces. Only the created_at ordering keeps it
+    alive."""
+    ranker = FakeRanker()
+    store, ns, target, _restatement, _unrelated = _seed(conn, ranker)
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is $50k per year",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.95),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, correction.id) == "active"
+
+
+def test_cascade_records_an_edge_so_the_retirement_is_auditable(conn):
+    ranker = FakeRanker()
+    store, ns, target, restatement, _ = _seed(conn, ranker)
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is $50k per year",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.88),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    n = conn.execute(
+        "SELECT count(*) FROM fact_edges WHERE from_fact_id=%s AND to_fact_id=%s"
+        " AND relation='supersedes'",
+        (correction.id, restatement.id),
+    ).fetchone()[0]
+    assert n == 1
+
+
+def test_no_cascade_when_the_ablation_disables_retirement(conn):
+    ranker = FakeRanker()
+    store = BeadsStore(conn, retire_superseded=False)
+    store.init_schema()
+    ns = store.get_or_create_namespace("cascade-abl")
+    target = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is $100k per year",
+        source="passive_capture",
+        source_key="t",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.query("budget"),
+    )
+    restatement = store.write_fact(
+        ns,
+        kind="conclusion",
+        body="The annual budget is $100,000.",
+        source="passive_capture",
+        source_key="r",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.92),
+    )
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the budget is $50k per year",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.88),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, target.id) == "active"
+    assert _status(conn, restatement.id) == "active"

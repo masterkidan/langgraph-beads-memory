@@ -8,13 +8,16 @@ from langchain_ollama import ChatOllama
 
 from demo.resilient import CHAT_TIMEOUT_S, ensure_healthy
 
-# qwen3:8b. 4b was tried and reverted: despite reasoning=False it writes long
-# chain-of-thought into its responses ("Okay, let me figure out what's going on
-# here..."), producing ~12,000 output tokens per run against 8b's ~1,400. Turns
-# took 200s+ and hit the 900s deadline. An earlier microbenchmark suggested 4b
-# was ~1.8x faster, but that capped num_predict at 250, which hid the verbosity
-# in exactly the open-ended agent turns where it matters.
-MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
+# gemma4:12b is the default because qwen3 was retired from the benchmark on
+# 2026-08-12 and its weights removed. The benchmark set is now gemma4:12b,
+# qwen3.5:9b, granite4.1:8b, ministral-3:14b and lfm2.5:8b — every model on
+# Ollama that advertises tool calling and fits 16GB, spanning five vendors.
+#
+# Kept from the qwen3 era because it still applies: a reasoning model with
+# thinking left ON writes chain-of-thought into its answers. qwen3:4b produced
+# ~12,000 output tokens per run against 8b's ~1,400 and had to be reverted, so
+# `reasoning=False` below is load-bearing, not decorative.
+MODEL = os.environ.get("BEADS_DEMO_MODEL", "gemma4:12b")
 
 
 # CORRECTION: an earlier comment here claimed client-side timeouts do not work.

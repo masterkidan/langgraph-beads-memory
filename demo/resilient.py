@@ -20,10 +20,17 @@ look like slowness for hours.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 import urllib.error
 import urllib.request
+
+# Read the env var directly rather than importing demo.llm, which imports this
+# module. Must track demo.llm.MODEL: probing a model that is not installed
+# reports a healthy server as wedged, and the recovery path would then restart
+# a daemon that was fine.
+_DEFAULT_MODEL = os.environ.get("BEADS_DEMO_MODEL", "gemma4:12b")
 
 CHAT_TIMEOUT_S = 120.0  # generous: healthy calls are 6-40s
 PROBE_TIMEOUT_S = 45.0
@@ -31,7 +38,7 @@ RESTART_SETTLE_S = 8.0
 PROBE_ATTEMPTS = 15
 
 
-def probe(model: str = "qwen3:8b", timeout: float = PROBE_TIMEOUT_S) -> bool:
+def probe(model: str = _DEFAULT_MODEL, timeout: float = PROBE_TIMEOUT_S) -> bool:
     """True if the server will actually *generate*, not merely respond.
 
     Control endpoints answer 200 on a wedged server, so they cannot be used to
@@ -53,7 +60,7 @@ def probe(model: str = "qwen3:8b", timeout: float = PROBE_TIMEOUT_S) -> bool:
         return False
 
 
-def restart_and_wait(model: str = "qwen3:8b") -> bool:
+def restart_and_wait(model: str = _DEFAULT_MODEL) -> bool:
     """Restart the daemon and poll until it generates. Returns False if it never does."""
     subprocess.run(
         ["brew", "services", "restart", "ollama"],
@@ -69,6 +76,6 @@ def restart_and_wait(model: str = "qwen3:8b") -> bool:
     return False
 
 
-def ensure_healthy(model: str = "qwen3:8b") -> bool:
+def ensure_healthy(model: str = _DEFAULT_MODEL) -> bool:
     """Probe; restart only if genuinely wedged. Cheap on the happy path."""
     return True if probe(model) else restart_and_wait(model)

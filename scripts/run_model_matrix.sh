@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Model x arm x run matrix for one scenario.
 #
-#   scripts/run_model_matrix.sh incident 3 "qwen3:8b qwen3.5:9b gemma4:12b" "baseline treatment"
+#   scripts/run_model_matrix.sh incident 3 "gemma4:12b qwen3.5:9b granite4.1:8b ministral-3:14b lfm2.5:8b" "baseline treatment"
 #
 # The question this answers is per-model and paired: within a given model, does
 # the memory harness change accuracy and token cost? Pooling ACROSS models would

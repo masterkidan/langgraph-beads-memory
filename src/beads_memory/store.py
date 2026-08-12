@@ -26,6 +26,28 @@ SUPERSEDE_MIN_SIMILARITY = float(os.environ.get("BEADS_SUPERSEDE_MIN_SIMILARITY"
 # that memory optimization?") still reaches a strongly-matching child fact.
 DESCENDANT_RANK_PENALTY = float(os.environ.get("BEADS_DESCENDANT_PENALTY", "0.15"))
 
+# Cosine-similarity floor for cascading a supersede to EARLIER restatements of
+# the fact being retired. Paired with a created_at ordering constraint — see
+# BeadsStore._cascade_supersede — because similarity alone cannot tell "$100k"
+# from "$50k".
+#
+# Chosen from the run that motivated the cascade, not by analogy. Against the
+# retired fact "the budget is $100k per year", the facts written before the
+# correction scored:
+#
+#   0.720  "The annual budget for the vector database is $100,000."   stale
+#   0.681  "All three ... fall within the $100,000 annual budget"     stale
+#   0.680  "I have recorded your requirements: a $100,000 budget..."  stale
+#   ------------------------------- gap -------------------------------
+#   0.500  "Qdrant was evaluated as a vector database option..."      keep
+#   0.480  "Weaviate was evaluated as a viable option..."             keep
+#
+# The lower pair merely mention the budget while being about something else;
+# retiring them would discard real findings. 0.65 sits in the gap. An earlier
+# guess of 0.75 was measured against this data and would have retired NOTHING —
+# including the restatement the answer actually cited.
+CASCADE_MIN_SIMILARITY = float(os.environ.get("BEADS_CASCADE_MIN_SIMILARITY", "0.65"))
+
 
 @dataclasses.dataclass(frozen=True)
 class Namespace:
@@ -241,7 +263,69 @@ class BeadsStore:
         if relation == "supersedes" and self._retire_superseded:
             # The only path that sets status='superseded' (design spec).
             self._conn.execute("UPDATE facts SET status='superseded' WHERE id=%s", (to_fact_id,))
+            self._cascade_supersede(from_fact_id, to_fact_id)
         return True
+
+    def _cascade_supersede(self, from_fact_id: uuid.UUID, to_fact_id: uuid.UUID) -> int:
+        """Retire earlier restatements of the fact just superseded.
+
+        MEASURED FAILURE this exists for. A user corrected a budget from $100k
+        to $50k. The correction fired and the original was retired — and the
+        answer still cited $100k, because four *derived* claims were still
+        active:
+
+            [active] The annual budget for the vector database is $100,000.
+            [active] I have recorded your requirements: a $100,000 annual budget...
+            [active] pgvector ... fits well within the budget
+            [active] All three ... fall within the $100,000 annual budget
+
+        A `supersedes` edge retired the row it pointed at and nothing else, so
+        both values were live at once and the ranker surfaced the stale one.
+
+        Two conditions, and the second is what makes this safe. Similarity alone
+        would also retire the *new* value: embeddings are poor at distinguishing
+        $100k from $50k, so "the annual budget is $50,000" scores highly against
+        "the budget is $100k per year". Requiring the candidate to predate the
+        superseding fact separates them — a restatement of the stale value must
+        have been written before the correction arrived.
+
+        The threshold is deliberately stricter than the guard on `supersedes`
+        itself (0.55): that guard only has to tell "related" from "unrelated",
+        while this decides to retire a fact nobody pointed at.
+
+        Scoped to the same namespace. Fails closed — no embedding, no cascade —
+        because the cost of wrongly retiring a live fact is higher than the cost
+        of leaving a stale one.
+        """
+        rows = self._conn.execute(
+            """
+            WITH target AS (SELECT embedding, namespace_id FROM facts WHERE id = %s),
+                 newer  AS (SELECT created_at FROM facts WHERE id = %s)
+            UPDATE facts f SET status = 'superseded'
+            WHERE f.status = 'active'
+              AND f.id <> %s
+              AND f.namespace_id = (SELECT namespace_id FROM target)
+              AND f.created_at < (SELECT created_at FROM newer)
+              AND f.embedding IS NOT NULL
+              AND (SELECT embedding FROM target) IS NOT NULL
+              AND 1 - (f.embedding <=> (SELECT embedding FROM target))
+                  >= %s
+            RETURNING f.id
+            """,
+            (to_fact_id, from_fact_id, from_fact_id, CASCADE_MIN_SIMILARITY),
+        ).fetchall()
+        for (stale_id,) in rows:
+            # Record why it was retired, so the audit trail shows a cascade
+            # rather than an unexplained status change.
+            self._conn.execute(
+                """
+                INSERT INTO fact_edges (id, from_fact_id, to_fact_id, relation)
+                VALUES (%s, %s, %s, 'supersedes')
+                ON CONFLICT (from_fact_id, to_fact_id, relation) DO NOTHING
+                """,
+                (uuid.uuid4(), from_fact_id, stale_id),
+            )
+        return len(rows)
 
     def _may_supersede(self, from_fact_id: uuid.UUID, to_fact_id: uuid.UUID) -> bool:
         row = self._conn.execute(

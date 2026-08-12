@@ -24,7 +24,7 @@ across two scenarios while the store grew by an order of magnitude:
 | | store grew to | injected per call |
 |---|---|---|
 | incident | 9,250 chars (12×) | 8 facts · 596–961 chars |
-| vecdb | 7,655 chars (10×) | 8 facts · 522–1,065 chars |
+| vecdb | 7,655 chars (10×) | 8 facts · 725–1,065 chars |
 
 Once there are more than `k` facts to choose from, injection stops tracking the
 store. A session can accumulate indefinitely without the per-turn bill following
@@ -36,8 +36,8 @@ it — recall cost is set by `k` and by the size of one claim, both constants.
 matter. Same turn, same question:
 
 ```
-stock       3,650 chars  (~915 tokens)   N documents × whatever the agent saved
-fact graph    693 chars  (~173 tokens)   k claims    × one claim
+stock       3,653 chars  (~913 tokens)   N documents × whatever the agent saved
+fact graph    793 chars  (~198 tokens)   k claims    × one claim
 ```
 
 Per-claim capture is what makes that bound hard. The stock ceiling is soft: save

@@ -2,7 +2,7 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **package implemented, measured over three N=3 rounds.** Core library built and tested (148 tests against real Postgres). Latest results: [2026-08-10](results/2026-08-10-directive-results.md).
+> Status: **implemented and measured.** 238 tests against real Postgres. Four scored N=3 rounds on `qwen3:8b`, then a fully instrumented pass on `gemma4:12b` across both scenarios: **−29% input tokens at equal accuracy** on the incident demo. The benchmark now spans five models from five vendors — every model on Ollama that advertises tool calling and fits 16GB. Latest: [results/README.md](results/README.md).
 
 ## How it compares to LangGraph's built-in memory
 
@@ -304,15 +304,25 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] Architecture design ([spec](docs/superpowers/specs/2026-07-31-beads-memory-design.md))
 - [x] Competitive landscape research ([brief](docs/superpowers/specs/2026-07-31-beads-memory-competitive-brief.md))
 - [x] Demo/benchmark design ([spec](docs/superpowers/specs/2026-08-08-beads-memory-demo-design.md))
-- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 65 tests against real Postgres.
-- [x] **Comparison harness** — scripted scenario, both conditions, objective metrics, blinded LLM judge
-- [x] **Explainer animations** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg)
-- [x] **Scored results, three rounds** (newest first):
-  - [2026-08-10 · directive fix](results/2026-08-10-directive-results.md) — current
+- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 238 tests against real Postgres.
+- [x] **Comparison harness** — two scenarios, four arms, objective metrics, blinded LLM judge with a grounding dimension
+- [x] **Instrumentation** — every run records what retrieval injected (with cosine distances) and a snapshot of what it stored, so rankings are read rather than reconstructed: `uv run python -m demo.show_memory <run-dir>`
+- [x] **Diagrams** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg), [write + ranking pipeline](docs/assets/memory-pipeline.svg), [why it costs less context](docs/assets/token-mechanism.svg)
+- [x] **Scored results, four N=3 rounds on `qwen3:8b`** (newest first):
+  - [2026-08-11 · demoted descendant recall](results/2026-08-11-descendant-results.md) — read its attribution section first
+  - [2026-08-10 · directive fix](results/2026-08-10-directive-results.md)
   - [2026-08-10 · granularity + supersede guard](results/2026-08-10-postfix-results.md)
   - [2026-08-09 · first scored run](results/2026-08-09-results.md)
-  - method, disclosed corrections and operational notes: [results/README.md](results/README.md)
+- [x] **Pre-registered second scenario** — [predictions committed before the first run](results/2026-08-11-demo2-preregistration.md), including the two metrics the baseline was expected to win
+- [x] **Instrumented N=1 pair on `gemma4:12b`**, both scenarios — `results/fresh-gemma/`
+- [ ] N=1 across the remaining four models, then N=5
+- [ ] A scale scenario large enough to find the token crossover
 - [ ] Publish write-up
+
+Method, every disclosed correction, and the operational notes are in
+[results/README.md](results/README.md). It is long on purpose: several rounds
+ran with bugs that were later found and fixed, and each one is recorded with
+what it changed rather than quietly re-run.
 
 Running the demo needs Docker (Postgres + pgvector) and Ollama; see
 [results/README.md](results/README.md) for exact steps.

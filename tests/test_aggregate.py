@@ -49,9 +49,12 @@ def test_summarize_counts_passes_and_averages_tokens():
     ]
     s = summarize(records)
     assert s["treatment"]["n"] == 2
-    assert s["treatment"]["metrics"]["uses_revised_budget"] == 1  # 1 of 2 runs
+    # `metrics` holds the per-run values, not a pre-summed count: a numeric
+    # metric (breadth_subsystems_named) has to average rather than count, so the
+    # raw values are kept and the formatter decides how to read them.
+    assert sum(s["treatment"]["metrics"]["uses_revised_budget"]) == 1  # 1 of 2 runs
     assert s["treatment"]["tokens"]["input_tokens"] == 150
-    assert s["baseline"]["metrics"]["uses_revised_budget"] == 0
+    assert sum(s["baseline"]["metrics"]["uses_revised_budget"]) == 0
     assert s["baseline"]["errors"] == 2
 
 
@@ -62,9 +65,12 @@ def test_format_table_marks_differing_metrics():
     assert "mean input tokens" in table
 
 
-def test_format_table_refuses_to_compare_one_condition():
+def test_format_table_flags_a_single_arm_rather_than_implying_a_comparison():
+    """One arm still prints its numbers — useful when validating a new scenario
+    at N=1 — but must say so, so a one-sided table is never read as a result."""
     table = format_table(summarize([_run("treatment", 0, GOOD, BURIED)]))
-    assert "Only one condition present" in table
+    assert "Only one arm present: treatment" in table
+    assert "baseline" not in table
 
 
 def test_format_table_handles_no_runs():

@@ -17,6 +17,7 @@ from langchain_core.messages import message_to_dict
 
 from demo import metrics
 from demo.conditions import build
+from demo.llm import close_llms
 
 RAW = pathlib.Path(__file__).parent.parent / "results" / "raw"
 
@@ -161,6 +162,10 @@ def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict
                 )
     finally:
         cleanup()
+        # Release this run's Ollama sockets now. The clients are cached for the
+        # life of the process, so without this a multi-run process accumulates
+        # pools across runs and the next run inherits the previous one's mess.
+        close_llms()
 
     return {
         "condition": condition,

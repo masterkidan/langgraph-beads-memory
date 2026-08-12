@@ -12,11 +12,28 @@ from langchain_core.messages import HumanMessage
 
 from demo.llm import make_llm
 
-RUBRIC = """Score each transcript excerpt 1-5 on each dimension. Respond with
-ONLY a JSON object: {"X": {"recall": n, "delegation": n, "final": n},
-"Y": {"recall": n, "delegation": n, "final": n}}.
+_HEADER = """Score each transcript excerpt 1-5 on each dimension. Respond with
+ONLY a JSON object: {"X": {"recall": n, "delegation": n, "final": n,
+"grounding": n}, "Y": {"recall": n, "delegation": n, "final": n,
+"grounding": n}}.
 
-Dimensions:
+"""
+
+# Applies to every scenario. Added after a measured failure: in the 2026-08-11
+# round the judge gave `recall: 5` to an answer that named the right technique
+# with a fabricated magnitude ("up to 50%" where the source said 32x). Nothing
+# in the rubric asked it to check whether a number was real, so nothing did.
+_GROUNDING_DIMENSION = """- grounding: are the specific figures in the answers actually supported by
+  what the agents were told or read? Score 1 if any confident-sounding number
+  appears that is not traceable to the conversation or the documents, even if
+  everything else is correct. A vague answer with no numbers scores 3; an
+  answer whose every figure checks out scores 5. Being wrong about a number is
+  worse than omitting it.
+"""
+
+RUBRICS = {
+    "vecdb": _HEADER
+    + """Dimensions:
 - recall: does the conversation-3 answer correctly reflect the constraints
   stated in conversation 1 (self-hostable; only primary benchmark data) and
   use the REVISED budget from the correction, without being re-told any of it?
@@ -25,6 +42,25 @@ Dimensions:
 - final: is the final recommendation substantively correct and well-supported
   given the constraints and the research?
 """
+    + _GROUNDING_DIMENSION,
+    "incident": _HEADER
+    + """This is a production incident investigation.
+
+Dimensions:
+- recall: does the later answer correctly reflect what was already ELIMINATED
+  (and why), and use the CORRECTED deploy timestamp rather than the original
+  one, without being re-told any of it? Putting an already-eliminated cause
+  back on the to-do list is the worst failure here and should score 1.
+- delegation: does the synthesis correctly incorporate all three subsystem
+  investigations? Are any findings lost, contradicted, or double-counted?
+- final: does the recommended next step identify the actual cause and respect
+  the stated constraints (reversible within 30 minutes, no full outage)?
+"""
+    + _GROUNDING_DIMENSION,
+}
+
+# Kept for callers that import RUBRIC directly.
+RUBRIC = RUBRICS["vecdb"]
 
 _RETRY_SUFFIX = (
     "\n\nYour previous response could not be parsed as JSON. Respond with "
@@ -34,7 +70,7 @@ _RETRY_SUFFIX = (
 
 _THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
-_DIMENSIONS = ("recall", "delegation", "final")
+_DIMENSIONS = ("recall", "delegation", "final", "grounding")
 
 
 def blind_pair(rec_a: dict, rec_b: dict) -> tuple[dict, dict]:
@@ -88,8 +124,9 @@ def judge_pair(rec_a: dict, rec_b: dict) -> dict | None:
         {"condition": rec_a["condition"], "transcript": rec_a["transcript"]},
         {"condition": rec_b["condition"], "transcript": rec_b["transcript"]},
     )
+    scenario = rec_a.get("scenario", "vecdb")
     prompt = (
-        RUBRIC
+        RUBRICS.get(scenario, RUBRICS["vecdb"])
         + "\n\n=== Transcript X ===\n"
         + _excerpt(blinded["X"])
         + "\n\n=== Transcript Y ===\n"
@@ -115,18 +152,23 @@ def main(raw_dir: str):
         by_run.setdefault(r["run"], {})[r["condition"]] = r
     all_scores = []
     unjudgeable = 0
+    arms = sorted({r["condition"] for r in records} - {"baseline"})
     for run, conds in sorted(by_run.items()):
-        if {"baseline", "treatment"} <= conds.keys():
-            s = judge_pair(conds["baseline"], conds["treatment"])
+        if "baseline" not in conds:
+            continue
+        for arm in arms:
+            if arm not in conds:
+                continue
+            s = judge_pair(conds["baseline"], conds[arm])
             if s is None:
                 unjudgeable += 1
-                print(f"run {run}: UNJUDGEABLE (judge did not return parseable JSON)", flush=True)
+                print(f"run {run} [{arm}]: UNJUDGEABLE (no parseable JSON)", flush=True)
                 continue
-            print(f"run {run}: {s}", flush=True)
+            print(f"run {run} [{arm}]: {s}", flush=True)
             all_scores.append(s)
-    for cond in ("baseline", "treatment"):
+    for cond in ["baseline", *arms]:
         for dim in _DIMENSIONS:
-            vals = [s[cond][dim] for s in all_scores]
+            vals = [s[cond][dim] for s in all_scores if cond in s]
             if vals:
                 print(f"mean {cond}.{dim}: {sum(vals)/len(vals):.2f}")
     print(f"judged runs: {len(all_scores)}, unjudgeable: {unjudgeable}")

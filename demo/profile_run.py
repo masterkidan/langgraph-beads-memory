@@ -22,7 +22,8 @@ RESULTS = pathlib.Path(__file__).parent.parent / "results"
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--condition", default="treatment", choices=["treatment", "baseline"])
+    ap.add_argument("--condition", default="treatment", help="arm name, e.g. baseline | treatment")
+    ap.add_argument("--scenario", default="vecdb", help="vecdb | incident")
     ap.add_argument(
         "--conversations",
         nargs="*",
@@ -39,7 +40,9 @@ def main() -> None:
     from demo import conditions
     from demo.llm import MODEL
     from demo.profiler import RunProfiler, TimedEmbedder
-    from demo.scenario import CONVERSATIONS
+    from demo.scenarios import get_scenario
+
+    CONVERSATIONS = get_scenario(args.scenario).conversations
 
     profiler = RunProfiler()
 
@@ -73,10 +76,10 @@ def main() -> None:
 
     stamp = time.strftime("%Y%m%d-%H%M%S")
     session_id = f"profile-{args.condition}-{stamp}"
-    build = (
-        conditions.build_treatment if args.condition == "treatment" else conditions.build_baseline
+    schema = f"profile_{args.condition}_{stamp}".replace("-", "_")
+    (invoke, cleanup), _scenario = conditions.build(
+        args.condition, args.scenario, session_id, schema
     )
-    invoke, cleanup = build(session_id, f"profile_{args.condition}_{stamp}".replace("-", "_"))
 
     wanted = set(args.conversations) if args.conversations else None
     started = time.monotonic()

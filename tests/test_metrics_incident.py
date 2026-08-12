@@ -211,3 +211,30 @@ def test_cited_fact_ids_are_not_scored_as_fabricated_numbers():
 def test_a_fact_id_alone_is_never_treated_as_a_figure():
     r = numeric_grounding("See `fact-23347999` and fact-9f2b1c04 for provenance.")
     assert r["unsupported"] == []
+
+
+class TestNumbersWithUnits:
+    """Numbers in this corpus almost all carry units.
+
+    MEASURED: a trailing \\b made "4.2s" extract as "4" while "4.2 seconds"
+    extracted as "4.2", so a correct answer was scored ungrounded; "180ms"
+    extracted nothing at all. The check was unreliable for most of the corpus.
+    """
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("p99 went from 180ms to 4.2s", {"180", "4.2"}),
+            ("TLS handshake p99 was 41ms", {"41"}),
+            ("utilisation peaked at 34%", {"34"}),
+            ("release 2.14 at 13:20 UTC", {"2.14", "13:20"}),
+        ],
+    )
+    def test_units_do_not_swallow_the_figure(self, text, expected):
+        from demo.metrics_incident import _numbers
+
+        assert _numbers(text) == expected
+
+    def test_a_figure_written_with_and_without_a_unit_agrees(self):
+        """The corpus writes "4.2s"; an answer may write "4.2 seconds"."""
+        assert numeric_grounding("latency reached 4.2 seconds", ["p99 went to 4.2s"])["grounded"]

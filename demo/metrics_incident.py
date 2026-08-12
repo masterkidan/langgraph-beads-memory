@@ -29,7 +29,13 @@ CORPUS_INCIDENT = pathlib.Path(__file__).parent / "corpus_incident"
 # than claims, so "1." "2." "3." in a numbered answer do not read as fabricated.
 _LIST_NUMBER_CEILING = 20
 
-_NUM = re.compile(r"\b\d{1,2}:\d{2}\b|\b\d+(?:\.\d+)?\b")
+# No trailing \b: it breaks on unit-suffixed numbers, which is most of them here.
+# "4.2s" backtracked to "4" (the \b after "2" fails against "s"), while an answer
+# writing "4.2 seconds" yielded "4.2" — the same figure, two different tokens, so
+# a correct answer scored as ungrounded. "180ms" matched NOTHING at all. Measured
+# on a real run that flagged 4.2 as fabricated when it appears in both the corpus
+# and the user's own message.
+_NUM = re.compile(r"\b\d{1,2}:\d{2}\b|\b\d+(?:\.\d+)?")
 
 # Short fact ids ("fact-23347999") are citations, not claims. Scoring them as
 # fabricated figures penalised the treatment for using its own citation

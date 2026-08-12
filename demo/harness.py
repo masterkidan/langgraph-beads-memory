@@ -133,8 +133,15 @@ def snapshot_memory(condition: str, schema: str, session_id: str) -> dict:
 
 
 def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict:
-    session_id = f"{condition}-run{run_idx}-{uuid.uuid4().hex[:6]}"
-    schema = f"run_{condition.replace('-', '_')}_{scenario_name}_{run_idx}"
+    # One schema per RUN, not per (condition, scenario, index). The old scheme
+    # reused a schema whenever the same index ran again, so three re-runs of
+    # "treatment:0" stacked into one schema. Namespace scoping kept the runs
+    # logically isolated, but any ad-hoc query over the schema silently mixed
+    # them — which is exactly how an analysis once ranked a fact across three
+    # runs' data and reported a position that did not exist.
+    run_tag = uuid.uuid4().hex[:6]
+    session_id = f"{condition}-run{run_idx}-{run_tag}"
+    schema = f"run_{scenario_name}_{condition.replace('-', '_')}_{run_idx}_{run_tag}"
     (invoke, cleanup), scenario = build(condition, scenario_name, session_id, schema)
     transcript, all_msgs, errors = [], [], []
     # Wall-clock timing: the run is inference-bound, so per-turn duration is how

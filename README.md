@@ -272,19 +272,25 @@ the database showed only **one of three runs** was actually attributable to the
 feature under test; the rest was variance in what sub-agents chose to summarise.
 Single-metric movements of 1/3 at this N are not distinguishable from noise.
 
-> **⚠ These numbers may be measuring the model, not the architecture.**
+> **⚠ Model is an uncontrolled variable in these numbers.**
 > Every round above ran on `qwen3:8b`. In a first clean run on `gemma4:12b`
 > (2026-08-12) the **baseline carried the revised budget correctly** — the
 > metric that is 0/3 for the baseline in every qwen3 round and forms the
 > headline separation here. It also committed to a feasible option, which it
 > never did on qwen3.
 >
-> That is a single run and not yet a refutation. But it is enough that the
-> "0/3 vs 3/3" framing should not be read as an architectural result until it
-> is re-tested at N>1 on a stronger model. A capable model plus a flat blob
-> store may track a single correction across threads perfectly well, in which
-> case what this library buys is bounded context cost and audit provenance —
-> not recall the model could manage on its own.
+> A second run on the same model then went the other way (1 of 2), so this is
+> variance, not a finding. What it establishes is narrower and methodological:
+> **model is a variable these rounds did not control for.** That is why the
+> benchmark now runs the same scenarios across five models from five vendors —
+> the question "does structured memory help" is only answerable once the model
+> is held constant or varied deliberately.
+>
+> Read the per-round numbers as measurements of one implementation on one
+> model, not as the architecture's ceiling. Several of the rounds above also
+> ran with bugs since fixed (see the corrections in
+> [results/README.md](results/README.md)), all of which degraded one arm or
+> the other.
 >
 > Several other bugs found on 2026-08-12 also degraded only the baseline
 > (empty sub-agent returns, tool calls rejected at the schema boundary, a retry

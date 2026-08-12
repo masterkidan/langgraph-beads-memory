@@ -141,9 +141,18 @@ which is delegation depth and embedding calls, not token volume.
 - **Next**: put `recall_from_subagents` in the scenario prompt and measure the
   explicit path against the ranked one. That is the comparison this round was
   supposed to make and did not.
-- The infrastructure work landed: `ResilientChatOllama` plus the per-turn
-  deadline produced the first 6/6 set with **0 errored turns** after three
-  consecutive rounds lost turns to a wedged daemon.
+- The set completed 6/6 with **0 errored turns**, after three consecutive rounds
+  lost turns to a wedged daemon.
+
+  **CORRECTION (added 2026-08-11, after this round was written up):** that clean
+  result was originally credited to `ResilientChatOllama`. It cannot have been.
+  The recovery path set `_client = None` before retrying, and langchain_ollama
+  raises `RuntimeError` on a null client rather than rebuilding it, so every
+  retry failed before reaching the network — verified directly. Nothing
+  recovered. These runs were clean because Ollama did not wedge, helped by the
+  driver restarting it between runs. The bug is fixed now, but it was live for
+  this round, so the round is evidence about memory behaviour only and says
+  nothing about resilience.
 
 ## Not poolable with earlier rounds
 

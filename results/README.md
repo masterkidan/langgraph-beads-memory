@@ -63,15 +63,30 @@ Postgres connections, a pooled store for the baseline, bounded timeouts on both
 chat and embedding calls, and a faulthandler watchdog that dumps every thread's
 Python stack on an unbreakable hang. None of them was the cause.
 
-**What finally made runs survive it.** `ResilientChatOllama` (see `demo/llm.py`)
-treats a wedge as a repairable condition rather than something to wait out: on
-any transport failure it probes `/api/generate` (the control endpoints lie),
-restarts the daemon only if it is genuinely wedged, drops pooled httpx
-connections so the retry cannot land on a dead one, and retries once. A bare
-retry does not work — it dispatches onto the same wedged connection. Paired with
-the hard per-turn deadline in `demo/harness.py`, this produced the first
-**0-errored-turn** N=3 set on 2026-08-11, after three consecutive rounds had
-each lost a delegation turn.
+**The recovery policy, and a correction about it.** `ResilientChatOllama` (see
+`demo/llm.py`) treats a wedge as repairable rather than something to wait out:
+on any transport failure it probes `/api/generate` (the control endpoints lie),
+restarts the daemon only if it is genuinely wedged, rebuilds the client so the
+retry cannot land on a dead pooled connection, and retries once. A bare retry
+does not work — it dispatches onto the same wedged connection.
+
+The 2026-08-11 round was originally described here as the first
+**0-errored-turn** N=3 set *because of* that policy. That was wrong. The rebuild
+set `_client = None`, and langchain_ollama raises `RuntimeError` on a null
+client instead of reconstructing it, so every retry failed before touching the
+network. The policy recovered nothing; those runs were clean because Ollama did
+not wedge, helped by the driver restarting it between runs. Fixed on 2026-08-11
+by re-running `_set_clients()` — the validator that builds the clients — and
+verified end to end.
+
+**A likely contributor to the wedging itself.** Until 2026-08-11 the demo built
+a fresh `ollama.Client`, and therefore a fresh `httpx.Client` connection pool,
+per turn *and* per sub-agent invocation — roughly 24 per run, most for
+researchers never called on that turn, none ever closed. One in-flight profile
+run held 5 ESTABLISHED connections for a single conversation. Clients are now
+cached per `(model, temperature, reasoning)` and closed between runs. Whether
+this removes the wedge is untested; it is a hypothesis, and the connection churn
+was waste either way.
 
 ## Results index
 

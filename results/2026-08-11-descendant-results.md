@@ -154,6 +154,41 @@ which is delegation depth and embedding calls, not token volume.
   this round, so the round is evidence about memory behaviour only and says
   nothing about resilience.
 
+## CORRECTION (2026-08-11): the baseline's delegation channel was empty
+
+Found while validating demo 2, and it applies to **this round's numbers**.
+
+The baseline's sub-agent wrapper returned `str(messages[-1].content)`. A
+researcher that finishes by calling a tool — which is exactly what "save your
+findings with the memory tool" encourages — leaves an empty last message. So
+the supervisor received nothing back.
+
+Measured over this round's own transcripts:
+
+| arm | researcher tool returns | empty |
+|---|---|---|
+| baseline | 9 | **9** |
+| treatment | 9 | **0** |
+
+The treatment was unaffected because `beads_memory.subagent` enforces
+`conclude_task` and synthesises a fallback when a sub-agent fails to call it,
+so it always has something to hand back. The baseline had no equivalent.
+
+**This is not a memory-architecture difference.** "Sub-agent results return as
+messages into the parent's history" is the mechanism the baseline's whole
+delegation story rests on, and it carried no payload in any run. The baseline
+could still reach the researchers' findings through `search_memory` — the
+researchers did save them to the shared store — so it was not blind. But its
+direct channel was dead, and the metrics most likely to be affected are
+`mentions_feasible_option` (0/3 for the baseline, which recommended an
+over-budget option) and the judge's `delegation` dimension (2.33).
+
+Fixed for future rounds by walking back to the last assistant message with real
+text, and otherwise reporting what the sub-agent did. **The numbers in this
+document were produced before that fix and are not re-run**; treat the
+baseline's delegation-dependent results as a lower bound rather than a fair
+measurement.
+
 ## Not poolable with earlier rounds
 
 The retrieval behaviour changed between every round. These three runs are

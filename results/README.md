@@ -295,6 +295,25 @@ one.
   targeted metric improved, but tracing where each recalled fact actually lived
   showed only one of three runs was attributable to the change under test.
   Attribute movements by inspection, not by timing.
+- **The baseline's delegation channel was empty in every round up to and
+  including 2026-08-11.** Its sub-agent wrapper returned the last message's
+  content, and a researcher that ends on a tool call leaves that empty —
+  9 empty returns out of 9, against 0 of 9 for the treatment, which enforces
+  `conclude_task` and synthesises a fallback. The baseline could still reach
+  those findings via `search_memory`, so it was not blind, but its direct
+  channel carried nothing. Fixed 2026-08-11; earlier rounds are not re-run, so
+  their delegation-dependent baseline numbers are a lower bound. Full note in
+  the [descendant results](2026-08-11-descendant-results.md).
+
+**Why so many of these corrections favour the baseline.** Four separate bugs
+found while validating demo 2 all degraded the baseline and none degraded the
+treatment: empty sub-agent returns, `manage_memory` calls rejected at the schema
+boundary, a retry loop that burned a whole turn, and sub-agents running under a
+different recursion limit. That asymmetry has a cause worth naming — the
+treatment captures passively and enforces its own sub-agent contract, so it
+degrades gracefully where the baseline depends on the model getting a tool call
+exactly right. A comparison that does not repair those is measuring the model's
+tool-calling, not the memory architecture.
 - **A confound to keep checking.** `read_document` stays available in
   conversation 3, so an agent could bypass memory by re-reading the corpus. In
   run 0 neither condition did (the baseline used `search_memory`), but this

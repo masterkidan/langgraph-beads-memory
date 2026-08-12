@@ -54,3 +54,53 @@ class TestPermissiveLangmemSchema:
             {"action": "create", "content": {"p99": "4.2s", "err": "7%"}}
         )
         assert "4.2s" in m.content and "7%" in m.content
+
+
+class TestSubagentOutput:
+    """What a baseline sub-agent hands back to its supervisor.
+
+    Measured across demo 1's published N=3 round: the baseline's researcher
+    tool returned EMPTY 9 times out of 9, while the treatment's returned a real
+    summary 9 times out of 9. The baseline's delegation channel carried no
+    payload at all, for a reason unrelated to memory architecture.
+    """
+
+    def _msgs(self):
+        from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+        return [
+            HumanMessage("investigate db"),
+            AIMessage("Reading the document now."),
+            ToolMessage("...doc...", tool_call_id="1", name="read_document"),
+            AIMessage("", tool_calls=[{"name": "manage_memory", "args": {}, "id": "2"}]),
+            ToolMessage("saved", tool_call_id="2", name="manage_memory"),
+        ]
+
+    def test_a_researcher_ending_on_a_tool_call_still_reports_something(self):
+        from demo.conditions import _subagent_output
+
+        out = _subagent_output(self._msgs(), "researcher_db")
+        assert out.strip()
+        assert "Reading the document now." in out
+
+    def test_written_prose_is_preferred_over_earlier_chatter(self):
+        from langchain_core.messages import AIMessage
+
+        from demo.conditions import _subagent_output
+
+        msgs = [*self._msgs(), AIMessage("Connection pool exhaustion is ruled out.")]
+        assert _subagent_output(msgs, "researcher_db") == "Connection pool exhaustion is ruled out."
+
+    def test_tool_only_transcript_reports_the_activity(self):
+        from langchain_core.messages import HumanMessage, ToolMessage
+
+        from demo.conditions import _subagent_output
+
+        msgs = [HumanMessage("x"), ToolMessage("saved", tool_call_id="1", name="manage_memory")]
+        out = _subagent_output(msgs, "researcher_db")
+        assert "manage_memory" in out and "researcher_db" in out
+
+    def test_never_returns_empty(self):
+        from demo.conditions import _subagent_output
+
+        assert _subagent_output([], "researcher_db").strip()

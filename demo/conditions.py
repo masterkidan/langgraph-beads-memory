@@ -131,6 +131,50 @@ class _ThreadLocalConnection:
         return getattr(self._get(), name)
 
 
+def _subagent_output(messages, name: str) -> str:
+    """What a baseline sub-agent reports back to its supervisor.
+
+    A FAIRNESS REPAIR, and the most consequential one found so far.
+
+    This used to be `str(messages[-1].content)`. A researcher that finishes by
+    calling a tool — which is exactly what "save your findings with the memory
+    tool" encourages — leaves an empty last message, so the supervisor received
+    **nothing**. Measured across demo 1's published N=3 round: the baseline's
+    researcher tool returned empty 9 times out of 9, while the treatment's
+    returned a real summary 9 times out of 9.
+
+    That is not a memory-architecture difference. The treatment's sub-agent
+    wrapper (`beads_memory.subagent`) enforces `conclude_task` and synthesises a
+    fallback when a sub-agent fails to call it, so it always has something to
+    hand back. The baseline had no equivalent, so "sub-agent results return as
+    messages" — the mechanism its whole delegation story rests on — carried no
+    payload.
+
+    This walks back to the last assistant message with real text, and failing
+    that reports the tool activity, so the supervisor learns what happened
+    rather than seeing a blank. It is the baseline's counterpart to
+    `fallback_conclude`.
+    """
+    for msg in reversed(messages):
+        if getattr(msg, "type", None) == "ai":
+            content = str(getattr(msg, "content", "") or "").strip()
+            if content:
+                return content
+    # No assistant prose at all: say what the sub-agent did, rather than "".
+    tools_used = [
+        str(getattr(m, "name", "") or "")
+        for m in messages
+        if getattr(m, "type", None) == "tool" and getattr(m, "name", None)
+    ]
+    if tools_used:
+        return (
+            f"Sub-agent '{name}' completed without a written summary. "
+            f"It called: {', '.join(dict.fromkeys(tools_used))}. "
+            "Its findings were saved to memory; search memory for them."
+        )
+    return f"Sub-agent '{name}' produced no output."
+
+
 def _permissive_args_schema(base):
     """Coerce malformed `manage_memory` args before pydantic rejects them.
 
@@ -383,7 +427,7 @@ def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Ar
                 {"messages": [("user", task)]},
                 _config(f"sub-{uuid.uuid4()}"),
             )
-            return str(result["messages"][-1].content)
+            return _subagent_output(result["messages"], f"researcher_{topic}")
 
         return StructuredTool.from_function(
             _run,

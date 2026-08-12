@@ -16,8 +16,7 @@ import uuid
 from langchain_core.messages import message_to_dict
 
 from demo import metrics
-from demo.conditions import build_baseline, build_treatment
-from demo.scenario import CONVERSATIONS
+from demo.conditions import build
 
 RAW = pathlib.Path(__file__).parent.parent / "results" / "raw"
 
@@ -90,17 +89,17 @@ def turn_deadline(seconds: int):
         signal.signal(signal.SIGALRM, previous)
 
 
-def run_once(condition: str, run_idx: int) -> dict:
+def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict:
     session_id = f"{condition}-run{run_idx}-{uuid.uuid4().hex[:6]}"
-    build = build_treatment if condition == "treatment" else build_baseline
-    invoke, cleanup = build(session_id, f"run_{condition}_{run_idx}")
+    schema = f"run_{condition.replace('-', '_')}_{scenario_name}_{run_idx}"
+    (invoke, cleanup), scenario = build(condition, scenario_name, session_id, schema)
     transcript, all_msgs, errors = [], [], []
     # Wall-clock timing: the run is inference-bound, so per-turn duration is how
     # we tell whether an execution change (e.g. running sub-agents concurrently)
     # actually helped, rather than assuming it did.
     run_started = time.monotonic()
     try:
-        for conv_id, turns in CONVERSATIONS:
+        for conv_id, turns in scenario.conversations:
             thread_id = f"{session_id}-{conv_id}"
             for user_text in turns:
                 print(
@@ -163,17 +162,17 @@ def run_once(condition: str, run_idx: int) -> dict:
     finally:
         cleanup()
 
-    conv3 = [t for t in transcript if t["conversation"] == "conv-3"]
-    final_answer = conv3[0]["final"] if conv3 else ""
-    buried_answer = conv3[1]["final"] if len(conv3) > 1 else ""
     return {
         "condition": condition,
+        "scenario": scenario.name,
         "run": run_idx,
         "session_id": session_id,
         "transcript": transcript,
         "errors": errors,
         "tokens": metrics.token_usage(all_msgs),
-        "constraint_carry": metrics.constraint_carry(final_answer, buried_answer),
+        # Key stays `constraint_carry` so aggregate/judge keep working across
+        # both scenarios; the scenario decides what the dict contains.
+        "constraint_carry": scenario.score(transcript),
         "seconds": round(time.monotonic() - run_started, 1),
     }
 
@@ -182,6 +181,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--conditions", nargs="+", default=["baseline", "treatment"])
+    ap.add_argument("--scenario", default="vecdb", help="vecdb | incident")
     ap.add_argument(
         "--only",
         default=None,
@@ -202,9 +202,9 @@ def main():
         plan = [(c, i) for c in args.conditions for i in range(args.runs)]
 
     for condition, i in plan:
-        print(f"=== {condition} run {i} ===", flush=True)
-        record = run_once(condition, i)
-        out = RAW / f"{stamp}-{condition}-{i}.json"
+        print(f"=== {args.scenario} / {condition} run {i} ===", flush=True)
+        record = run_once(condition, i, args.scenario)
+        out = RAW / f"{stamp}-{args.scenario}-{condition}-{i}.json"
         out.write_text(json.dumps(record, indent=2, default=str))
         print(
             f"  tokens={record['tokens']}  carry={record['constraint_carry']}"

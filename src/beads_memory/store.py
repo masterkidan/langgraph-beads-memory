@@ -49,8 +49,19 @@ class Fact:
 
 
 class BeadsStore:
-    def __init__(self, conn: psycopg.Connection):
+    def __init__(self, conn: psycopg.Connection, *, retire_superseded: bool = True):
+        """`retire_superseded=False` is an ablation switch, not a feature.
+
+        With it off, a `supersedes` edge is still recorded — the provenance is
+        intact and the graph still says which fact replaced which — but the
+        target keeps `status='active'` and stays retrievable. That isolates
+        *typed invalidation* from everything else the fact graph does, so a
+        benchmark arm can answer "is retiring the stale fact what carries the
+        result, or is it the per-claim granularity?" Nothing in the library
+        sets this; only the demo's ablation arm does.
+        """
         self._conn = conn
+        self._retire_superseded = retire_superseded
 
     def init_schema(self) -> None:
         ddl = importlib.resources.files("beads_memory").joinpath("schema.sql").read_text()
@@ -227,7 +238,7 @@ class BeadsStore:
             """,
             (uuid.uuid4(), from_fact_id, to_fact_id, relation),
         )
-        if relation == "supersedes":
+        if relation == "supersedes" and self._retire_superseded:
             # The only path that sets status='superseded' (design spec).
             self._conn.execute("UPDATE facts SET status='superseded' WHERE id=%s", (to_fact_id,))
         return True

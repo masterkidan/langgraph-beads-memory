@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import pathlib
 import threading
 import uuid
 
@@ -14,22 +13,31 @@ from langchain_core.tools import StructuredTool, tool
 from pgvector.psycopg import register_vector
 
 from demo.llm import make_llm
-from demo.scenario import RESEARCH_SYSTEM_PROMPT, SUBAGENT_SYSTEM_PROMPT
+from demo.scenarios import Arm, Scenario, get_arm, get_scenario
 
-CORPUS = pathlib.Path(__file__).parent / "corpus"
 DSN = "postgresql://beads:beads@localhost:5433/beads"
 
 
-@tool
-def read_document(name: str) -> str:
-    """Read an evaluation document. Available: pgvector, qdrant, weaviate."""
-    path = CORPUS / f"{name.lower().strip()}.md"
-    if not path.exists():
-        return f"No document named {name}. Available: pgvector, qdrant, weaviate"
-    return path.read_text()
+def make_read_document(scenario: Scenario):
+    """Corpus reader bound to one scenario's document set.
 
+    Scenario-scoped rather than global so demo 2's investigator cannot read
+    demo 1's corpus, and so the tool's own description lists the right
+    documents — a wrong list here silently costs a sub-agent its source
+    material.
+    """
+    available = ", ".join(scenario.subtopics)
 
-SUBTOPICS = ["pgvector", "qdrant", "weaviate"]
+    @tool
+    def read_document(name: str) -> str:
+        """Read an investigation document."""
+        path = scenario.corpus_dir / f"{name.lower().strip()}.md"
+        if not path.exists():
+            return f"No document named {name}. Available: {available}"
+        return path.read_text()
+
+    read_document.description = f"Read an investigation document. Available: {available}."
+    return read_document
 
 
 # LangGraph's ToolNode dispatches a message's tool calls across a thread pool,
@@ -146,10 +154,14 @@ def _crash_safe(t: StructuredTool) -> StructuredTool:
 
 
 # ---------------------------------------------------------------- treatment
-def build_treatment(session_id: str, run_schema: str):
+def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: Arm):
     """beads-memory condition. Returns (invoke_fn, cleanup_fn). invoke_fn(thread_id,
     user_text) -> result. A fresh agent is built per call (new thread), but the SAME
-    session_id namespace is reused - that is the cross-conversation memory claim."""
+    session_id namespace is reused - that is the cross-conversation memory claim.
+
+    `arm` selects the ablation: `retire_superseded` controls whether a supersedes
+    edge actually retires its target, and `subrecall` appends the instruction that
+    makes `recall_from_subagents` reachable."""
     from beads_memory import (
         BeadsMemoryMiddleware,
         BeadsStore,
@@ -157,13 +169,20 @@ def build_treatment(session_id: str, run_schema: str):
         make_subagent_tool,
     )
 
+    read_document = make_read_document(scenario)
+    root_prompt = scenario.root_prompt
+    if arm.subrecall:
+        from demo.scenario_incident import SUBRECALL_PROMPT_SUFFIX
+
+        root_prompt += SUBRECALL_PROMPT_SUFFIX
+
     bootstrap = psycopg.connect(DSN, autocommit=True)
     bootstrap.execute(f'CREATE SCHEMA IF NOT EXISTS "{run_schema}"')
     bootstrap.close()
     # Per-thread connections: sub-agents run on ToolNode's thread pool and a
     # shared connection deadlocks them on psycopg's internal lock (see above).
     conn = _ThreadLocalConnection(DSN, run_schema)
-    store = BeadsStore(conn)
+    store = BeadsStore(conn, retire_superseded=arm.retire_superseded)
     store.init_schema()
     embedder = OllamaEmbedder()
     root_ns = store.get_or_create_namespace(session_id)
@@ -178,7 +197,7 @@ def build_treatment(session_id: str, run_schema: str):
             agent = create_agent(
                 model=make_llm(),
                 tools=[read_document] + extra_tools,
-                system_prompt=SUBAGENT_SYSTEM_PROMPT + f" Your assigned topic is: {topic}.",
+                system_prompt=scenario.subagent_prompt + f" Your assigned topic is: {topic}.",
                 middleware=[middleware],
             )
 
@@ -210,8 +229,8 @@ def build_treatment(session_id: str, run_schema: str):
         )
         agent = create_agent(
             model=make_llm(),
-            tools=[read_document] + [make_researcher(t) for t in SUBTOPICS],
-            system_prompt=RESEARCH_SYSTEM_PROMPT,
+            tools=[read_document] + [make_researcher(t) for t in scenario.subtopics],
+            system_prompt=root_prompt,
             middleware=[middleware],
         )
         return agent.invoke(
@@ -223,7 +242,7 @@ def build_treatment(session_id: str, run_schema: str):
 
 
 # ----------------------------------------------------------------- baseline
-def build_baseline(session_id: str, run_schema: str):
+def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Arm):
     """LangMem + PostgresStore condition: idiomatic supervisor, sub-agent results
     return as tool messages, LangMem store shared by all agents.
 
@@ -232,6 +251,8 @@ def build_baseline(session_id: str, run_schema: str):
     namespace tuple (("memories", session_id)), not by Postgres schema, so a
     unique session_id is what isolates one demo run's memories from another's.
     """
+    read_document = make_read_document(scenario)
+
     from langchain_ollama import OllamaEmbeddings
     from langgraph.store.postgres import PostgresStore
     from langmem import create_manage_memory_tool, create_search_memory_tool
@@ -268,7 +289,7 @@ def build_baseline(session_id: str, run_schema: str):
         researcher = create_agent(
             model=make_llm(),
             tools=[read_document] + mem_tools,
-            system_prompt=SUBAGENT_SYSTEM_PROMPT
+            system_prompt=scenario.subagent_prompt
             + f" Your assigned topic is: {topic}."
             + " Save important findings with the memory tool.",
         )
@@ -286,8 +307,8 @@ def build_baseline(session_id: str, run_schema: str):
     def invoke(thread_id: str, user_text: str, callbacks: list | None = None) -> dict:
         agent = create_agent(
             model=make_llm(),
-            tools=[read_document] + mem_tools + [make_researcher(t) for t in SUBTOPICS],
-            system_prompt=RESEARCH_SYSTEM_PROMPT.replace(
+            tools=[read_document] + mem_tools + [make_researcher(t) for t in scenario.subtopics],
+            system_prompt=scenario.root_prompt.replace(
                 "remember_fact", "the manage_memory tool"
             ).replace(
                 "relation='supersedes' and the old fact's short id from your " "Memory context",
@@ -304,3 +325,11 @@ def build_baseline(session_id: str, run_schema: str):
         store_cm.__exit__(None, None, None)
 
     return invoke, cleanup
+
+
+def build(arm_name: str, scenario_name: str, session_id: str, run_schema: str):
+    """Resolve an arm + scenario to (invoke_fn, cleanup_fn)."""
+    scenario = get_scenario(scenario_name)
+    arm = get_arm(arm_name)
+    builder = build_treatment if arm.kind == "treatment" else build_baseline
+    return builder(session_id, run_schema, scenario, arm), scenario

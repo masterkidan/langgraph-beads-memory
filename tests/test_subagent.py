@@ -153,3 +153,64 @@ def test_rollup_edges_point_at_child_facts_and_raw_facts_stay_in_child(conn, emb
     ).fetchall()
     edge_targets = {r[0] for r in edge_rows}
     assert edge_targets == child_fact_ids
+
+
+# --------------------------------------------------------------------------
+# A sub-agent that returns nothing must not look like one that found nothing.
+#
+# MEASURED FAILURE: an investigator returned an empty string and never called
+# conclude_task. The fallback wrote the literal body "(auto-summary, agent did
+# not conclude) " and handed "" back to the parent. Knowing nothing, the parent
+# INVENTED "the application tier has been thoroughly investigated and is not the
+# cause" — which passive capture stored as a durable fact, and every later turn
+# retrieved and repeated it.
+# --------------------------------------------------------------------------
+
+
+def _silent_subagent(conn, embedder, output, record=()):
+    store, root = _setup(conn, embedder)
+
+    def build_agent(middleware, tools):
+        remember = next(t for t in tools if t.name == "remember_fact")
+
+        def run(task):
+            for body in record:
+                remember.invoke({"body": body})
+            return output
+
+        return run
+
+    tool = make_subagent_tool(
+        "researcher_apptier",
+        "investigate the app tier",
+        store=store,
+        parent_namespace=root,
+        embedder=embedder,
+        build_agent=build_agent,
+    )
+    return store, root, tool.invoke({"task": "investigate"})
+
+
+def test_empty_output_is_reconstructed_from_what_it_recorded(conn, embedder):
+    store, root, out = _silent_subagent(
+        conn,
+        embedder,
+        output="",
+        record=["The fraud-scoring call has a 3.9s p99 with no circuit breaker."],
+    )
+    assert "fraud-scoring" in out
+    summaries = [f for f in store.facts_in_namespace(root.id) if f.kind == "summary"]
+    assert summaries and "fraud-scoring" in summaries[0].body
+
+
+def test_empty_output_and_nothing_recorded_says_so_loudly(conn, embedder):
+    _store, _root, out = _silent_subagent(conn, embedder, output="", record=())
+    assert out.strip()
+    assert "did NOT complete" in out
+    # The parent must not be able to read this as "investigated and cleared".
+    assert "MISSING" in out
+
+
+def test_a_real_answer_is_passed_through_unchanged(conn, embedder):
+    _store, _root, out = _silent_subagent(conn, embedder, output="Root cause is the flag.")
+    assert out == "Root cause is the flag."

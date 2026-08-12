@@ -78,7 +78,23 @@ def make_subagent_tool(
                 # repeated it. A silent empty rollup is worse than a loud
                 # failure: it is indistinguishable from a sub-agent that found
                 # nothing worth reporting.
-                recorded = [f.body for f in store.facts_in_namespace(child.id) if f.body.strip()]
+                # ONLY what the sub-agent concluded — never what it was asked.
+                # Passive capture stores the task message in the child namespace
+                # too, so reconstructing from every fact echoed the instruction
+                # back to the parent dressed as a finding:
+                #
+                #   "(auto-summary...) Recorded by 'researcher_apptier':
+                #    Investigate application tier performance, specifically the
+                #    checkout service. Analyze logs for errors..."
+                #
+                # That is worse than the empty body it replaced, because it looks
+                # like content. A sub-agent that recorded no conclusions must
+                # report exactly that.
+                recorded = [
+                    f.body
+                    for f in store.facts_in_namespace(child.id)
+                    if f.body.strip() and f.kind in ("conclusion", "summary")
+                ]
                 if recorded:
                     joined = " ".join(recorded[-_FALLBACK_FACT_LIMIT:])
                     body = (

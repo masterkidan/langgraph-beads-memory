@@ -214,3 +214,35 @@ def test_empty_output_and_nothing_recorded_says_so_loudly(conn, embedder):
 def test_a_real_answer_is_passed_through_unchanged(conn, embedder):
     _store, _root, out = _silent_subagent(conn, embedder, output="Root cause is the flag.")
     assert out == "Root cause is the flag."
+
+
+def test_reconstruction_never_echoes_the_task_back(conn, embedder):
+    """A sub-agent that recorded nothing but its own task must report that.
+
+    MEASURED: passive capture stores the task message in the child namespace,
+    so reconstructing from every fact returned the instruction to the parent
+    dressed as a finding — "Recorded by 'researcher_apptier': Investigate
+    application tier performance...". That is worse than an empty body, because
+    it looks like content.
+    """
+    store, root = _setup(conn, embedder)
+
+    def build_agent(middleware, tools):
+        def run(task):
+            return ""  # investigated nothing, concluded nothing
+
+        return run
+
+    tool = make_subagent_tool(
+        "researcher_apptier",
+        "investigate the app tier",
+        store=store,
+        parent_namespace=root,
+        embedder=embedder,
+        build_agent=build_agent,
+    )
+    out = tool.invoke({"task": "Investigate application tier performance, analyze the logs."})
+
+    assert "Investigate application tier" not in out
+    assert "analyze the logs" not in out.lower()
+    assert "did NOT complete" in out and "MISSING" in out

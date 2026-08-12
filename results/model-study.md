@@ -1,6 +1,6 @@
 # How different models benefit from a memory harness
 
-**Status: in progress — 2 of 5 models measured at N=1.**
+**Status: in progress — 2 of 5 models, both scenarios, N=1 per cell.**
 
 A separate question from "does structured memory help", and it deserves its own
 treatment. The library's three properties — constant retrieval cost, small
@@ -37,39 +37,54 @@ fits but has no tool calling, which would gut both arms.
 All five pass `demo/smoke_test.py`, which gates on structured tool calls *and*
 fact extraction.
 
-## Results so far (incident scenario, N=1)
+## Results so far (N=1 per cell)
 
-| model | accuracy | input tokens | verdict |
-|---|---|---|---|
-| `gemma4:12b` | +0 pts (7/8 both) | **−29%** | win — same, cheaper |
-| `qwen3.5:9b` | **+62 pts** (8/8 vs 3/8) | +4% | trade — far more accurate, marginally costlier |
+| model | scenario | accuracy | input tokens | verdict |
+|---|---|---|---|---|
+| `gemma4:12b` | incident | +0 pts (7/8 both) | **−29%** | win — same, cheaper |
+| `gemma4:12b` | vecdb | −17 pts (4/6 vs 5/6) | **−29%** | trade — cheaper, one metric lost |
+| `qwen3.5:9b` | incident | **+62 pts** (8/8 vs 3/8) | +4% | trade — far more accurate |
+| `qwen3.5:9b` | vecdb | +0 pts (5/6 both) | **−32%** | win — same, cheaper |
 
 ## The emerging shape
 
-Two models, two different payoffs, and the split is informative rather than
-noisy.
+Two models, four pairs, and the split is informative rather than noisy.
+
+**The token saving is consistent where there is something to beat.** −29%, −29%,
+−32% in the three cells where the baseline actually stored and retrieved. The
+one exception is the fourth cell, and it explains itself: there the baseline
+stored nothing, so its context was small and the treatment cost 4% more for
+doing the work the baseline skipped.
 
 **Where the model reliably calls its memory tools, the harness buys
-efficiency.** gemma4:12b's baseline saved and searched correctly on every turn
-and scored 7 of 8; the treatment matched it on 29% less context. Nothing to fix,
-so what is left is cost.
+efficiency.** Same answers, ~30% less context. Nothing to fix, so what is left
+is cost.
 
-**Where the model does not, it buys correctness.** qwen3.5:9b's baseline
-produced an empty answer on conv-1 and called no memory tool at all, so nothing
-was saved. On the correction turn it wrote:
+**Where it does not, the harness buys correctness.** And the failure is not
+"the model is weak" — it is narrower and more troubling than that. On the
+incident scenario `qwen3.5:9b`'s baseline made these tool calls:
+
+```
+incident baseline:  manage_memory ABSENT   ·  search_memory ×3
+vecdb    baseline:  manage_memory ×7       ·  search_memory ×2
+```
+
+It **searched three times against a store it never once wrote to.** On the
+correction turn it wrote:
 
 > "I've recorded that correction in my memory:
 >  - **Deploy time**: 13:20 UTC (not 13:50)"
 
-while making **no tool call**. Memory was empty; the model believed otherwise.
-conv-3 and conv-4 then answered "I don't have any recorded information about
-this incident yet." The treatment, on the same model and the same prompts,
-scored 8 of 8 — because capture runs in `before_model`/`after_model` and never
-asks the model to decide.
+while making no tool call at all. Its three "I don't have any recorded
+information about this incident yet" answers were not forgetting — they were an
+accurate report of an empty store it had failed to populate.
 
-That is the dependency stated in the main README as "capture is model-dependent
-— a missed call is a lost fact", appearing unprompted on a model chosen for
-being newer, not weaker.
+The same model handled vecdb fine (5/6, `manage_memory` ×7). So this is not a
+capability claim. It is that **save and recall are independent decisions in the
+stock design, and nothing reconciles them** — an agent can search diligently
+forever against memory it never wrote. Passive capture removes the possibility
+structurally, because writing is not a decision. On the same model and prompts,
+the treatment scored 8 of 8.
 
 ## What this is not, yet
 
@@ -77,9 +92,10 @@ being newer, not weaker.
   *mechanism* is visible in the transcript rather than inferred, which is worth
   more than the count, but it is still one run.
 - **Three models unmeasured.**
-- **One scenario in this table.** vecdb numbers are being collected; on
-  gemma4:12b it showed −29% tokens with one metric lost to the documented
-  shallow-supersede limitation.
+- **Both scenarios are in the table, one run each.** gemma4:12b's vecdb loss is
+  the documented shallow-supersede limitation: the injection log shows the
+  stale $100k restatement and its own $50k correction reaching the model two
+  ranks apart, 0.002 apart in cosine distance.
 
 ## A near miss worth recording
 

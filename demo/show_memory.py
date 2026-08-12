@@ -35,15 +35,27 @@ def show_store(rec: dict) -> None:
     if not facts:
         print("     (no snapshot — run predates the instrumentation)")
         return
-    by_kind: dict[str, list[int]] = {}
+    # Grouped by SOURCE as well as kind: the interesting distinction is between
+    # what someone told the agent, what a sub-agent found, and what the agent
+    # said back to itself. Collapsing source hides the last one, which is the
+    # category that grew to dominate the store once before.
+    by_key: dict[str, list[int]] = {}
     for f in facts:
-        agg = by_kind.setdefault(f"{f['kind']}/{f['status']}", [0, 0])
+        agg = by_key.setdefault(f"{f['kind']}/{f['source']}/{f['status']}", [0, 0])
         agg[0] += f["n"]
         agg[1] += f["chars"]
-    for key in sorted(by_kind, key=lambda k: -by_kind[k][1]):
-        n, chars = by_kind[key]
-        print(f"     {key:28s} {n:4d} facts  {chars:6d} chars")
-    print(f"     {'TOTAL':28s} {mem['total_facts']:4d} facts  {mem['total_chars']:6d} chars")
+    total_chars = mem.get("total_chars") or 1
+    for key in sorted(by_key, key=lambda k: -by_key[k][1]):
+        n, chars = by_key[key]
+        print(f"     {key:44s} {n:4d} facts {chars:6d} chars  {100 * chars / total_chars:4.0f}%")
+    print(f"     {'TOTAL':44s} {mem['total_facts']:4d} facts {mem['total_chars']:6d} chars")
+    echo = sum(
+        f["chars"] for f in facts if f["kind"] == "conclusion" and f["source"] == "passive_capture"
+    )
+    print(
+        f"     {'^ of which the agent quoting itself':44s} {'':4s}       {echo:6d} chars"
+        f"  {100 * echo / total_chars:4.0f}%"
+    )
 
 
 def show_injections(rec: dict, only_turn: str | None) -> None:

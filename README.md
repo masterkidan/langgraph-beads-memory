@@ -23,6 +23,31 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 
 **What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema.
 
+## Why it costs less context
+
+![One turn, call by call. Stock memory returns whole documents as a search_memory tool result that lands in the message history and is re-sent on every later call, so input grows from ~710 to ~2,400 tokens across the turn. The fact graph injects eight ranked claims into the system prompt, which is rewritten each call rather than accumulated, so input stays roughly flat. Three measured effects: a five-times-smaller payload, no accumulation, and no extra round trip for recall.](docs/assets/token-mechanism.svg)
+
+Measured on `gemma4:12b`, incident scenario, same turns and same sub-agents:
+
+| | stock memory | this library |
+|---|---|---|
+| recall payload | 3,650 chars (~915 tok) — whole documents | **693 chars (~173 tok)** — 8 ranked claims |
+| where it lives | a tool result **in the message history** | the **system prompt** |
+| what that means | re-sent on every later call in the turn | rewritten each call, never stacked |
+| model calls | 16 | **13** — no round trip to recall |
+| input tokens / run | 23,561 | **16,745 (−29%)** |
+| accuracy | 7 of 8 metrics | 7 of 8 metrics |
+
+**The counter-intuitive part: it stored 5× more text** — 9,250 chars against 1,854 — **and still spent 29% less context.** Storing more is not what costs you; re-sending it is. Because injection is a bounded, replaced block rather than an accumulating message, the per-turn bill stays flat as a session grows.
+
+Three separate effects, not one:
+
+1. **Per-claim storage returns claims, not documents.** `search_memory` hands back whole saved blobs; the fact graph hands back the eight claims that matter.
+2. **A system prompt is replaced; a tool result persists.** This is the structural one — the baseline pays for its recall again on every subsequent call in the same turn.
+3. **Recall needs no tool call.** The baseline must decide to search, spend a call on it, then reason over the result. Here the facts are already in front of the model.
+
+*Caveat:* this library also trims the message window to the last 10 messages. In these turns (2–4 calls each) that almost certainly never binds, so it is unlikely to be contributing — but it has not been isolated, and it would matter in longer turns.
+
 **Measured token cost (N=3): this library used ~36% *fewer* input tokens** (11,587 vs 18,184 mean), consistently across all three runs. An earlier single run had suggested the opposite (~46% more); that run predated a scenario fix and is superseded. Injecting a compact, relevance-ranked fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. The direction has held in every round since that fix; the magnitude has not (~45% in the previous round), so treat it as "cheaper, not dramatically so". Output tokens are near parity and in the latest round slightly higher here (1,424 vs 1,334) — more recalled material to cite makes for longer answers.
 
 ## How it works
@@ -36,6 +61,20 @@ One session (`session_id: vecdb-research`) spanning three conversations. Facts a
 3. **Enforced rollup** — each sub-agent must call `conclude_task`. One summary lands on the parent, linked by `rollup_of` edges back to its raw exploration. A crashed sub-agent leaves a "did not complete" fact rather than vanishing.
 4. **Supersede** — when the user revises a constraint, the new fact supersedes the old one. The stale value is retired from retrieval but kept for audit.
 5. **Recall** — a brand-new thread starts warm, and only *active* facts can reach the model. This is exactly where thread-scoped memory starts cold, and where extraction stores surface both the old and new value with nothing marking which is current.
+
+## Where memory is written, and how it is ranked
+
+![Four write triggers converge on one path — split per claim, drop conversational framing, classify statement or directive, derive a content-addressed id — then retrieval scopes to the namespace and its ancestors and descendants, applies four filters, ranks by cosine distance plus a penalty for descendant facts, and injects the top eight.](docs/assets/memory-pipeline.svg)
+
+Every filter in that pipeline traces to a measured failure rather than a design preference — the notes under the diagram say which. Two examples: the query is taken from the full message list because taking it from the trimmed window meant a turn with enough tool calls produced no query at all and memory silently switched off; and `directive` facts are held out because questions rank highly against a query precisely by resembling it, and four of eight injected slots were once question fragments.
+
+You can read this off any run rather than taking it on faith:
+
+```bash
+uv run python -m demo.show_memory results/fresh-gemma/incident --turn conv-3
+```
+
+which prints the ranked facts that actually reached the model, with cosine distances and demotion flags, plus what the run stored broken down by kind and source.
 
 ## The memory model
 

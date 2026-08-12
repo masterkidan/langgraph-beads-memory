@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 660" width="1180" height="660" role="img" aria-label="Why the typed fact graph costs less context, measured on gemma4:12b running the incident scenario. Left lane, stock memory: recall arrives as a search_memory tool result of about 3,650 characters, roughly 915 tokens, and it lands in the message history, so it is re-sent on every later model call in the same turn. Input grows within the turn from about 710 tokens on the first call to about 2,400 on the last. Right lane, the fact graph: recall is eight ranked claims of about 693 characters, roughly 173 tokens, injected into the system prompt, which is rewritten on every call rather than accumulated. Input starts higher at about 1,000 to 1,300 tokens because the facts are already present, and ends lower at about 1,000 to 1,600. Three measured effects: the payload is five times smaller because per-claim storage returns claims rather than whole documents; it does not accumulate because a system prompt is replaced while a tool result persists; and recall costs no extra round trip, 13 model calls against 16. Totals for the run: 16,745 input tokens against 23,561, a 29 percent reduction, at equal accuracy of seven of eight metrics each — while the fact graph stored five times more text, 9,250 characters against 1,854.">
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    .sys { fill: #e5e0d6; stroke: #b8b0a2; }
+    .usr { fill: #f5e3cd; stroke: #b45309; }
+    .recall { fill: #f3c9c9; stroke: #b91c1c; }
+    .facts { fill: #d5ebe8; stroke: #0f766e; }
+    .cW { fill: #b45309; }
+    .cR { fill: #0f766e; }
+    .cGone { fill: #b91c1c; }
+    .rule { stroke: #d9d2c6; stroke-width: 1; }
+    .flow { stroke: #8a8175; stroke-width: 1.3; fill: none; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; }
+      text { fill: #ece5da; }
+      .muted { fill: #93897b; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+      .sys { fill: #2a2721; stroke: #4a443a; }
+      .usr { fill: #3a2c17; stroke: #f59e0b; }
+      .recall { fill: #3d1f1f; stroke: #f87171; }
+      .facts { fill: #12332f; stroke: #2dd4bf; }
+      .cW { fill: #f59e0b; }
+      .cR { fill: #2dd4bf; }
+      .cGone { fill: #f87171; }
+      .rule { stroke: #3b362e; }
+      .flow { stroke: #93897b; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1180" height="660"/>
+  <text x="28" y="36" font-size="17" font-weight="650">Why it costs less context — one turn, call by call</text>
+  <text x="28" y="56" font-size="11.5" class="muted">Measured: gemma4:12b, incident scenario. Same turns, same sub-agents. The difference is where recall lives.</text>
+
+  <!-- === LEFT: stock memory === -->
+  <rect class="panelbox" x="28" y="76" width="546" height="286" rx="8"/>
+  <text x="44" y="100" font-size="13" font-weight="650">stock memory — recall is a message</text>
+  <text x="44" y="118" font-size="10.5" class="muted">the search_memory result joins the history, so every later call re-sends it</text>
+
+  <!-- call 1 -->
+  <text x="44" y="146" font-size="10" class="mono muted">call 1</text>
+  <rect class="sys" x="96" y="134" width="70" height="16"/>
+  <rect class="usr" x="166" y="134" width="34" height="16"/>
+  <text x="210" y="146" font-size="10" class="mono">~710 tok</text>
+
+  <!-- call 2 -->
+  <text x="44" y="182" font-size="10" class="mono muted">call 2</text>
+  <rect class="sys" x="96" y="170" width="70" height="16"/>
+  <rect class="usr" x="166" y="170" width="34" height="16"/>
+  <rect class="recall" x="200" y="170" width="160" height="16"/>
+  <text x="370" y="182" font-size="10" class="mono">~1,600 tok</text>
+  <text x="204" y="182" font-size="8.5" class="cGone">search_memory result · ~915 tok</text>
+
+  <!-- call 3 -->
+  <text x="44" y="218" font-size="10" class="mono muted">call 3</text>
+  <rect class="sys" x="96" y="206" width="70" height="16"/>
+  <rect class="usr" x="166" y="206" width="34" height="16"/>
+  <rect class="recall" x="200" y="206" width="160" height="16"/>
+  <rect class="usr" x="360" y="206" width="46" height="16"/>
+  <text x="416" y="218" font-size="10" class="mono">~2,400 tok</text>
+  <text x="204" y="218" font-size="8.5" class="cGone">…the same ~915 tok, again</text>
+
+  <path class="flow" d="M186 190 C 186 198, 186 198, 186 204"/>
+  <text x="44" y="256" font-size="10.5" class="cGone" font-weight="600">input grows across the turn</text>
+  <text x="44" y="272" font-size="10" class="muted">710 → 1,600 → 2,400. The recall payload is paid once per remaining call.</text>
+  <text x="44" y="296" font-size="10.5" font-weight="600">and recall costs a round trip</text>
+  <text x="44" y="312" font-size="10" class="muted">the agent must decide to call search_memory, then reason over the result</text>
+  <text x="44" y="336" font-size="10" class="mono muted">measured this run: 16 model calls · 23,561 input tokens</text>
+
+  <!-- === RIGHT: fact graph === -->
+  <rect class="panelbox" x="606" y="76" width="546" height="286" rx="8"/>
+  <text x="622" y="100" font-size="13" font-weight="650">fact graph — recall is the system prompt</text>
+  <text x="622" y="118" font-size="10.5" class="muted">8 ranked claims, rewritten each call — replaced, never accumulated</text>
+
+  <text x="622" y="146" font-size="10" class="mono muted">call 1</text>
+  <rect class="sys" x="674" y="134" width="70" height="16"/>
+  <rect class="facts" x="744" y="134" width="44" height="16"/>
+  <rect class="usr" x="788" y="134" width="34" height="16"/>
+  <text x="832" y="146" font-size="10" class="mono">~1,150 tok</text>
+  <text x="748" y="146" font-size="8.5" class="cR">173</text>
+
+  <text x="622" y="182" font-size="10" class="mono muted">call 2</text>
+  <rect class="sys" x="674" y="170" width="70" height="16"/>
+  <rect class="facts" x="744" y="170" width="44" height="16"/>
+  <rect class="usr" x="788" y="170" width="46" height="16"/>
+  <text x="844" y="182" font-size="10" class="mono">~1,300 tok</text>
+  <text x="748" y="182" font-size="8.5" class="cR">173</text>
+
+  <text x="622" y="218" font-size="10" class="mono muted">call 3</text>
+  <rect class="sys" x="674" y="206" width="70" height="16"/>
+  <rect class="facts" x="744" y="206" width="44" height="16"/>
+  <rect class="usr" x="788" y="206" width="52" height="16"/>
+  <text x="850" y="218" font-size="10" class="mono">~1,500 tok</text>
+  <text x="748" y="218" font-size="8.5" class="cR">173</text>
+
+  <text x="622" y="256" font-size="10.5" class="cR" font-weight="600">input stays roughly flat</text>
+  <text x="622" y="272" font-size="10" class="muted">the fact block is replaced each call, so it is never paid twice</text>
+  <text x="622" y="296" font-size="10.5" font-weight="600">and recall is free of round trips</text>
+  <text x="622" y="312" font-size="10" class="muted">the facts are already in front of the model — no tool call to decide on</text>
+  <text x="622" y="336" font-size="10" class="mono muted">measured this run: 13 model calls · 16,745 input tokens</text>
+
+  <line class="rule" x1="28" y1="386" x2="1152" y2="386"/>
+
+  <!-- === three effects === -->
+  <text x="28" y="416" font-size="13" font-weight="650">Three effects, all measured — not one big win</text>
+
+  <rect class="panelbox" x="28" y="430" width="360" height="118" rx="8"/>
+  <text x="44" y="454" font-size="12" font-weight="650">1 · the payload is 5× smaller</text>
+  <text x="44" y="476" font-size="10.5" class="muted">stock returns whole stored documents</text>
+  <text x="44" y="492" font-size="10.5" class="mono">3,650 chars ≈ 915 tokens</text>
+  <text x="44" y="512" font-size="10.5" class="muted">the graph returns 8 ranked claims</text>
+  <text x="44" y="528" font-size="10.5" class="mono cR">693 chars ≈ 173 tokens</text>
+
+  <rect class="panelbox" x="404" y="430" width="360" height="118" rx="8"/>
+  <text x="420" y="454" font-size="12" font-weight="650">2 · it does not accumulate</text>
+  <text x="420" y="476" font-size="10.5" class="muted">a tool result persists in the history and is</text>
+  <text x="420" y="492" font-size="10.5" class="muted">re-sent on every later call in the turn</text>
+  <text x="420" y="512" font-size="10.5" class="muted">a system prompt is rewritten — paid once</text>
+  <text x="420" y="528" font-size="10.5" class="cR">per call, never stacked</text>
+
+  <rect class="panelbox" x="780" y="430" width="372" height="118" rx="8"/>
+  <text x="796" y="454" font-size="12" font-weight="650">3 · recall costs no round trip</text>
+  <text x="796" y="476" font-size="10.5" class="muted">stock: decide → call search_memory → reason</text>
+  <text x="796" y="492" font-size="10.5" class="muted">graph: the facts are already there</text>
+  <text x="796" y="512" font-size="10.5" class="mono">16 model calls</text>
+  <text x="796" y="528" font-size="10.5" class="mono cR">13 model calls</text>
+
+  <!-- === headline === -->
+  <rect class="panelbox" x="28" y="566" width="1124" height="70" rx="8"/>
+  <text x="44" y="592" font-size="12.5" font-weight="650">The counter-intuitive part</text>
+  <text x="44" y="614" font-size="11.5">The fact graph stored <tspan font-weight="650">5× more text</tspan> than the baseline — 9,250 chars against 1,854 — and still spent <tspan font-weight="650" class="cR">29% less context per run</tspan> (16,745 vs 23,561 input tokens), at equal accuracy (7 of 8 metrics each).</text>
+  <text x="44" y="630" font-size="10.5" class="muted">Storing more is not the cost. Re-sending it is. Bounded, replaced injection is what keeps the bill flat as a session grows.</text>
+</svg>

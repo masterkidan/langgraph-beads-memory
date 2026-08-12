@@ -1,8 +1,11 @@
 """Model configuration for the demo. One model for agents AND judge."""
 
+import contextlib
 import os
 
 from langchain_ollama import ChatOllama
+
+from demo.resilient import CHAT_TIMEOUT_S, ensure_healthy
 
 # qwen3:8b. 4b was tried and reverted: despite reasoning=False it writes long
 # chain-of-thought into its responses ("Okay, let me figure out what's going on
@@ -25,6 +28,39 @@ MODEL = os.environ.get("BEADS_DEMO_MODEL", "qwen3:8b")
 REQUEST_TIMEOUT_S = float(os.environ.get("BEADS_DEMO_TIMEOUT", "300"))
 
 
+class ResilientChatOllama(ChatOllama):
+    """ChatOllama that repairs a wedged server instead of blocking on it.
+
+    Ollama accepts a connection and then never processes the request; the client
+    sits in `sock_recv` while `/api/version` still answers 200. There is no retry
+    policy on ChatOllama (it exposes no retry fields), so before this a wedge
+    burned the 900s turn deadline and was never repaired.
+
+    A bare retry does not help — it dispatches onto the same wedged server, often
+    onto the same pooled httpx connection. So on failure this probes
+    `/api/generate` (the control endpoints lie), restarts the daemon if it is
+    genuinely wedged, rebuilds the client so no dead pooled connection is reused,
+    and retries once. A second failure is raised: the harness records an errored
+    turn and moves on, which is better than looping against a broken server.
+    """
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        try:
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        except Exception as first:  # noqa: BLE001 - any transport failure is a candidate
+            if not ensure_healthy(self.model):
+                raise
+            # Drop pooled connections: the old ones may point at a dead runner.
+            for attr in ("_client", "_async_client"):
+                if hasattr(self, attr):
+                    with contextlib.suppress(Exception):  # best effort only
+                        object.__setattr__(self, attr, None)
+            try:
+                return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+            except Exception as second:
+                raise second from first
+
+
 def make_llm(temperature: float = 0.0, reasoning: bool | None = False) -> ChatOllama:
     """Build the demo LLM.
 
@@ -39,9 +75,11 @@ def make_llm(temperature: float = 0.0, reasoning: bool | None = False) -> ChatOl
 
     Pass `reasoning=True` to opt back in for a specific call site.
     """
-    return ChatOllama(
+    return ResilientChatOllama(
         model=MODEL,
         temperature=temperature,
         reasoning=reasoning,
-        client_kwargs={"timeout": REQUEST_TIMEOUT_S},
+        # 120s, not 300s: healthy calls are 6-40s, so a longer bound only delays
+        # discovering a wedge. Recovery, not patience, is what fixes this.
+        client_kwargs={"timeout": CHAT_TIMEOUT_S},
     )

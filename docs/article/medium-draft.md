@@ -1,38 +1,33 @@
-# Memory that doesn't grow: giving LangGraph agents a fact graph instead of a scratchpad
+# Constant-cost memory for LangGraph agents
 
-*Continuing the exploration with agents — this one is about what happens to an agent's memory over a long session, and why the usual answer gets more expensive the longer you use it.*
+A typed fact graph on Postgres, as agent middleware. Retrieval returns a fixed number of individual claims rather than a growing set of saved documents — which makes recall cost independent of how much the session has accumulated.
 
 ---
 
-## The problem I actually hit
+## The problem with document-shaped memory
 
-Agents forget between threads. That much is well known, and every framework has an answer: save memories to a store, search it later.
+LangGraph's built-in memory works, and for many applications it is enough. But two properties of it become expensive as sessions get long.
 
-What bothered me was subtler. In LangGraph's built-in setup, the agent has to *decide* to save. `manage_memory` is a tool, so persistence depends on the model choosing to call it at the right moment. And recall is a second, independent decision — `search_memory`, called when the model thinks to.
+**Save and recall are independent model decisions.** `manage_memory` is a tool, so persistence depends on the model choosing to call it. `search_memory` is another tool, called when the model thinks to. Nothing reconciles them, so an agent can search a store it never wrote to and correctly report that it is empty.
 
-Nothing reconciles the two.
-
-I did not appreciate how badly that can fail until I watched a run where the model wrote:
+This is not hypothetical. In one benchmark run, a model produced:
 
 > "I've recorded that correction in my memory:
 >  — **Deploy time**: 13:20 UTC (not 13:50)"
 
-It made no tool call. The memory was empty. It then searched that empty store three times across later turns and reported, accurately, "I don't have any recorded information about this incident yet."
+with no tool call. The store stayed empty, and three later turns answered "I don't have any recorded information about this incident yet." Tool-call counts for that run: `manage_memory` absent, `search_memory` ×3.
 
-The model wasn't lying, exactly. It narrated the action instead of performing it, and nothing in the architecture noticed.
+**Recall arrives as a message, and messages accumulate.** A `search_memory` result is a tool message. It sits in the history and is re-sent on every subsequent model call in that turn.
 
-## What I built
+## The approach
 
-A memory middleware for LangGraph that stores a **typed graph of individual claims** in Postgres, rather than saved documents in a key-value store.
+Store memory as a graph of individual claims, captured in middleware rather than through a tool.
 
-Two things fall out of that choice, and they turn out to be the whole story:
+- **Capture is not a decision.** Every user message and every final answer is written in `before_model` / `after_model`. No tool call, no extraction LLM.
+- **A fact is one claim.** "The budget is $100k, it must be self-hostable, and I only trust primary benchmark data" becomes three facts, each separately embedded and separately supersedable.
+- **Facts are typed.** `user_input`, `conclusion`, `summary`, `directive` — with `active` / `superseded` / `archived` status and typed edges (`supersedes`, `rollup_of`, `contradicts`, `relates_to`).
 
-- **Capture doesn't route through a model decision.** Every user message and every final answer is written in `before_model` / `after_model`. No tool call, no extraction LLM.
-- **Retrieval returns claims, not documents.** Because facts are stored one claim at a time, what comes back is small.
-
-Everything else in the design — supersede edges, sub-agent namespaces, directive classification — is downstream of those two.
-
-## Three properties, each measurable
+## Three properties
 
 ### 1. Retrieval cost is constant
 
@@ -40,79 +35,74 @@ The injected block is *k* facts per call, whatever the store holds. Measured acr
 
 | | store grew to | injected per call |
 |---|---|---|
-| incident demo | 9,250 chars (12×) | 8 facts · 596–961 chars |
-| vecdb demo | 7,655 chars (10×) | 8 facts · 725–1,065 chars |
+| incident scenario | 9,250 chars (12×) | 8 facts · 596–961 chars |
+| vecdb scenario | 7,655 chars (10×) | 8 facts · 725–1,065 chars |
 
-Once there are more than *k* facts to choose from, injection stops tracking the store entirely. A session can accumulate indefinitely without the per-turn bill following it.
+Once there are more than *k* facts to choose from, injection stops tracking the store. Recall cost is set by *k* and by the size of one claim — both constants.
 
 ### 2. The payload is small, because a claim is not a document
 
 Same turn, same question:
 
 ```
-stock       3,653 chars  (~913 tokens)   N documents × whatever the agent saved
-fact graph    793 chars  (~198 tokens)   k claims    × one claim
+document store   3,653 chars  (~913 tokens)   N documents × whatever was saved
+fact graph         793 chars  (~198 tokens)   k claims    × one claim
 ```
 
-The stock ceiling is soft — save bigger blobs and retrieval grows with them. Per-claim capture makes ours hard.
+The document-store ceiling is soft: save larger blobs and retrieval grows with them. Per-claim capture makes the fact-graph ceiling hard.
 
-There's a second effect I didn't anticipate and only found by reading per-call token counts. Stock recall arrives as a **tool result in the message history**, so it's re-sent on every later model call in the same turn. Input climbs ~710 → ~1,600 → ~2,400 tokens across three calls. An injected fact block lives in the **system prompt**, which is rewritten each call — paid once, replaced, never stacked.
+Placement compounds this. A tool result persists in the message history and is re-sent on every later call in the turn — input climbs roughly 710 → 1,600 → 2,400 tokens across three calls. An injected fact block lives in the system prompt, which is rewritten each call: paid once, replaced, never stacked.
 
-### 3. What comes back is relevant, because the graph is typed
+Measured across a full turn: **13 model calls against 16**, because recall costs no round trip.
 
-Ranking isn't similarity alone:
+### 3. Relevance comes from types, not similarity alone
 
-- **`directive` facts are held out.** Questions rank highly against a query precisely *because they resemble it*. In one measured run, four of eight injected slots were fragments of the question being asked.
-- **Superseded facts are retired** from retrieval but kept for audit.
-- **Sub-agent facts are demoted**, so raw exploration stays reachable without displacing the parent's constraints.
-- **Conversational framing is never stored.** "New shift taking over." was once the top-ranked fact for "what should we try next."
+Cosine distance alone is a poor ranker for agent memory, because the things that most resemble a question are other questions.
 
-## What it measured
+| | effect |
+|---|---|
+| `directive` facts | held out of retrieval — in one measured run, four of eight injected slots were fragments of the question being asked |
+| `superseded` facts | retired from retrieval, kept for audit |
+| descendant facts | demoted, so a sub-agent's raw exploration stays reachable without displacing the parent's constraints |
+| conversational framing | never stored — "New shift taking over." once ranked first for "what should we try next" |
+
+## Measured effect
 
 One instrumented run, incident scenario, `gemma4:12b`:
 
-| | stock memory | fact graph |
+| | document store | fact graph |
 |---|---|---|
 | input tokens | 23,561 | 16,745 |
+| output tokens | 1,887 | 1,708 |
 | objective metrics passed | 7 of 8 | 7 of 8 |
+| stored | 1,854 chars | 9,250 chars |
 
-Same accuracy, 29% less input. Across four paired comparisons on two models, the token direction held at −29%, −29%, −32% wherever the baseline actually stored something.
+Same accuracy, 29% less input. Store size is included because it shows retrieval cost is decoupled from it, not because storing more is useful in itself.
 
-The exception is instructive: on the run where the baseline never saved anything, the fact graph cost 4% *more* — because it answered the questions the baseline skipped.
+Across four paired comparisons on two models, the token direction held at −29%, −29%, −32% wherever the document store had something to retrieve. The exception is the run above where it stored nothing: there the fact graph cost 4% more, because it answered questions the other arm skipped.
 
-## The part that took the longest: my own bugs
+## Sub-agents get their own memory
 
-I want to be honest about the ratio here, because it's the actual lesson.
+Delegation forks a child namespace. A sub-agent reads its own facts plus its ancestors', never a sibling's — which is what stops three parallel researchers contaminating each other. The parent additionally reads its whole subtree, demoted.
 
-Most of the time went into finding defects in my own measurement, not in the library. A partial list from one day:
+Each sub-agent must call `conclude_task`; one summary crosses into the parent, linked by `rollup_of` edges back to the raw exploration. A sub-agent that fails to conclude gets a summary reconstructed from what it recorded, and one that recorded nothing produces an explicit "did NOT complete — conclusions are MISSING" rather than a silent empty result.
 
-- A metric that scored a **correct** answer as wrong, because the window around "connection pool" contained the word "checkout" and my proposal-detector matched `check` as a substring. That single false positive was the *entire* apparent advantage on the headline metric.
-- The same substring bug in the library, where a sentence beginning "Checkout p99 latency went…" was classified as the imperative "check" and therefore held out of retrieval. The central fact of the scenario was silently unretrievable.
-- A resilience policy I'd written, documented, and credited in a results file — which could never have worked. It set the client to `None` before retrying, and the underlying library raises on a null client rather than rebuilding it. Every retry failed before touching the network.
-- Agent conclusions stored as single 1,900-character blobs while user messages were split per claim. That inconsistency grew to 58% of everything stored, and it was why the "efficient" memory layer was initially *more* expensive than the baseline.
+## Auditability
 
-The pattern in all of them: I wrote the check from imagination, and real output contradicted it. Every regression test in the repo now uses sentences taken verbatim from runs.
+Nothing is deleted. A superseded fact stays queryable, so "what did we believe before, and what replaced it?" is always answerable.
 
-## What I got wrong on purpose, and wrote down first
+Retrieval is inspectable per run — the ranked facts that actually reached the model, with cosine distances and demotion flags:
 
-For the second scenario I committed predictions to git before the first run, including the two metrics I expected the baseline to win.
+```bash
+uv run python -m demo.show_memory results/fresh-gemma/incident --turn conv-3
+```
 
-I got one of them backwards with high confidence. I predicted flat blob storage would retain an incidental measurement better than a summarising sub-agent boundary. It didn't — the fact graph recalled it and the baseline didn't.
+## Limits
 
-Without the commitment timestamp I'd have had a tidy post-hoc story either way. That's the entire value of writing it down.
-
-## What's still open
-
-- **Supersede is shallow.** Retiring a fact retires that row and nothing else, so a *paraphrased* restatement of a corrected value survives. I can see it in the injection log: the stale `$100,000` and its own `$50,000` correction reaching the model two ranks apart, 0.002 apart in cosine distance. Cosine cannot separate them; normalised figures probably can.
-- **The scale claim is untested.** Constant retrieval cost is demonstrated at ~9,000 characters of memory. The interesting number is where a document-based store's retrieval starts to strain a context window and this doesn't. That needs a much bigger scenario.
+- **Supersede is shallow.** Retiring a fact retires that row; a *paraphrased* restatement of a corrected value can survive. Near-verbatim restatements are cascaded; reworded ones are not.
+- **Constant retrieval cost is demonstrated at ~9,000 characters of memory.** Where a document store's retrieval begins to strain a context window has not been measured.
 - **N is small.** One run per model per scenario so far.
 
-## Where it landed
+## Repository
 
-There was plenty of trial and error — considerably more of it in the measurement than in the library. But the shape feels solid enough to state as a practice:
-
-**If memory is a graph of claims rather than a pile of documents, recall becomes a bounded, replaceable block instead of an accumulating one — and it stops depending on the model remembering to write things down.**
-
-Code, the full benchmark harness, every disclosed correction, and the diagrams: [github.com/masterkidan/langgraph-beads-memory](https://github.com/masterkidan/langgraph-beads-memory)
-
-*Next: how the benefit differs by model — five models from five vendors, and why the answer isn't "the better model wins."*
+Library, benchmark harness, both scenarios, the instrumentation, and the full method: [github.com/masterkidan/langgraph-beads-memory](https://github.com/masterkidan/langgraph-beads-memory)

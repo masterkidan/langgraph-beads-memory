@@ -1,22 +1,22 @@
 # LinkedIn post — draft
 
-Continuing my exploration with agents — this time on what happens to an agent's memory over a long session.
+Agent memory usually stores documents and retrieves documents. That works until sessions get long, and then two things start to cost.
 
-The thing that started it: I watched a model write "I've recorded that correction in my memory: Deploy time 13:20 UTC" — and make no tool call at all. The store was empty. It then searched that empty store three times in later turns and correctly reported it had nothing.
+**Save and recall are independent decisions.** In LangGraph's built-in setup, `manage_memory` and `search_memory` are both tools the model has to choose to call, and nothing reconciles them. In one benchmark run a model wrote "I've recorded that correction in my memory: Deploy time 13:20 UTC" — with no tool call. It then searched that empty store three times and correctly reported it had nothing.
 
-In most agent memory setups, saving and recalling are two independent decisions the model has to make, and nothing reconciles them.
+**Recall arrives as a message, and messages accumulate.** A search result is a tool message: it sits in the history and is re-sent on every later model call in the same turn.
 
-So I tried the other approach: capture in middleware rather than in a tool, and store a typed graph of individual claims instead of saved documents. Two things fall out of that, and they turned out to be the whole story:
+An alternative: capture in middleware rather than through a tool, and store a typed graph of individual claims instead of saved documents.
 
-→ Retrieval cost stops growing. It's k facts per call regardless of how much the session has accumulated — the store grew 12× across a run and the injected block didn't move.
+→ **Retrieval cost stops growing.** k facts per call, whatever the store holds. Across two scenarios the store grew 10–12× and the injected block did not move.
 
-→ The payload gets small, because a claim isn't a document. 793 characters against 3,653 for the same question. And because it lives in the system prompt rather than the message history, it's replaced each call instead of re-sent.
+→ **The payload is small, because a claim is not a document.** 793 characters against 3,653 for the same question — and it lives in the system prompt, rewritten each call, rather than in the history where it stacks.
 
-Measured on the same scenario and model: 29% fewer input tokens at equal accuracy.
+→ **Relevance comes from types.** Questions are held out of retrieval (they rank highly against a query precisely by resembling it — in one run four of eight slots were fragments of the question being asked). Superseded values are retired but kept for audit. Sub-agent findings are demoted, not deleted.
 
-Plenty of trial and error getting there — honestly, more of it in my measurement than in the library. One metric was scoring a *correct* answer as wrong because it matched "check" inside the word "checkout". A resilience policy I'd written and documented could never have worked. My own agent's restatements grew to 58% of everything stored, which is why the "efficient" memory layer was initially more expensive than the baseline.
+Measured on the same scenario and model: **29% fewer input tokens at equal accuracy**, while storing 5× more text.
 
-All of it is written up, including the bits I got wrong and a set of predictions I committed to git before running — one of which I got backwards with high confidence.
+Library, benchmark harness, both scenarios, and the full method — including the injection logs, so the ranking can be read off any run rather than taken on trust:
 
 [link]
 
@@ -24,7 +24,7 @@ All of it is written up, including the bits I got wrong and a set of predictions
 
 ## Notes for posting
 
-- Lead is the anecdote, not the architecture — it's concrete and it's the actual reason the project exists.
-- The trial-and-error paragraph is deliberately specific. Vague admissions of "learning" read as false modesty; named bugs read as a real account.
-- No adjectives on the numbers. 29% is either interesting to the reader or it isn't.
-- Second article (five models, and why "the better model wins" isn't the answer) is teased at the end of the Medium piece rather than here, to avoid promising two things at once.
+- Opens on the mechanism, not a personal account. The failed-tool-call example is evidence for the design argument, not an anecdote about the author.
+- Three arrows map to the three README properties: constant, small, typed.
+- No adjectives on the numbers.
+- The model-comparison work is a separate post; not teased here to avoid promising two things at once.

@@ -130,7 +130,15 @@ def main() -> None:
             f"{args.raw_dir} mixes scenarios {sorted(scenarios)}; they are not poolable. "
             "Point this at one scenario's directory."
         )
-    print(f"Pooled {len(records)} run file(s) from {args.raw_dir}\n")
+    models = {r.get("model", "unknown") for r in records}
+    if len(models) > 1:
+        raise SystemExit(
+            f"{args.raw_dir} mixes models {sorted(models)}; they are not poolable. "
+            "A model change moves every metric, so pooling across models would "
+            "attribute the model's behaviour to the memory architecture."
+        )
+    print(f"Pooled {len(records)} run file(s) from {args.raw_dir}")
+    print(f"scenario={scenarios.pop()}  model={models.pop()}\n")
     print(format_table(summarize(records)))
 
 

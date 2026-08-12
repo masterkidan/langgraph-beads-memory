@@ -17,7 +17,7 @@ from langchain_core.messages import message_to_dict
 
 from demo import metrics
 from demo.conditions import build
-from demo.llm import close_llms
+from demo.llm import MODEL, close_llms
 
 RAW = pathlib.Path(__file__).parent.parent / "results" / "raw"
 
@@ -183,6 +183,10 @@ def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict
     return {
         "condition": condition,
         "scenario": scenario.name,
+        # Recorded per run. Without it, transcripts from different models are
+        # indistinguishable in results/raw, and a mixed directory would be
+        # pooled silently — the same failure mode the scenario guard prevents.
+        "model": MODEL,
         "run": run_idx,
         "session_id": session_id,
         "transcript": transcript,

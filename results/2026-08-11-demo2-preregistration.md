@@ -94,6 +94,29 @@ the corrected-timestamp metrics, the claim that a typed fact graph improves
 cross-thread continuity does not generalise beyond the scenario built for it,
 and the README says so.
 
+## Amendment log
+
+Changes made after this document was committed. Every entry states what
+changed, when, and whether any prediction moved. **No prediction has been
+changed or removed.**
+
+**2026-08-11, after N=1 calibration, before any N=5 data existed —
+conv-3 wording.** The question ended at "...so I don't repeat work." Both arms
+scored FALSE on `uses_corrected_deploy_time`, and inspection showed neither had
+forgotten the correction: "what should we try next" simply gives no reason to
+state a deploy timestamp, so the metric measured nothing. The question now also
+asks the incoming shift to confirm the deploy timeline it is working from,
+which is what a handover does and which elicits the value prediction 2 was
+always about. Prediction 2 stands as written.
+
+Also recorded here because it affects how the arms compare: four bugs found
+during that calibration all degraded the **baseline** and none the treatment
+(empty sub-agent returns, `manage_memory` rejected at the schema boundary, a
+retry loop consuming a whole turn, and mismatched recursion limits). All four
+are repaired. The pre-registered predictions were written before those repairs,
+so if anything they were written against a weaker baseline than the one that
+will actually run.
+
 ## Committed limitations
 
 - N=5, one model (`qwen3:8b`), one machine. Demo 1 showed three identical runs

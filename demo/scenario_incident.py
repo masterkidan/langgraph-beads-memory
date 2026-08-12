@@ -96,9 +96,20 @@ CONVERSATIONS = [
             # Q1 — predicted to favour the treatment. Re-proposing a ruled-out
             # cause is the concrete cost of forgetting, and it is what the typed
             # invalidation is supposed to prevent.
+            # DISCLOSED SCENARIO CHANGE (2026-08-11, after an N=1 calibration
+            # run, before any N=5 data existed). The question originally ended
+            # at "...so I don't repeat work." Both arms then scored FALSE on
+            # uses_corrected_deploy_time — not because either had forgotten the
+            # correction, but because "what should we try next" gives no reason
+            # to state a deploy timestamp at all. The metric was measuring
+            # nothing. Asking a new shift to confirm the timeline it is working
+            # from is what a handover actually does, and it elicits the value
+            # the metric was always meant to test. No prediction was changed;
+            # see the pre-registration's amendment note.
             "New shift taking over. Given everything we've established, what "
             "should we try next, and why? Be specific about what we already "
-            "ruled out so I don't repeat work.",
+            "ruled out so I don't repeat work, and confirm the deploy timeline "
+            "you're working from.",
         ],
     ),
     (

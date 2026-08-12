@@ -170,16 +170,24 @@ def incident_carry(
     next_steps: str,
     buried: str,
     breadth: str,
+    timeline: str = "",
     conversation_texts: list[str] | None = None,
 ) -> dict:
-    """Score the three scored answers of demo 2.
+    """Score the four scored answers of demo 2.
 
     `next_steps`  — conv-3: what to try next (predicted: treatment favoured)
     `buried`      — conv-4 Q1: an incidental measurement (predicted: baseline)
     `breadth`     — conv-4 Q2: everything ruled out (predicted: baseline)
+    `timeline`    — conv-4 Q3: the corrected deploy time (predicted: treatment)
+
+    The timeline is scored from its own question. It was briefly folded into
+    the conv-3 question instead, which measurably crowded out the next-steps
+    answer: both arms stopped naming the surviving cause and stopped proposing
+    the reversible fix. One question, one thing measured.
     """
     ns = next_steps.lower()
     br = breadth.lower()
+    tl = timeline.lower()
     reproposal = reproposes_ruled_out(ns)
     grounding = numeric_grounding(next_steps, conversation_texts)
 
@@ -192,10 +200,10 @@ def incident_carry(
         "avoids_reproposing_ruled_out": not reproposal["any"],
         "names_surviving_cause": _any_variant(ns, PLANTED["surviving_cause_variants"]),
         "proposes_reversible_fix": _any_variant(ns, PLANTED["reversible_fix_variants"]),
-        "uses_corrected_deploy_time": _any_variant(ns, PLANTED["corrected_deploy_time_variants"]),
+        "uses_corrected_deploy_time": _any_variant(tl, PLANTED["corrected_deploy_time_variants"]),
         "avoids_stale_deploy_time": not (
-            _any_variant(ns, PLANTED["stale_deploy_time_variants"])
-            and not _any_variant(ns, PLANTED["corrected_deploy_time_variants"])
+            _any_variant(tl, PLANTED["stale_deploy_time_variants"])
+            and not _any_variant(tl, PLANTED["corrected_deploy_time_variants"])
         ),
         # --- predicted to favour the flat blob store ---
         "buried_metric_recalled": all(

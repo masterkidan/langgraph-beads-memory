@@ -72,11 +72,12 @@ class TestIncidentCarry:
         return incident_carry(
             next_steps=(
                 "Disable the checkout.fraud_scoring_v2 feature flag — the synchronous "
-                "fraud-scoring call added in 2.14 at 13:20 UTC is the cause. We already "
+                "fraud-scoring call added in 2.14 is the cause. We already "
                 "ruled out connection pool exhaustion and DNS."
             ),
             buried="The network investigation measured TLS handshake p99 at 41ms.",
             breadth="We investigated the database, the network, and the application tier.",
+            timeline="Release 2.14 went out at 13:20 UTC.",
             conversation_texts=[],
         )
 
@@ -92,9 +93,10 @@ class TestIncidentCarry:
 
     def test_stale_timestamp_without_the_correction_is_penalised(self):
         c = incident_carry(
-            next_steps="The deploy at 13:50 UTC introduced the regression.",
+            next_steps="",
             buried="",
             breadth="",
+            timeline="The deploy went out at 13:50 UTC.",
         )
         assert c["uses_corrected_deploy_time"] is False
         assert c["avoids_stale_deploy_time"] is False
@@ -103,9 +105,10 @@ class TestIncidentCarry:
         """Citing the canary promotion alongside the corrected deploy time is
         accurate, not a stale-value error."""
         c = incident_carry(
-            next_steps="Deployed 13:20 UTC; promoted to 100% at 13:50 UTC.",
+            next_steps="",
             buried="",
             breadth="",
+            timeline="Deployed 13:20 UTC; promoted to 100% at 13:50 UTC.",
         )
         assert c["uses_corrected_deploy_time"] and c["avoids_stale_deploy_time"]
 
@@ -162,3 +165,27 @@ class TestReproposalOnRealProse:
         """Word boundaries, not substrings -- learned twice on this project."""
         text = "The checkout service is slow; connection pool exhaustion was eliminated."
         assert reproposes_ruled_out(text)["any"] is False
+
+
+class TestTimelineIsScoredInIsolation:
+    """The corrected timestamp is scored from its own question.
+
+    Folding it into the conv-3 next-steps question was measured to crowd that
+    answer out: both arms stopped naming the surviving cause and stopped
+    proposing the reversible fix.
+    """
+
+    def test_a_timestamp_in_the_next_steps_answer_does_not_count(self):
+        c = incident_carry(
+            next_steps="The deploy at 13:20 UTC is implicated.",
+            buried="",
+            breadth="",
+            timeline="",
+        )
+        assert c["uses_corrected_deploy_time"] is False
+
+    def test_it_counts_when_answered_in_its_own_turn(self):
+        c = incident_carry(
+            next_steps="", buried="", breadth="", timeline="Release 2.14 went out at 13:20 UTC."
+        )
+        assert c["uses_corrected_deploy_time"] is True

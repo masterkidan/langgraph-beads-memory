@@ -90,6 +90,7 @@ def _incident() -> Scenario:
             next_steps=final("conv-3", 0),
             buried=final("conv-4", 0),
             breadth=final("conv-4", 1),
+            timeline=final("conv-4", 2),
             conversation_texts=[t["user"] for t in transcript],
         )
 

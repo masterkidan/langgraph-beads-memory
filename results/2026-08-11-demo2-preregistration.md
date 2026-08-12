@@ -101,13 +101,30 @@ changed, when, and whether any prediction moved. **No prediction has been
 changed or removed.**
 
 **2026-08-11, after N=1 calibration, before any N=5 data existed —
-conv-3 wording.** The question ended at "...so I don't repeat work." Both arms
-scored FALSE on `uses_corrected_deploy_time`, and inspection showed neither had
-forgotten the correction: "what should we try next" simply gives no reason to
-state a deploy timestamp, so the metric measured nothing. The question now also
-asks the incoming shift to confirm the deploy timeline it is working from,
-which is what a handover does and which elicits the value prediction 2 was
-always about. Prediction 2 stands as written.
+conv-3 wording, made and then REVERTED.** The question ended at "...so I don't
+repeat work." Both arms scored FALSE on `uses_corrected_deploy_time`, and
+neither had forgotten the correction: "what should we try next" simply gives no
+reason to state a deploy timestamp, so the metric measured nothing. A clause
+asking the incoming shift to confirm its timeline was added — and measurably
+made things worse. Both arms then led with the timeline and degraded to a vague
+"investigate the application tier", where the treatment had previously answered
+"disable the `checkout.fraud_scoring_v2` feature flag". `names_surviving_cause`
+and `proposes_reversible_fix` fell to FALSE for **both** arms.
+
+The clause is reverted. The corrected timestamp is now asked as its own conv-4
+question ("what time did release 2.14 actually go out?"), which measures it
+without competing with anything. One question, one thing measured. Prediction 2
+stands as written, and is now actually testable.
+
+**2026-08-11 — `reproposes_ruled_out` reimplemented.** The first version keyed
+on elimination vocabulary and produced a false positive on real output: it
+scored the baseline's correct recall as a re-proposal, because the phrase
+"...were all within acceptable thresholds" was not in its list and because the
+nearby word "checkout" matched the marker "check" as a substring. In the N=1
+calibration that single false call was the *entire* apparent separation on the
+headline metric. The test is inverted (detect proposal language, a bounded
+vocabulary) and matched on whole words; both real sentences are regression
+tests. No prediction changed, but prediction 1 has no supporting evidence yet.
 
 Also recorded here because it affects how the arms compare: four bugs found
 during that calibration all degraded the **baseline** and none the treatment

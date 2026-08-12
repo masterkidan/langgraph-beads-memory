@@ -96,20 +96,18 @@ CONVERSATIONS = [
             # Q1 — predicted to favour the treatment. Re-proposing a ruled-out
             # cause is the concrete cost of forgetting, and it is what the typed
             # invalidation is supposed to prevent.
-            # DISCLOSED SCENARIO CHANGE (2026-08-11, after an N=1 calibration
-            # run, before any N=5 data existed). The question originally ended
-            # at "...so I don't repeat work." Both arms then scored FALSE on
-            # uses_corrected_deploy_time — not because either had forgotten the
-            # correction, but because "what should we try next" gives no reason
-            # to state a deploy timestamp at all. The metric was measuring
-            # nothing. Asking a new shift to confirm the timeline it is working
-            # from is what a handover actually does, and it elicits the value
-            # the metric was always meant to test. No prediction was changed;
-            # see the pre-registration's amendment note.
+            # A clause asking the shift to "confirm the deploy timeline you're
+            # working from" was added here and then REVERTED, because it was
+            # measured to make both arms worse. Answers led with the timeline
+            # and degraded to a vague "investigate the application tier"; before
+            # it, the treatment answered "disable the checkout.fraud_scoring_v2
+            # feature flag" — correct cause, correct reversible remediation.
+            # names_surviving_cause and proposes_reversible_fix both fell to
+            # FALSE for both arms. One question, one thing measured: the
+            # corrected timestamp is now asked for separately in conv-4.
             "New shift taking over. Given everything we've established, what "
             "should we try next, and why? Be specific about what we already "
-            "ruled out so I don't repeat work, and confirm the deploy timeline "
-            "you're working from.",
+            "ruled out so I don't repeat work.",
         ],
     ),
     (
@@ -125,6 +123,12 @@ CONVERSATIONS = [
             # keeping everything over ranking the most relevant few.
             "And list everything we investigated and ruled out, with the "
             "measurement behind each one.",
+            # Q4 — the corrected-timestamp test, asked in isolation. It lives
+            # here rather than folded into conv-3 because folding it in was
+            # measured to crowd out the next-steps answer for both arms. A
+            # postmortem header genuinely wants this value, and asking for one
+            # thing keeps the metric measuring one thing.
+            "Last thing for the postmortem header — what time did release 2.14 " "actually go out?",
         ],
     ),
 ]

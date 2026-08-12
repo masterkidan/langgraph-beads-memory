@@ -24,6 +24,46 @@ structured tool calls guts the treatment; a model that cannot extract facts
 guts the baseline. Either failure produces a meaningless comparison, so fix the
 model rather than proceeding.
 
+## Two scenarios, four arms
+
+`--scenario` selects which demo runs; `--conditions` selects arms.
+
+| scenario | what it is | why it exists |
+|---|---|---|
+| `vecdb` (default) | pick a vector database across 3 threads | demo 1 — built around a planted budget correction |
+| `incident` | debug a production incident across 4 threads | demo 2 — eliminations are native to the domain, so nothing is planted |
+
+| arm | memory configuration |
+|---|---|
+| `baseline` | LangMem + `PostgresStore` |
+| `treatment` | full typed fact graph |
+| `treatment-nosupersede` | supersede edges recorded, targets stay `active` — isolates typed invalidation from per-claim granularity |
+| `treatment-subrecall` | `recall_from_subagents` named in the prompt — tests the explicit sub-agent path against ranked demotion |
+
+```bash
+uv run python -m demo.harness --runs 5 --scenario incident \
+  --conditions baseline treatment treatment-nosupersede treatment-subrecall
+```
+
+**Demo 2's predictions were committed before its first run** — see
+[the pre-registration](2026-08-11-demo2-preregistration.md), which names the two
+metrics where the baseline is expected to win. Check its commit timestamp
+against the run files.
+
+Always run one scenario per `results/raw` directory: `aggregate` refuses to pool
+two scenarios, because their metrics are not comparable.
+
+**Two things demo 2 cost before it produced a single number**, both worth knowing
+if you extend the harness:
+
+- The agent delegated on the *first* turn, which only reports symptoms — 280s
+  and three investigators for a turn needing one model call. Demo 1 had the
+  identical bug. Any new scenario should be traced for spurious delegation on
+  its opening turn before a real run.
+- The demo built an `ollama.Client` per turn *and* per sub-agent invocation, so
+  a run leaked ~24 connection pools. Clients are cached now; if you add a call
+  site, use `make_llm()` rather than constructing one.
+
 ## Running this without losing hours to a wedged server
 
 **Restart Ollama between runs. It wedges under sustained load — roughly every 20 minutes of active use on this hardware.**

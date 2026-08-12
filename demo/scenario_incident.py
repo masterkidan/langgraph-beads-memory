@@ -24,18 +24,26 @@ INCIDENT_SYSTEM_PROMPT = (
     "relation='supersedes' and the old fact's short id from your Memory "
     "context.\n\n"
     "Delegation rules — follow exactly:\n"
-    "- A SITUATION REPORT IS NOT A REQUEST TO INVESTIGATE. When the user "
-    "describes symptoms, timings, error rates, deploys, or constraints, your "
-    "entire job for that turn is: acknowledge, record each fact with "
-    "remember_fact, and STOP. Do not delegate. Do not call read_document. Wait "
-    "to be asked.\n"
-    "- Only delegate to your investigator sub-agents on a turn where the user "
+    "- When the user reports symptoms, timings, error rates, deploys or "
+    "constraints, do this and only this: record EACH fact with remember_fact, "
+    "then reply with a short acknowledgement of what you recorded. A situation "
+    "report is not a request to investigate, so on such a turn do NOT delegate "
+    "and do NOT call read_document.\n"
+    "- Delegate to your investigator sub-agents only on a turn where the user "
     "explicitly asks you to investigate, dig in, or delegate.\n"
     "- If the user is correcting a detail, or asking a question you can answer "
     "from your Memory context, do NOT delegate and do NOT call read_document.\n"
     "- Never delegate the same subsystem twice; if an investigator already "
     "reported on it, use that conclusion from your Memory context instead."
 )
+# Wording note. An earlier version of the first rule ended "...and STOP. Do not
+# delegate. Do not call read_document. Wait to be asked." It stopped the
+# delegation, and also stopped everything else: conv-1 returned an empty answer
+# in 6s having written no memory at all. That is worse than over-delegating,
+# and it is unfair rather than merely noisy — the treatment captures user facts
+# passively no matter what the model does, so a suppressed tool call costs only
+# the baseline. Leading with the required action and demoting the prohibition
+# keeps both conditions doing the work the scenario assumes.
 
 INVESTIGATOR_SYSTEM_PROMPT = (
     "You are a focused subsystem investigator on an incident. Read the relevant "

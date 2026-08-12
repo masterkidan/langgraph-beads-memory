@@ -213,6 +213,37 @@ _INTENT_PREFIXES = (
 )
 
 
+_WORD = re.compile(r"[a-z']+")
+
+
+def _first_word(lowered: str) -> str:
+    """The first alphabetic word, so punctuation and digits do not hide it."""
+    m = _WORD.search(lowered)
+    return m.group(0) if m else ""
+
+
+def _split_openers(openers: tuple[str, ...]) -> tuple[frozenset[str], tuple[str, ...]]:
+    """Partition an opener list into whole-word tokens and multi-word phrases.
+
+    The lists are written with trailing spaces on some entries ("is ", "be ",
+    "let ") to stop a prefix match from firing inside a longer word. Whole-word
+    matching makes that trick unnecessary, but it also makes those entries
+    unmatchable unless they are stripped — which would silently disable
+    detection of verb-initial questions like "Is the budget fixed", exactly the
+    unpunctuated case those entries were added for. Phrases with an internal
+    space ("and remind") still need a prefix test.
+    """
+    words, phrases = set(), []
+    for opener in openers:
+        token = opener.strip()
+        (words.add(token) if " " not in token else phrases.append(token))
+    return frozenset(words), tuple(phrases)
+
+
+_IMPERATIVE_WORDS, _IMPERATIVE_PHRASES = _split_openers(_IMPERATIVE_OPENERS)
+_INTERROGATIVE_WORDS, _INTERROGATIVE_PHRASES = _split_openers(_INTERROGATIVE_OPENERS)
+
+
 def classify_fragment(text: str) -> str:
     """STATEMENT if the fragment asserts something, DIRECTIVE otherwise.
 
@@ -232,10 +263,20 @@ def classify_fragment(text: str) -> str:
 
     if stripped.endswith("?"):
         return DIRECTIVE
+    # Multi-word prefixes ("i want to", "we need to") are phrases, so a plain
+    # prefix test is right for these.
     if any(lowered.startswith(p) for p in _INTENT_PREFIXES):
         return DIRECTIVE
-    if any(lowered.startswith(p) for p in _INTERROGATIVE_OPENERS):
+    # Single-word openers must match a WHOLE word. Matching on a raw prefix
+    # classified "Checkout p99 latency went from 180ms to 4.2s" as a directive,
+    # because "checkout" starts with "check" — and directives are held out of
+    # retrieval, so the central fact of an incident silently became
+    # unretrievable. "Listing prices rose" hit the same bug via "list". A
+    # statement misfiled as a directive is invisible to search, which is the
+    # expensive direction to get wrong.
+    first = _first_word(lowered)
+    if first in _INTERROGATIVE_WORDS or first in _IMPERATIVE_WORDS:
         return DIRECTIVE
-    if any(lowered.startswith(p) for p in _IMPERATIVE_OPENERS):
+    if any(lowered.startswith(p) for p in _INTERROGATIVE_PHRASES + _IMPERATIVE_PHRASES):
         return DIRECTIVE
     return STATEMENT

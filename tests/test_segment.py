@@ -19,7 +19,12 @@ from __future__ import annotations
 
 import pytest
 
-from beads_memory.segment import split_into_facts
+from beads_memory.segment import (
+    DIRECTIVE,
+    STATEMENT,
+    classify_fragment,
+    split_into_facts,
+)
 
 CONSTRAINTS = (
     "We need to pick a vector database for our product. Constraints: the budget "
@@ -87,3 +92,57 @@ def test_common_enumeration_separators(sep):
     text = f"The budget is $50k per year{sep}it must be self-hostable."
     parts = split_into_facts(text)
     assert len(parts) == 2, parts
+
+
+class TestOpenerWordBoundaries:
+    """A statement misfiled as a directive is held out of retrieval entirely,
+    so this is the expensive direction to get wrong.
+
+    Found on real data: "Checkout p99 latency went from 180ms to 4.2s" — the
+    central fact of an incident — was classified DIRECTIVE because "checkout"
+    starts with the imperative opener "check", making it unretrievable.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Checkout p99 latency went from 180ms to 4.2s",
+            "Listing prices rose 12% last quarter",
+            "Belgium is our primary market",  # "be"
+            "Letters were sent to customers",  # "let"
+            "Canary promotion happened at 13:50",  # "can"
+            "Reviewers approved the change",  # "review"
+            "Helpdesk tickets doubled",  # "help"
+        ],
+    )
+    def test_word_that_merely_starts_with_an_opener_is_a_statement(self, text):
+        assert classify_fragment(text) == STATEMENT
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Check the connection pool",
+            "List the subsystems we ruled out",
+            "Review the deploy timeline",
+            "Help me understand the spike",
+        ],
+    )
+    def test_the_actual_imperative_is_still_a_directive(self, text):
+        assert classify_fragment(text) == DIRECTIVE
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Is the budget fixed",
+            "Are we self-hosting",
+            "Did the canary promote cleanly",
+            "Be specific about the constraints",
+            "Let's pick pgvector",
+            "And remind me what we ruled out",
+        ],
+    )
+    def test_openers_written_with_trailing_space_still_match(self, text):
+        """Entries like "is ", "be " and the phrase "and remind" must survive
+        the switch to whole-word matching — unpunctuated verb-initial questions
+        are exactly why they were added."""
+        assert classify_fragment(text) == DIRECTIVE

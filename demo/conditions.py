@@ -11,6 +11,7 @@ import psycopg
 from langchain.agents import create_agent
 from langchain_core.tools import StructuredTool, tool
 from pgvector.psycopg import register_vector
+from pydantic import model_validator
 
 from demo.llm import make_llm
 from demo.scenarios import Arm, Scenario, get_arm, get_scenario
@@ -118,6 +119,59 @@ class _ThreadLocalConnection:
         return getattr(self._get(), name)
 
 
+def _permissive_args_schema(base):
+    """Coerce malformed `manage_memory` args before pydantic rejects them.
+
+    A FAIRNESS REPAIR, stated plainly because it helps the baseline.
+
+    Measured on a real conv-1: three `manage_memory` calls, three failures,
+    **zero** memories saved. A baseline that stores nothing has nothing to
+    recall, which would hand the treatment a win that says nothing about memory
+    architecture — precisely the strawman this project already had to correct
+    once in its own diagrams. The two failure shapes, both from qwen3:8b:
+
+        content={"p99": "4.2s", ...}   -> "Input should be a valid string"
+        action="create", id=""         -> "Input should be a valid UUID"
+
+    Both are rejected by pydantic at the args_schema boundary, so a wrapper
+    around the tool *function* (see `_crash_safe`) never runs and cannot help.
+    The coercion has to happen in a `model_validator(mode="before")`, which is
+    exactly how `beads_memory.tools` handles the identical class of malformed
+    input for the treatment's own tools — a model nesting a value in a dict
+    where a string was expected. Repairing one side and not the other is what
+    would be unfair; the schema mismatch belongs to the model, not to either
+    memory architecture.
+
+    Structured `content` is flattened to "key: value" lines rather than JSON,
+    because the value is embedded for semantic search and prose embeds better
+    than braces. Nothing is discarded.
+    """
+
+    class Permissive(base):
+        @model_validator(mode="before")
+        @classmethod
+        def _coerce(cls, data):
+            if not isinstance(data, dict):
+                return data
+            data = dict(data)
+            # An absent id is valid; an empty-string id is not a UUID. Dropping
+            # it lets `create` succeed, and leaves `update`/`delete` to fail in
+            # langmem's own logic, where _crash_safe turns it into a readable
+            # ToolMessage the agent can retry from.
+            if not data.get("id"):
+                data.pop("id", None)
+            content = data.get("content")
+            if isinstance(content, dict):
+                data["content"] = "\n".join(f"{k}: {v}" for k, v in content.items())
+            elif isinstance(content, (list, tuple)):
+                data["content"] = "\n".join(str(item) for item in content)
+            return data
+
+    Permissive.__name__ = base.__name__
+    Permissive.__doc__ = base.__doc__
+    return Permissive
+
+
 def _crash_safe(t: StructuredTool) -> StructuredTool:
     """Wrap a langmem tool so a bad call degrades to a ToolMessage instead of
     crashing the whole graph run.
@@ -149,7 +203,7 @@ def _crash_safe(t: StructuredTool) -> StructuredTool:
         _safe,
         name=t.name,
         description=t.description,
-        args_schema=t.args_schema,
+        args_schema=_permissive_args_schema(t.args_schema),
     )
 
 

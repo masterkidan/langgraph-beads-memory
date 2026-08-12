@@ -55,6 +55,15 @@ def summarize(records: list[dict]) -> dict:
                 for key in ("input_tokens", "output_tokens")
             },
             "errors": sum(len(r.get("errors", [])) for r in runs),
+            # An empty answer scores zero on every metric while looking like a
+            # bad answer. Counted separately so a run that simply said nothing
+            # cannot be read as a run that answered badly.
+            # Derived from the answer, not from the `empty_final` flag: the
+            # flag postdates some runs, and a count that silently reads 0 for
+            # older transcripts is worse than no count at all.
+            "empty_finals": sum(
+                sum(1 for t in r["transcript"] if not str(t.get("final", "")).strip()) for r in runs
+            ),
             "detail": [{k: v for k, v in s.items() if k.startswith("_")} for s in scored],
         }
     return out
@@ -91,6 +100,9 @@ def format_table(summary: dict) -> str:
             f"| {label} | " + " | ".join(f"{summary[a]['tokens'][key]:.0f}" for a in arms) + " |"
         )
     lines.append("| errored turns | " + " | ".join(str(summary[a]["errors"]) for a in arms) + " |")
+    lines.append(
+        "| empty answers | " + " | ".join(str(summary[a]["empty_finals"]) for a in arms) + " |"
+    )
 
     # Surface the inspection detail: a re-proposed cause or an unsupported number
     # is the thing worth reading, and burying it in JSON means nobody does.

@@ -146,18 +146,31 @@ def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict
                     continue
                 turn_seconds = time.monotonic() - turn_started
                 all_msgs.extend(msgs)
+                final = str(msgs[-1].content) if msgs else ""
+                # An empty final answer is NOT the same as a bad one, but it
+                # scores identically — zero on every metric — so it has to be
+                # visible rather than inferred from a row of failures. Observed
+                # for real: a delegation turn where the model returned an
+                # AIMessage with `done: True`, no tool calls, and no content.
+                # Recorded, not repaired: substituting earlier assistant text
+                # would fabricate an answer the agent never gave and then score
+                # it. (The sub-agent path is different and does fall back — see
+                # `_subagent_output` — because a sub-agent's earlier prose is a
+                # real report to its supervisor, not a scored answer.)
                 transcript.append(
                     {
                         "conversation": conv_id,
                         "user": user_text,
                         "messages": [message_to_dict(m) for m in msgs],
-                        "final": str(msgs[-1].content),
+                        "final": final,
                         "errored": False,
+                        "empty_final": not final.strip(),
                         "seconds": round(turn_seconds, 1),
                     }
                 )
                 print(
-                    f"    -> [{turn_seconds:.0f}s] {str(msgs[-1].content)[:70]!r}",
+                    f"    -> [{turn_seconds:.0f}s] "
+                    + ("<EMPTY final answer>" if not final.strip() else repr(final[:70])),
                     flush=True,
                 )
     finally:

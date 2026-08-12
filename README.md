@@ -23,7 +23,7 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 
 **What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema.
 
-**Measured token cost (N=3): this library used ~45% *fewer* input tokens** (10,083 vs 18,220 mean), consistently across all three runs. An earlier single run had suggested the opposite (~46% more); that run predated a scenario fix and is superseded. Injecting a compact, relevance-ranked fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. The comparison diagram above still shows the old figure and is pending an update.
+**Measured token cost (N=3): this library used ~36% *fewer* input tokens** (11,587 vs 18,184 mean), consistently across all three runs. An earlier single run had suggested the opposite (~46% more); that run predated a scenario fix and is superseded. Injecting a compact, relevance-ranked fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. The direction has held in every round since that fix; the magnitude has not (~45% in the previous round), so treat it as "cheaper, not dramatically so". Output tokens are near parity and in the latest round slightly higher here (1,424 vs 1,334) — more recalled material to cite makes for longer answers.
 
 ## How it works
 
@@ -255,15 +255,28 @@ The mechanism is verified working end to end with a real LLM — forked child
 namespaces, genuine `conclude_task` rollups, and `rollup_of` audit edges
 confirmed against live Postgres, not just in unit tests.
 
-On the comparison: at N=3, one metric separates cleanly — carrying a *revised*
-constraint into a later thread, 0/3 for the built-in memory versus 3/3 here —
-and the blinded judge favours this library on all three dimensions. Most other
-metrics are tied or noisy, and the baseline beat us on one (recalling a specific
-buried detail, 3/3 vs 2/3, which inspection showed was model variance rather
-than architecture). The scenario was designed to exercise this mechanism, so
-treat it as a demonstration on a case built for it. Full numbers, the failure
-analysis, and every disclosed correction are in
-[results/2026-08-10-directive-results.md](results/2026-08-10-directive-results.md).
+On the comparison, from the [latest N=3 round](results/2026-08-11-descendant-results.md)
+(the first with zero errored turns): the clearest separation is committing to a
+*feasible* option — 3/3 here versus 0/3 for the built-in memory, which
+recommended Weaviate in every run at roughly $60k/yr against a revised $50k
+budget, citing no budget figure at all. Carrying the revised budget forward is
+2/3 here versus 0/3. The blinded judge favours this library on all three
+dimensions, though it also scored a run 5/5 on "recall" whose answer contained a
+fabricated number, so weight it accordingly.
+
+**Two things worth stating plainly.** The baseline is not a strawman here: it
+called `manage_memory` four times per run and `search_memory` when asked,
+reliably, in every run — and it beats us on recalling a specific buried detail
+(3/3 vs 2/3). And when the targeted metric for that round *did* improve, tracing
+the database showed only **one of three runs** was actually attributable to the
+feature under test; the rest was variance in what sub-agents chose to summarise.
+Single-metric movements of 1/3 at this N are not distinguishable from noise.
+
+The scenario was designed to exercise this mechanism, so treat it as a
+demonstration on a case built for it. Full numbers, the attribution analysis and
+every disclosed correction are in
+[results/2026-08-11-descendant-results.md](results/2026-08-11-descendant-results.md),
+with the round-by-round index in [results/README.md](results/README.md).
 
 ## Docs
 

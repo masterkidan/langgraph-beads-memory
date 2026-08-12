@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 630" width="1320" height="630" role="img" aria-label="Animated side-by-side comparison: LangGraph stock memory (checkpointer plus BaseStore and LangMem) versus langgraph-beads-memory (typed fact graph), run through the same three-conversation scenario. Phase A: a user states budget, self-host, and primary-source-only constraints; beads-memory captures the message and the turn's conclusion verbatim with no extraction LLM, while stock memory requires the agent to call manage_memory, which in the measured run it did not do (checkpointer history within the thread is genuinely complete, though). Phase B: a new thread_id resets message history in both; beads-memory recalls top-K facts across threads automatically, while stock memory requires the agent to call search_memory and finds nothing saved. Phase C: three sub-agents research pgvector, qdrant, and weaviate; beads-memory forks isolated hash-suffixed namespaces and enforces conclude_task with rollup_of edges back to raw exploration, synthesizing a fallback fact if a sub-agent crashes; stock memory returns sub-agent results as plain messages with no isolation and no audit edge, and a crashed sub-agent returns nothing, silently. Phase D, the sharpest contrast: a budget correction from $100k to $50k. beads-memory writes a typed supersedes edge that flips the old fact to superseded, retired from retrieval but kept for audit; stock memory would hold both values as separate documents with nothing marking which is current. Phase E, the real measured outcome, N=1, directional, not a benchmark: the treatment answered, quote, given the updated budget constraint of $50,000, Qdrant is the most suitable choice, end quote, while the baseline mentioned no budget figure and ended, quote, if you have any additional information or constraints, please let me know, end quote. Phase F is an honest scorecard: stock memory's real strengths are first-party simplicity, full history within a thread, real vector search in BaseStore, and verified cross-thread recall when the agent does save; at N=3 beads-memory used about 45 percent fewer input tokens, 10,083 versus 18,220, so its real cost is an extra dependency and Postgres schema rather than token overhead.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 630" width="1320" height="630" role="img" aria-label="Animated side-by-side comparison: LangGraph stock memory (checkpointer plus BaseStore and LangMem) versus langgraph-beads-memory (typed fact graph), run through the same three-conversation scenario. Phase A: a user states budget, self-host, and primary-source-only constraints; beads-memory captures the message and the turn's conclusion verbatim with no extraction LLM, while stock memory requires the agent to call manage_memory, which across three measured runs it did reliably, saving four whole unsplit blobs each time (checkpointer history within the thread is genuinely complete, too). Phase B: a new thread_id resets message history in both; beads-memory recalls top-K facts across threads automatically, while stock memory requires the agent to call search_memory, which it did in every run and which correctly returned the blobs it had saved. Phase C: three sub-agents research pgvector, qdrant, and weaviate; beads-memory forks isolated hash-suffixed namespaces and enforces conclude_task with rollup_of edges back to raw exploration, synthesizing a fallback fact if a sub-agent crashes; stock memory returns sub-agent results as plain messages with no isolation and no audit edge, and a crashed sub-agent returns nothing, silently. Phase D, the sharpest contrast: a budget correction from $100k to $50k. beads-memory writes a typed supersedes edge that flips the old fact to superseded, retired from retrieval but kept for audit; stock memory holds both values as separate documents with nothing marking which is current. Phase E, the measured outcome at N=3, a designed demonstration rather than a benchmark: beads-memory recommended Qdrant in all three runs and cited the corrected fifty thousand dollar budget in two of the three, quote, approximately $30,000 per year, well within our corrected budget of $50,000, end quote; stock memory recommended Weaviate in all three runs, roughly sixty thousand dollars a year and therefore over the revised budget, and cited no budget figure at all. Phase F is an honest scorecard: stock memory's real strengths are first-party simplicity, full history within a thread, real vector search in BaseStore, and cross-thread save and recall that worked in every measured run; at N=3 beads-memory used about 36 percent fewer input tokens, 11,587 versus 18,184, so its real cost is an extra dependency and Postgres schema rather than token overhead.">
   <title>langgraph-beads-memory vs. LangGraph stock memory — side by side</title>
   <style>
     .bg { fill: #faf8f4; }
@@ -149,8 +149,8 @@
     <text x="32" y="180" font-size="10.5" class="muted">checkpointer: full message history, this thread ✓</text>
     <text x="32" y="197" font-size="10.5" class="cStock">agent must call manage_memory() to persist anything</text>
     <path d="M330 220 C 330 270, 250 340, 175 356" class="flowStock" marker-end="url(#as)"/>
-    <text x="345" y="270" font-size="10.5" class="cStock">manage_memory(user_input)? — model-dependent</text>
-    <text x="345" y="286" font-size="10.5" class="muted">run 0: not called — store stays empty</text>
+    <text x="345" y="270" font-size="10.5" class="cStock">manage_memory(user_input) — an explicit tool call</text>
+    <text x="345" y="286" font-size="10.5" class="muted">N=3: called 4x — saves whole unsplit blobs</text>
 
     <!-- right: beads -->
     <text x="682" y="126" font-size="11" class="mono muted">conversation 1 · thread_id: t1</text>
@@ -175,7 +175,7 @@
     <text x="32" y="185" font-size="10.5" class="muted">anything it previously chose to save</text>
     <path d="M175 356 C 250 320, 300 260, 330 220" class="flowStock" marker-end="url(#as)"/>
     <text x="345" y="270" font-size="10.5" class="cStock">search_memory("budget, self-host, db")?</text>
-    <text x="345" y="286" font-size="10.5" class="muted">run 0: nothing was saved in conv-1 → ∅</text>
+    <text x="345" y="286" font-size="10.5" class="muted">N=3: returns the saved blobs ✓</text>
 
     <!-- right: beads -->
     <text x="682" y="126" font-size="11" class="mono muted">conversation 2 · thread_id: t2 (new)</text>
@@ -248,8 +248,8 @@
     <!-- left: stock — untyped second document -->
     <text x="32" y="126" font-size="11" class="mono muted">t2 — correction</text>
     <text x="32" y="146" font-size="12">"Correction: budget is <tspan font-weight="650">$50k</tspan>, not $100k."</text>
-    <text x="32" y="166" font-size="10.5" class="cStock">if saved at all, this becomes a second document</text>
-    <text x="32" y="182" font-size="9.5" class="muted">(illustrative — run 0 wrote no first document to begin with)</text>
+    <text x="32" y="166" font-size="10.5" class="cStock">the correction becomes a second document</text>
+    <text x="32" y="182" font-size="9.5" class="muted">(both values stored — nothing marks which is current)</text>
     <rect x="140" y="248" width="130" height="56" rx="6" class="stockDoc"/>
     <text x="205" y="272" font-size="10" text-anchor="middle" class="mono">budget:</text>
     <text x="205" y="288" font-size="11" text-anchor="middle" class="mono" font-weight="650">$100k</text>
@@ -275,18 +275,18 @@
     <!-- left: stock -->
     <text x="32" y="126" font-size="11" class="mono muted">conversation 3 · thread_id: t3 (new)</text>
     <text x="32" y="146" font-size="12">"So — which DB should we pick, and why?"</text>
-    <text x="32" y="166" font-size="10.5" class="muted">real answer (run 0): no budget figure mentioned —</text>
-    <text x="32" y="184" font-size="11">"...if you have any additional information or</text>
-    <text x="32" y="201" font-size="11">constraints, please let me know."</text>
+    <text x="32" y="166" font-size="10.5" class="muted">measured (3/3 runs): no budget figure at all —</text>
+    <text x="32" y="184" font-size="11">"...<tspan font-weight="650">Weaviate</tspan> is the most suitable choice."</text>
+    <text x="32" y="201" font-size="10.5" class="cGone">≈$60k/yr — over the revised $50k budget</text>
     <path d="M175 356 C 250 320, 300 260, 330 220" class="flowStock" marker-end="url(#as)"/>
-    <text x="345" y="270" font-size="10.5" class="cStock">recall: nothing relevant found (∅)</text>
+    <text x="345" y="270" font-size="10.5" class="cStock">recalls blobs — but not which budget is current</text>
 
     <!-- right: beads -->
     <text x="682" y="126" font-size="11" class="mono muted">conversation 3 · thread_id: t3 (new)</text>
     <text x="682" y="146" font-size="12">"So — which DB should we pick, and why?"</text>
-    <text x="682" y="166" font-size="10.5" class="muted">real answer (run 0):</text>
-    <text x="682" y="184" font-size="11">"...given the updated budget constraint of $50,000,</text>
-    <text x="682" y="201" font-size="11"><tspan font-weight="650">Qdrant</tspan> is the most suitable choice." ✓</text>
+    <text x="682" y="166" font-size="10.5" class="muted">measured (revised budget cited 2/3 runs):</text>
+    <text x="682" y="184" font-size="11">"...approximately $30,000 per year, well within</text>
+    <text x="682" y="201" font-size="11">our corrected budget of $50,000." — <tspan font-weight="650">Qdrant</tspan> 3/3 ✓</text>
     <path d="M770 442 C 770 380, 770 300, 770 220" class="flowRecall" marker-end="url(#ab)"/>
     <path d="M1220 442 C 1220 380, 1220 300, 1220 220" class="flowRecall" marker-end="url(#ab)"/>
     <text x="990" y="260" font-size="10.5" class="cBead" text-anchor="middle">recalls active facts only —</text>
@@ -303,7 +303,7 @@
   <!-- left store contents: what actually accumulated in run 0 (nothing) -->
   <g class="stA">
     <rect x="40" y="438" width="170" height="30" rx="5" class="ghostbox"/>
-    <text x="125" y="457" font-size="9.5" text-anchor="middle" class="muted">manage_memory: not called ✗</text>
+    <text x="125" y="457" font-size="9.5" text-anchor="middle" class="muted">manage_memory: 4 blobs saved ✓</text>
   </g>
   <g class="stC">
     <rect x="230" y="438" width="240" height="30" rx="5" class="ghostbox"/>
@@ -342,7 +342,7 @@
   <!-- ============ rolling captions (phases A-E) ============ -->
   <g font-size="11">
     <text class="phA" x="20" y="498">Within a thread, the checkpointer keeps full history — genuinely solid. Cross-thread continuity needs</text>
-    <text class="phA" x="20" y="516">the agent to call manage_memory; in run 0 it didn't.</text>
+    <text class="phA" x="20" y="516">the agent to call manage_memory — it did, 4x, in every measured run.</text>
     <text class="phB" x="20" y="498">A new thread_id means fresh message history. Continuity now depends on the agent choosing to</text>
     <text class="phB" x="20" y="516">search_memory — and on something having been saved to find.</text>
     <text class="phC" x="20" y="498">Sub-agent results return as messages into the parent's history. No enforced boundary between</text>
@@ -360,8 +360,8 @@
     <text class="phC" x="680" y="516">is enforced; a crash still yields a synthesized fallback fact — nothing vanishes silently.</text>
     <text class="phD" x="680" y="498">A typed supersedes edge flips the old fact to superseded — retired from retrieval, kept for audit.</text>
     <text class="phD" x="680" y="516">Only $50k is retrievable now.</text>
-    <text class="phE" x="680" y="498">Real answer (run 0): "given the updated budget constraint of $50,000, Qdrant is the most</text>
-    <text class="phE" x="680" y="516">suitable choice."</text>
+    <text class="phE" x="680" y="498">Measured: Qdrant picked 3/3, citing the corrected $50k budget in 2 of 3 runs. The baseline</text>
+    <text class="phE" x="680" y="516">picked Weaviate 3/3 (≈$60k) and cited no budget figure at all.</text>
   </g>
 
   <!-- ============ PHASE F — honest scorecard ============ -->
@@ -375,11 +375,11 @@
     <text x="36" y="204" font-size="11">+ Real vector search in BaseStore</text>
     <text x="36" y="221" font-size="11">+ Verified separately: correct save + cross-thread recall works</text>
     <text x="36" y="248" font-size="10.5" class="muted">structural weaknesses:</text>
-    <text x="36" y="266" font-size="11">– Capture is model-dependent (<tspan class="cGone">not called in run 0</tspan>)</text>
+    <text x="36" y="266" font-size="11">– Capture is model-dependent (<tspan class="cGone">a missed call is a lost fact</tspan>)</text>
     <text x="36" y="283" font-size="11">– No typed invalidation between old and new values</text>
     <text x="36" y="300" font-size="11">– No audit edge from a summary back to its exploration</text>
     <text x="36" y="317" font-size="11">– A crashed sub-agent leaves nothing</text>
-    <text x="36" y="350" font-size="9.5" class="mono muted">measured tokens (N=1)</text>
+    <text x="36" y="350" font-size="9.5" class="mono muted">measured tokens (N=3)</text>
     <text x="36" y="372" font-size="10">input</text>
     <rect x="90" y="360" width="342" height="14" class="stockbox"/>
     <text x="440" y="371" font-size="10" class="mono">15,190</text>
@@ -398,7 +398,7 @@
     <text x="686" y="221" font-size="11">+ rollup_of — audit trail back to raw exploration</text>
     <text x="686" y="238" font-size="11">+ Crash fallback fact — never silent</text>
     <text x="686" y="265" font-size="10.5" class="muted">honest costs:</text>
-    <text x="686" y="283" font-size="11">+ ~45% fewer input tokens (N=3): 10,083 vs 18,220</text>
+    <text x="686" y="283" font-size="11">+ ~36% fewer input tokens (N=3): 11,587 vs 18,184</text>
     <text x="686" y="300" font-size="11">– Extra dependency + Postgres schema</text>
     <text x="686" y="350" font-size="9.5" class="mono muted">measured tokens (N=1)</text>
     <text x="686" y="372" font-size="10">input</text>
@@ -440,9 +440,9 @@
     <text x="40" y="314">no audit edge, and a crashed sub-agent returns nothing, silently.</text>
     <text x="40" y="340">Correction ($100k → $50k): beads-memory flips a typed supersedes edge — old value retired, kept for</text>
     <text x="40" y="357">audit. Stock memory would hold both values with nothing marking which is current.</text>
-    <text x="40" y="383">Measured: treatment answered "given the updated budget constraint of $50,000, Qdrant is the most</text>
-    <text x="40" y="400">suitable choice." Baseline mentioned no budget figure at all.</text>
-    <text x="40" y="426">Measured N=3: beads-memory used ~45% FEWER input tokens (10,083 vs 18,220). Its real cost is an extra</text>
+    <text x="40" y="383">Measured N=3: beads-memory picked Qdrant 3/3 and cited the corrected $50k budget 2/3. Stock</text>
+    <text x="40" y="400">memory picked Weaviate 3/3 (≈$60k, over budget) and cited no budget figure at all.</text>
+    <text x="40" y="426">Measured N=3: beads-memory used ~36% FEWER input tokens (11,587 vs 18,184). Its real cost is an extra</text>
     <text x="40" y="443">dependency and Postgres schema. See the scorecard panels below for the full breakdown.</text>
   </g>
 </svg>

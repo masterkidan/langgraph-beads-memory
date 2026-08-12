@@ -63,9 +63,19 @@ Postgres connections, a pooled store for the baseline, bounded timeouts on both
 chat and embedding calls, and a faulthandler watchdog that dumps every thread's
 Python stack on an unbreakable hang. None of them was the cause.
 
+**What finally made runs survive it.** `ResilientChatOllama` (see `demo/llm.py`)
+treats a wedge as a repairable condition rather than something to wait out: on
+any transport failure it probes `/api/generate` (the control endpoints lie),
+restarts the daemon only if it is genuinely wedged, drops pooled httpx
+connections so the retry cannot land on a dead one, and retries once. A bare
+retry does not work — it dispatches onto the same wedged connection. Paired with
+the hard per-turn deadline in `demo/harness.py`, this produced the first
+**0-errored-turn** N=3 set on 2026-08-11, after three consecutive rounds had
+each lost a delegation turn.
+
 ## Results index
 
-Three scored rounds, each superseding the last. They are **not poolable** — the
+Four scored rounds, each superseding the last. They are **not poolable** — the
 memory behaviour changed between them, which is the point of running them
 separately.
 
@@ -74,9 +84,12 @@ separately.
 | [2026-08-09](2026-08-09-results.md) | first scored comparison | budget recall 0/3 vs 3/3; `primary_sources` 1/3 |
 | [2026-08-10 postfix](2026-08-10-postfix-results.md) | per-claim splitting + `supersedes` similarity guard | guard eliminated spurious edges; `primary_sources` unmoved at 1/3 |
 | [2026-08-10 directive](2026-08-10-directive-results.md) | `directive` kind held out of retrieval | `primary_sources` 1/3 → 3/3; `buried_detail` fell to 0/3 |
+| [2026-08-11 descendant](2026-08-11-descendant-results.md) | demoted descendant recall (`DESCENDANT_RANK_PENALTY`) | `buried_detail` 0/3 → 2/3, but only **1 of 3** runs attributable to the mechanism |
 
-A fourth round (demoted descendant recall, aimed at `buried_detail`) is in
-progress at the time of writing.
+The latest round is the first with **0 errored turns**, after the resilience
+work below. Read its attribution section before quoting its numbers: the
+headline metric moved, and tracing the database showed most of that movement was
+not caused by the feature under test.
 
 An aborted qwen3:4b attempt is kept in `aborted-4b/` — it wrote ~12,000 output
 tokens per run against 8b's ~1,400 and was reverted. It is not pooled with
@@ -214,7 +227,19 @@ one.
   only *identical* text.
 - **N is small.** Each full run is ~30 minutes of local inference. N=3 is thin
   evidence; inconsistent results should be reported as inconsistent, not
-  resolved in either direction.
+  resolved in either direction. The 2026-08-11 round makes this concrete: three
+  runs of an identical configuration produced 3/6, 6/6 and 4/6 on the objective
+  metrics, so a 1/3 movement in any single metric is not distinguishable from
+  noise.
+- **The judge is not a fact checker.** In the 2026-08-11 round it scored a run
+  `recall: 5` whose answer named the right technique with a fabricated
+  magnitude, and gave all three treatment runs 5/5/5 — no discriminating power
+  at the top of its range. Where a metric and the judge disagree, inspect the
+  database.
+- **A metric moving is not the feature working.** Also from 2026-08-11: the
+  targeted metric improved, but tracing where each recalled fact actually lived
+  showed only one of three runs was attributable to the change under test.
+  Attribute movements by inspection, not by timing.
 - **A confound to keep checking.** `read_document` stays available in
   conversation 3, so an agent could bypass memory by re-reading the corpus. In
   run 0 neither condition did (the baseline used `search_memory`), but this

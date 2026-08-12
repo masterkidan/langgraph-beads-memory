@@ -301,6 +301,53 @@ than trusting the `constraint_carry` snapshot stored in each JSON, so runs
 recorded before a metric fix are never silently pooled with runs recorded after
 one.
 
+## `supersedes` is shallow — a known architectural limitation
+
+Measured 2026-08-12, gemma4:12b, vecdb N=1. The treatment cited the **stale**
+$100k budget twice in its final answer, on the metric that is this library's
+flagship result (3/3 on qwen3).
+
+The correction fired correctly. The original user statement was retired:
+
+```
+[superseded] user_input   the budget is $100k per year
+```
+
+But every claim the agent had already DERIVED from it stayed active:
+
+```
+[active] conclusion  remember_tool     The annual budget ... is $100,000.
+[active] conclusion  passive_capture   I have recorded your requirements: a $100,000 annual budget...
+[active] conclusion  remember_tool     pgvector ... fits well within the budget
+[active] conclusion  passive_capture   All three ... fall within the $100,000 annual budget
+```
+
+**A `supersedes` edge retires the row it points at, and nothing else.** The
+stale value survives in every restatement, those restatements remain
+retrievable, and the ranker can surface them ahead of the corrected fact —
+which is exactly what happened. Both values were live in the store at once.
+
+The schema defines a `derived_from` relation, but passive capture never emits
+those edges, so there is no path along which an invalidation could cascade.
+"Typed invalidation retires the stale fact" is true only of the fact you cite.
+
+**A change made the same day probably worsened it.** Splitting agent
+conclusions per claim (which cut input tokens ~40%) turned one restatement
+blob into several individually-retrievable facts, each carrying the stale
+figure. Token cost improved and supersede effectiveness plausibly degraded in
+the same commit. Both effects are measured; the causal link between them is
+inference, not measurement.
+
+Candidate remedies, none yet implemented:
+
+1. Demote `passive_capture` conclusions in ranking — a restatement derived
+   from memory is weaker evidence than the fact it came from. Cheapest, reuses
+   the existing `DESCENDANT_RANK_PENALTY` machinery.
+2. Cascade invalidation along `derived_from`. Correct, but requires emitting
+   those edges at capture time, which the no-LLM hot path cannot do.
+3. Stop capturing agent restatements of user constraints. Simplest, but
+   discards genuine conclusions along with the echoes.
+
 ## Known limitations
 
 - **Small-model noise.** `qwen3:8b` is unreliable at root-level tool calling when

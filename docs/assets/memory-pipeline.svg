@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 700" width="1180" height="700" role="img" aria-label="Two pipelines. WRITE: four trigger points capture memory — every user message before the model call, an agent's explicit remember_fact call, a sub-agent's enforced conclude_task with a reconstructed fallback if it fails to call it, and the agent's own final answer after the model call. All four pass through the same path: split into one fact per claim, drop conversational framing that asserts nothing and carries no figure, classify each fragment as a statement or a directive, derive a content-addressed id so restating a claim collapses onto the same fact, then embed and store. READ: the query is taken from the full message list rather than the trimmed window, the scope is the namespace plus its ancestors plus its descendants, four filters apply — active status only, directives held out, facts lacking embeddings are invisible, and facts derived from messages still on screen are excluded — then candidates are ranked by cosine distance plus a fixed penalty for descendant facts, and the top eight are injected into the system prompt with their short ids for citation.">
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    .writebox { fill: #f5e3cd; stroke: #b45309; }
+    .readbox { fill: #d5ebe8; stroke: #0f766e; }
+    .dropbox { fill: none; stroke: #b91c1c; stroke-dasharray: 5 3; }
+    .stagebox { fill: #ffffff; stroke: #d9d2c6; }
+    .flow { stroke: #8a8175; stroke-width: 1.4; fill: none; }
+    .flowW { stroke: #b45309; stroke-width: 1.6; fill: none; }
+    .flowR { stroke: #0f766e; stroke-width: 1.6; fill: none; }
+    .flowDrop { stroke: #b91c1c; stroke-width: 1.3; fill: none; stroke-dasharray: 4 3; }
+    .cW { fill: #b45309; }
+    .cR { fill: #0f766e; }
+    .cGone { fill: #b91c1c; }
+    .rule { stroke: #d9d2c6; stroke-width: 1; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; }
+      text { fill: #ece5da; }
+      .muted { fill: #93897b; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+      .writebox { fill: #3a2c17; stroke: #f59e0b; }
+      .readbox { fill: #12332f; stroke: #2dd4bf; }
+      .dropbox { stroke: #f87171; }
+      .stagebox { fill: #201d19; stroke: #3b362e; }
+      .flow { stroke: #93897b; }
+      .flowW { stroke: #f59e0b; }
+      .flowR { stroke: #2dd4bf; }
+      .flowDrop { stroke: #f87171; }
+      .cW { fill: #f59e0b; }
+      .cR { fill: #2dd4bf; }
+      .cGone { fill: #f87171; }
+      .rule { stroke: #3b362e; }
+    }
+  </style>
+  <defs>
+    <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b45309"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f766e"/>
+    </marker>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b91c1c"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1180" height="700"/>
+  <text x="28" y="36" font-size="17" font-weight="650">Where memory gets written, and how it gets ranked</text>
+  <text x="28" y="56" font-size="11.5" class="muted">Four write triggers share one path. Retrieval scopes, filters, then ranks — the top 8 reach the model.</text>
+
+  <!-- ============================ WRITE ============================ -->
+  <text x="28" y="92" font-size="13" font-weight="650" class="cW">WRITE — four trigger points</text>
+
+  <g font-size="10.5">
+    <rect class="writebox" x="28" y="106" width="212" height="52" rx="7"/>
+    <text x="40" y="124" font-size="11" font-weight="600">1 · every user message</text>
+    <text x="40" y="139" class="mono muted" font-size="9.5">before_model</text>
+    <text x="40" y="152" class="muted">no tool call, no extraction LLM</text>
+
+    <rect class="writebox" x="28" y="168" width="212" height="52" rx="7"/>
+    <text x="40" y="186" font-size="11" font-weight="600">2 · agent decides to record</text>
+    <text x="40" y="201" class="mono muted" font-size="9.5">remember_fact()</text>
+    <text x="40" y="214" class="muted">the only model-dependent path</text>
+
+    <rect class="writebox" x="28" y="230" width="212" height="62" rx="7"/>
+    <text x="40" y="248" font-size="11" font-weight="600">3 · sub-agent finishes</text>
+    <text x="40" y="263" class="mono muted" font-size="9.5">conclude_task()  → parent</text>
+    <text x="40" y="277" class="muted">enforced; if it never calls, a</text>
+    <text x="40" y="288" class="muted">fallback rebuilds from its facts</text>
+
+    <rect class="writebox" x="28" y="302" width="212" height="52" rx="7"/>
+    <text x="40" y="320" font-size="11" font-weight="600">4 · the turn's final answer</text>
+    <text x="40" y="335" class="mono muted" font-size="9.5">after_model</text>
+    <text x="40" y="348" class="muted">split per claim, like a user message</text>
+  </g>
+
+  <path class="flowW" d="M240 132 C 275 132, 275 228, 300 228" marker-end="url(#aw)"/>
+  <path class="flowW" d="M240 194 C 275 194, 275 228, 300 228" marker-end="url(#aw)"/>
+  <path class="flowW" d="M240 261 C 275 261, 275 232, 300 232" marker-end="url(#aw)"/>
+  <path class="flowW" d="M240 328 C 275 328, 275 236, 300 236" marker-end="url(#aw)"/>
+
+  <!-- shared write path -->
+  <g font-size="10">
+    <rect class="stagebox" x="306" y="150" width="150" height="46" rx="6"/>
+    <text x="316" y="168" font-size="10.5" font-weight="600">split per claim</text>
+    <text x="316" y="184" class="muted">one embedding per claim,</text>
+    <text x="316" y="193" class="muted">not one per message</text>
+
+    <rect class="stagebox" x="306" y="206" width="150" height="46" rx="6"/>
+    <text x="316" y="224" font-size="10.5" font-weight="600">is it substantive?</text>
+    <text x="316" y="240" class="muted">asserts something, or</text>
+    <text x="316" y="249" class="muted">carries a figure</text>
+
+    <rect class="stagebox" x="306" y="262" width="150" height="46" rx="6"/>
+    <text x="316" y="280" font-size="10.5" font-weight="600">statement or directive</text>
+    <text x="316" y="296" class="muted">questions and instructions</text>
+    <text x="316" y="305" class="muted">kept, but held out of recall</text>
+
+    <rect class="stagebox" x="306" y="318" width="150" height="46" rx="6"/>
+    <text x="316" y="336" font-size="10.5" font-weight="600">content-addressed id</text>
+    <text x="316" y="352" class="muted">restating a claim collapses</text>
+    <text x="316" y="361" class="muted">onto the same fact</text>
+  </g>
+
+  <path class="flowW" d="M381 196 L 381 206" marker-end="url(#aw)"/>
+  <path class="flowW" d="M381 252 L 381 262" marker-end="url(#aw)"/>
+  <path class="flowW" d="M381 308 L 381 318" marker-end="url(#aw)"/>
+
+  <!-- dropped -->
+  <rect class="dropbox" x="306" y="376" width="150" height="40" rx="6"/>
+  <text x="316" y="393" font-size="10" class="cGone" font-weight="600">dropped: framing</text>
+  <text x="316" y="407" font-size="9.5" class="muted">"New shift taking over."</text>
+  <path class="flowDrop" d="M381 252 C 300 252, 300 396, 306 396" marker-end="url(#ad)"/>
+
+  <!-- store -->
+  <rect class="panelbox" x="486" y="150" width="176" height="214" rx="8"/>
+  <text x="574" y="172" font-size="12" font-weight="650" text-anchor="middle">the fact graph</text>
+  <line class="rule" x1="498" y1="182" x2="650" y2="182"/>
+  <g font-size="10">
+    <text x="498" y="200" class="mono">kind</text><text x="566" y="200" class="muted">user_input · conclusion</text>
+    <text x="566" y="212" class="muted">summary · directive</text>
+    <text x="498" y="232" class="mono">status</text><text x="566" y="232" class="muted">active · superseded</text>
+    <text x="566" y="244" class="muted">archived</text>
+    <text x="498" y="264" class="mono">source</text><text x="566" y="264" class="muted">which trigger wrote it</text>
+    <text x="498" y="290" class="mono">edges</text><text x="566" y="290" class="muted">supersedes · rollup_of</text>
+    <text x="566" y="302" class="muted">contradicts · relates_to</text>
+    <text x="498" y="330" class="mono">scope</text><text x="566" y="330" class="muted">session → namespace</text>
+    <text x="566" y="342" class="muted">→ forked child</text>
+  </g>
+  <path class="flowW" d="M456 341 C 470 341, 470 300, 486 300" marker-end="url(#aw)"/>
+
+  <line class="rule" x1="28" y1="440" x2="1152" y2="440"/>
+
+  <!-- ============================ READ ============================ -->
+  <text x="28" y="470" font-size="13" font-weight="650" class="cR">READ — how eight facts are chosen</text>
+
+  <g font-size="10.5">
+    <rect class="readbox" x="28" y="484" width="176" height="58" rx="7"/>
+    <text x="40" y="502" font-size="11" font-weight="600">1 · the query</text>
+    <text x="40" y="518" class="muted">last user message from the</text>
+    <text x="40" y="529" class="muted">FULL history, not the window</text>
+
+    <rect class="readbox" x="216" y="484" width="176" height="58" rx="7"/>
+    <text x="228" y="502" font-size="11" font-weight="600">2 · scope</text>
+    <text x="228" y="518" class="muted">self + ancestors + descendants</text>
+    <text x="228" y="529" class="muted">siblings stay invisible</text>
+
+    <rect class="readbox" x="404" y="484" width="212" height="58" rx="7"/>
+    <text x="416" y="502" font-size="11" font-weight="600">3 · filters</text>
+    <text x="416" y="518" class="muted">active only · no directives · has an</text>
+    <text x="416" y="529" class="muted">embedding · not already on screen</text>
+
+    <rect class="readbox" x="628" y="484" width="212" height="58" rx="7"/>
+    <text x="640" y="502" font-size="11" font-weight="600">4 · rank</text>
+    <text x="640" y="518" class="mono muted" font-size="9.5">cosine distance</text>
+    <text x="640" y="529" class="mono muted" font-size="9.5">+ 0.15 if from a descendant</text>
+
+    <rect class="readbox" x="852" y="484" width="176" height="58" rx="7"/>
+    <text x="864" y="502" font-size="11" font-weight="600">5 · inject top 8</text>
+    <text x="864" y="518" class="muted">into the system prompt,</text>
+    <text x="864" y="529" class="muted">with short ids to cite</text>
+  </g>
+
+  <path class="flowR" d="M204 513 L 216 513" marker-end="url(#ar)"/>
+  <path class="flowR" d="M392 513 L 404 513" marker-end="url(#ar)"/>
+  <path class="flowR" d="M616 513 L 628 513" marker-end="url(#ar)"/>
+  <path class="flowR" d="M840 513 L 852 513" marker-end="url(#ar)"/>
+
+  <!-- why each filter exists -->
+  <g font-size="9.5" class="muted">
+    <text x="28" y="578" font-size="10.5" font-weight="600" class="cR">why each step is there — each one traces to a measured failure</text>
+    <text x="28" y="598">query from the full history · a turn with enough tool calls to push the question out of the window produced no query, so memory silently switched off</text>
+    <text x="28" y="616">directives held out · questions rank high by resembling the query; four of eight slots were once question fragments, displacing the constraint the answer needed</text>
+    <text x="28" y="634">already-on-screen excluded · re-injecting a message the model can already read spends the budget twice</text>
+    <text x="28" y="652">descendant penalty · a sub-agent's raw exploration stays reachable for a pointed question without competing with the parent's own constraints</text>
+    <text x="28" y="670">active only · a superseded value must not resurface — and a supersede now also retires near-verbatim restatements written before the correction</text>
+  </g>
+</svg>

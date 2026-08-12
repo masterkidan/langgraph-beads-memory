@@ -16,7 +16,7 @@ import uuid
 from langchain_core.messages import message_to_dict
 
 from demo import metrics
-from demo.conditions import build
+from demo.conditions import DSN, build
 from demo.llm import MODEL, close_llms
 
 RAW = pathlib.Path(__file__).parent.parent / "results" / "raw"
@@ -90,6 +90,48 @@ def turn_deadline(seconds: int):
         signal.signal(signal.SIGALRM, previous)
 
 
+def snapshot_memory(condition: str, schema: str, session_id: str) -> dict:
+    """What the run actually stored, captured with the run.
+
+    Queried here rather than after the fact because schemas are reused across
+    runs of the same index — an earlier ad-hoc analysis ranked across three
+    runs' facts at once and reported a rank that did not exist. A snapshot
+    taken while the run owns the schema cannot drift.
+
+    Both arms are described in their own terms: the treatment's typed facts by
+    kind/source, the baseline's LangMem documents by count and size.
+    """
+    import psycopg
+
+    out: dict = {"arm": condition}
+    try:
+        conn = psycopg.connect(DSN, autocommit=True)
+        if condition == "baseline":
+            rows = conn.execute(
+                "SELECT count(*), coalesce(sum(length(value::text)), 0)"
+                " FROM public.store WHERE prefix LIKE %s",
+                (f"%{session_id}%",),
+            ).fetchone()
+            out["documents"], out["chars"] = rows[0], rows[1]
+        else:
+            conn.execute(f'SET search_path TO "{schema}", public')
+            rows = conn.execute(
+                "SELECT kind, source, status, count(*), sum(length(body))"
+                " FROM facts WHERE session_id = %s GROUP BY 1,2,3",
+                (session_id,),
+            ).fetchall()
+            out["facts"] = [
+                {"kind": k, "source": src, "status": st, "n": n, "chars": c}
+                for k, src, st, n, c in rows
+            ]
+            out["total_facts"] = sum(r["n"] for r in out["facts"])
+            out["total_chars"] = sum(r["chars"] for r in out["facts"])
+        conn.close()
+    except Exception as e:  # noqa: BLE001 - a snapshot must never fail a run
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
+
+
 def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict:
     session_id = f"{condition}-run{run_idx}-{uuid.uuid4().hex[:6]}"
     schema = f"run_{condition.replace('-', '_')}_{scenario_name}_{run_idx}"
@@ -119,8 +161,9 @@ def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict
                     # and exits. The dump is the point — each earlier hang cost a
                     # diagnosis because the process had to be killed blind.
                     arm_deadlock_dump(DEADLOCK_DUMP_S)
+                    turn_recorder: list = []
                     with turn_deadline(TURN_DEADLINE_S):
-                        result = invoke(thread_id, user_text)
+                        result = invoke(thread_id, user_text, recorder=turn_recorder)
                     disarm_deadlock_dump()
                     msgs = result["messages"]
                 except (Exception, TurnTimeout) as e:  # noqa: BLE001 - record, do not abort the run
@@ -165,6 +208,13 @@ def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict
                         "final": final,
                         "errored": False,
                         "empty_final": not final.strip(),
+                        # What retrieval actually put in front of the model this
+                        # turn, with distances and whether the descendant penalty
+                        # applied. Recorded rather than reconstructable: replaying
+                        # a query later runs it against a store that has since
+                        # changed, which produced one confidently wrong ranking
+                        # analysis before this existed.
+                        "injections": turn_recorder,
                         "seconds": round(turn_seconds, 1),
                     }
                 )
@@ -195,6 +245,7 @@ def run_once(condition: str, run_idx: int, scenario_name: str = "vecdb") -> dict
         # Key stays `constraint_carry` so aggregate/judge keep working across
         # both scenarios; the scenario decides what the dict contains.
         "constraint_carry": scenario.score(transcript),
+        "memory": snapshot_memory(condition, schema, session_id),
         "seconds": round(time.monotonic() - run_started, 1),
     }
 

@@ -343,13 +343,22 @@ def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: A
             build_agent=build_agent,
         )
 
-    def invoke(thread_id: str, user_text: str, callbacks: list | None = None) -> dict:
+    def invoke(
+        thread_id: str,
+        user_text: str,
+        callbacks: list | None = None,
+        recorder: list | None = None,
+    ) -> dict:
         middleware = BeadsMemoryMiddleware(
             store=store,
             namespace=root_ns,
             embedder=embedder,
             agent_id="root",
             acting_on_behalf_of="user",
+            # Records what retrieval actually injected, per model call. The
+            # baseline's equivalent is already visible: its recall is a
+            # search_memory tool call whose result sits in the transcript.
+            recorder=recorder,
         )
         agent = create_agent(
             model=make_llm(),
@@ -435,7 +444,12 @@ def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Ar
             description=f"Delegate in-depth research on {topic} to a focused researcher.",
         )
 
-    def invoke(thread_id: str, user_text: str, callbacks: list | None = None) -> dict:
+    def invoke(
+        thread_id: str,
+        user_text: str,
+        callbacks: list | None = None,
+        recorder: list | None = None,  # accepted for parity; see build_treatment
+    ) -> dict:
         agent = create_agent(
             model=make_llm(),
             tools=[read_document] + mem_tools + [make_researcher(t) for t in scenario.subtopics],

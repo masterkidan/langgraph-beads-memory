@@ -364,7 +364,8 @@ class BeadsStore:
         k: int = 8,
         exclude_ids: list[uuid.UUID] | None = None,
         include_directives: bool = False,
-    ) -> list[Fact]:
+        with_scores: bool = False,
+    ) -> list[Fact] | list[tuple[Fact, float, bool]]:
         """Top-k active facts by cosine similarity across self + ancestor chain.
 
         Scope is self + ancestors + descendants. Descendant facts carry a rank
@@ -386,7 +387,9 @@ class BeadsStore:
         rows = self._conn.execute(
             """
             SELECT id, namespace_id, session_id, kind, body, status, source,
-                   agent_id, acting_on_behalf_of
+                   agent_id, acting_on_behalf_of,
+                   (embedding <=> %s::vector) AS distance,
+                   (namespace_id = ANY(%s)) AS demoted
             FROM facts
             WHERE namespace_id = ANY(%s)
               AND status = 'active'
@@ -398,6 +401,8 @@ class BeadsStore:
             LIMIT %s
             """,
             (
+                query_embedding,
+                descendants,
                 chain + descendants,
                 include_directives,
                 exclude_ids or [],
@@ -407,7 +412,14 @@ class BeadsStore:
                 k,
             ),
         ).fetchall()
-        return [Fact(*r) for r in rows]
+        if with_scores:
+            # (fact, raw cosine distance, whether the descendant penalty applied)
+            # Returned so a caller can log WHY a fact was chosen. Reconstructing
+            # this after the fact meant re-running the query by hand, which is
+            # how an earlier analysis ranked across three runs' facts at once and
+            # reported a rank that did not exist.
+            return [(Fact(*r[:9]), float(r[9]), bool(r[10])) for r in rows]
+        return [Fact(*r[:9]) for r in rows]
 
     def resolve_short_id(self, prefix: str, readable_ns_ids: list[uuid.UUID]) -> Fact:
         """Resolve 'fact-a3f8b2c1' within readable scope; raise on miss/ambiguity."""

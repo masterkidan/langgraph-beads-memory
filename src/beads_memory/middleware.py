@@ -25,6 +25,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         k: int = 8,
         capture_final: bool = True,
         extra_tools: list | None = None,
+        recorder: list | None = None,
     ):
         super().__init__()
         self.store = store
@@ -35,6 +36,11 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         self.window = window
         self.k = k
         self.capture_final = capture_final
+        # Optional append-only log of what was actually injected, and why.
+        # Without it, "what did the agent see?" can only be reconstructed by
+        # re-running the query later against a store that has since changed —
+        # which produced a confidently wrong ranking analysis once already.
+        self.recorder = recorder
         self.tools = [
             make_remember_fact(
                 store,
@@ -200,13 +206,36 @@ class BeadsMemoryMiddleware(AgentMiddleware):
             (str(m.content) for m in reversed(msgs) if isinstance(m, HumanMessage)),
             None,
         ) or next((str(m.content) for m in reversed(msgs) if str(m.content).strip()), None)
-        facts = []
+        facts, scored = [], []
         if query_text:
-            facts = self.store.search(
+            scored = self.store.search(
                 self.namespace.id,
                 self.embedder.embed(query_text),
                 k=self.k,
                 exclude_ids=exclude,
+                with_scores=True,
+            )
+            facts = [f for f, _d, _demoted in scored]
+        if self.recorder is not None:
+            self.recorder.append(
+                {
+                    "agent_id": self.agent_id,
+                    "query": (query_text or "")[:200],
+                    "k": self.k,
+                    "excluded": len(exclude),
+                    "injected": [
+                        {
+                            "id": short_id(f.id),
+                            "kind": f.kind,
+                            "source": f.source,
+                            "agent_id": f.agent_id,
+                            "distance": round(d, 4),
+                            "demoted": demoted,
+                            "body": f.body[:160],
+                        }
+                        for f, d, demoted in scored
+                    ],
+                }
             )
         system = request.system_message or SystemMessage("")
         if facts:

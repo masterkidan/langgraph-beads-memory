@@ -31,9 +31,15 @@ _LIST_NUMBER_CEILING = 20
 
 _NUM = re.compile(r"\b\d{1,2}:\d{2}\b|\b\d+(?:\.\d+)?\b")
 
+# Short fact ids ("fact-23347999") are citations, not claims. Scoring them as
+# fabricated figures penalised the treatment for using its own citation
+# mechanism — measured: a run flagged 23347999 as an unsupported number when
+# the answer had correctly written "(`fact-23347999`)" beside a constraint.
+_FACT_ID = re.compile(r"`?fact-[0-9a-f]+`?", re.IGNORECASE)
+
 
 def _numbers(text: str) -> set[str]:
-    return set(_NUM.findall(text))
+    return set(_NUM.findall(_FACT_ID.sub(" ", text)))
 
 
 # Language that puts a cause back on the to-do list. This is the narrow

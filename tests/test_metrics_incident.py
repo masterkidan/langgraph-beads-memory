@@ -189,3 +189,25 @@ class TestTimelineIsScoredInIsolation:
             next_steps="", buried="", breadth="", timeline="Release 2.14 went out at 13:20 UTC."
         )
         assert c["uses_corrected_deploy_time"] is True
+
+
+def test_cited_fact_ids_are_not_scored_as_fabricated_numbers():
+    """`fact-23347999` is a citation, not a figure.
+
+    MEASURED: a treatment run was scored numerically ungrounded because it
+    cited a short fact id beside a constraint — the metric penalising the
+    library for using its own citation mechanism.
+    """
+    r = numeric_grounding(
+        "All actions must be reversible within 30 minutes (`fact-23347999`)",
+        # The real scorer passes the conversation, which is where "30 minutes"
+        # is stated; without it the 30 is legitimately unsupported.
+        ["whatever we try must be reversible within 30 minutes"],
+    )
+    assert r["grounded"] is True
+    assert "23347999" not in r["unsupported"]
+
+
+def test_a_fact_id_alone_is_never_treated_as_a_figure():
+    r = numeric_grounding("See `fact-23347999` and fact-9f2b1c04 for provenance.")
+    assert r["unsupported"] == []

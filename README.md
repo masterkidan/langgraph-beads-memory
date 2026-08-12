@@ -5,8 +5,8 @@ Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langg
 > Status: **implemented and measured.** 238 tests against real Postgres.
 > Retrieval cost is constant in the size of the store, the payload is ~5×
 > smaller than document-based recall, and ranking is typed rather than
-> similarity-only. Measured on `gemma4:12b`: **−29% input tokens at equal
-> accuracy** while storing 5× more text.
+> similarity-only. Measured on `gemma4:12b`, N=1: 16,745 input tokens against
+> 23,561 at equal accuracy.
 > Method and every disclosed correction: [results/README.md](results/README.md).
 > How the benefit differs by model is a separate study:
 > [results/model-study.md](results/model-study.md).
@@ -61,13 +61,24 @@ Ranking is not similarity alone. Kind, status and provenance all participate:
 
 ![One turn, call by call. Stock memory returns whole documents as a search_memory tool result that lands in the message history and is re-sent on every later call, so input grows from ~710 to ~2,400 tokens across the turn. The fact graph injects eight ranked claims into the system prompt, which is rewritten each call rather than accumulated, so input stays roughly flat.](docs/assets/token-mechanism.svg)
 
-### What that adds up to
+### Measured effect
 
-On the incident scenario with `gemma4:12b`: **−29% input tokens at equal
-accuracy** (16,745 vs 23,561; 7 of 8 metrics each) — while storing **5× more
-text** (9,250 chars vs 1,854).
+One instrumented run, incident scenario, `gemma4:12b`, N=1:
 
-Storing more is not what costs you. Re-sending it is.
+| | stock memory | this library |
+|---|---|---|
+| input tokens | 23,561 | 16,745 |
+| output tokens | 1,887 | 1,708 |
+| objective metrics passed | 7 of 8 | 7 of 8 |
+| stored | 1,854 chars | 9,250 chars |
+
+Same accuracy, 29% less input. The store being larger is incidental — it is
+recorded because it shows retrieval cost is decoupled from store size, not
+because storing more is itself useful.
+
+N=1 on one model. The direction has held across four earlier N=3 rounds on a
+different model, but the magnitude has varied (−36%, −45%, −29%), so treat it
+as "meaningfully cheaper" rather than as a fixed figure.
 
 You can read the ranking off any run rather than taking it on faith:
 

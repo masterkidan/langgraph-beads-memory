@@ -2,7 +2,78 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **implemented and measured.** 238 tests against real Postgres. Four scored N=3 rounds on `qwen3:8b`, then a fully instrumented pass on `gemma4:12b` across both scenarios: **−29% input tokens at equal accuracy** on the incident demo. The benchmark now spans five models from five vendors — every model on Ollama that advertises tool calling and fits 16GB. Latest: [results/README.md](results/README.md).
+> Status: **implemented and measured.** 238 tests against real Postgres.
+> Retrieval cost is constant in the size of the store, the payload is ~5×
+> smaller than document-based recall, and ranking is typed rather than
+> similarity-only. Measured on `gemma4:12b`: **−29% input tokens at equal
+> accuracy** while storing 5× more text.
+> Method and every disclosed correction: [results/README.md](results/README.md).
+> How the benefit differs by model is a separate study:
+> [results/model-study.md](results/model-study.md).
+
+## What it gives you
+
+Three properties. Each is a consequence of storing memory as a typed graph of
+individual claims rather than as saved documents, and each is measured.
+
+### 1 · Retrieval cost is constant
+
+The injected block is **k facts per call, whatever the store holds.** Measured
+across two scenarios while the store grew by an order of magnitude:
+
+| | store grew to | injected per call |
+|---|---|---|
+| incident | 9,250 chars (12×) | 8 facts · 596–961 chars |
+| vecdb | 7,655 chars (10×) | 8 facts · 522–1,065 chars |
+
+Once there are more than `k` facts to choose from, injection stops tracking the
+store. A session can accumulate indefinitely without the per-turn bill following
+it — recall cost is set by `k` and by the size of one claim, both constants.
+
+### 2 · The payload is small, because a claim is not a document
+
+`search_memory` returns whole saved documents. This returns the claims that
+matter. Same turn, same question:
+
+```
+stock       3,650 chars  (~915 tokens)   N documents × whatever the agent saved
+fact graph    693 chars  (~173 tokens)   k claims    × one claim
+```
+
+Per-claim capture is what makes that bound hard. The stock ceiling is soft: save
+bigger blobs and retrieval grows with them.
+
+And it does not accumulate. Stock recall arrives as a **tool result in the
+message history**, so it is re-sent on every later call in the turn — input
+climbs ~710 → ~1,600 → ~2,400 tokens across three calls. Here recall lives in
+the **system prompt**, rewritten each call, so it is paid once and replaced.
+
+### 3 · What comes back is relevant, because the graph is typed
+
+Ranking is not similarity alone. Kind, status and provenance all participate:
+
+| | effect |
+|---|---|
+| `directive` facts | held out — questions rank highly by *resembling* the query; four of eight slots were once question fragments |
+| `superseded` facts | retired from retrieval, kept for audit — a corrected value cannot resurface |
+| descendant facts | demoted — a sub-agent's raw exploration stays reachable without displacing the parent's constraints |
+| framing | never stored — "New shift taking over." was once the top-ranked fact for "what should we try next" |
+
+![One turn, call by call. Stock memory returns whole documents as a search_memory tool result that lands in the message history and is re-sent on every later call, so input grows from ~710 to ~2,400 tokens across the turn. The fact graph injects eight ranked claims into the system prompt, which is rewritten each call rather than accumulated, so input stays roughly flat.](docs/assets/token-mechanism.svg)
+
+### What that adds up to
+
+On the incident scenario with `gemma4:12b`: **−29% input tokens at equal
+accuracy** (16,745 vs 23,561; 7 of 8 metrics each) — while storing **5× more
+text** (9,250 chars vs 1,854).
+
+Storing more is not what costs you. Re-sending it is.
+
+You can read the ranking off any run rather than taking it on faith:
+
+```bash
+uv run python -m demo.show_memory results/fresh-gemma/incident --turn conv-3
+```
 
 ## How it compares to LangGraph's built-in memory
 
@@ -23,61 +94,7 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 
 **What the built-in option does well, and what this costs.** The checkpointer gives complete message history within a thread, `BaseStore` has real vector search, and it's first-party with no extra dependency — when the agent does save a memory, cross-thread recall genuinely works. This library adds a dependency and a Postgres schema.
 
-## Why it costs less context
-
-![One turn, call by call. Stock memory returns whole documents as a search_memory tool result that lands in the message history and is re-sent on every later call, so input grows from ~710 to ~2,400 tokens across the turn. The fact graph injects eight ranked claims into the system prompt, which is rewritten each call rather than accumulated, so input stays roughly flat. Three measured effects: a five-times-smaller payload, no accumulation, and no extra round trip for recall.](docs/assets/token-mechanism.svg)
-
-Measured on `gemma4:12b`, incident scenario, same turns and same sub-agents:
-
-| | stock memory | this library |
-|---|---|---|
-| recall payload | 3,650 chars (~915 tok) — whole documents | **693 chars (~173 tok)** — 8 ranked claims |
-| where it lives | a tool result **in the message history** | the **system prompt** |
-| what that means | re-sent on every later call in the turn | rewritten each call, never stacked |
-| model calls | 16 | **13** — no round trip to recall |
-| input tokens / run | 23,561 | **16,745 (−29%)** |
-| accuracy | 7 of 8 metrics | 7 of 8 metrics |
-
-**The counter-intuitive part: it stored 5× more text** — 9,250 chars against 1,854 — **and still spent 29% less context.** Storing more is not what costs you; re-sending it is. Because injection is a bounded, replaced block rather than an accumulating message, the per-turn bill stays flat as a session grows.
-
-Three separate effects, not one:
-
-1. **Per-claim storage returns claims, not documents.** `search_memory` hands back whole saved blobs; the fact graph hands back the eight claims that matter.
-2. **A system prompt is replaced; a tool result persists.** This is the structural one — the baseline pays for its recall again on every subsequent call in the same turn.
-3. **Recall needs no tool call.** The baseline must decide to search, spend a call on it, then reason over the result. Here the facts are already in front of the model.
-
-### Retrieval cost is constant, not cumulative
-
-The injected block is **k facts per call, whatever the store holds**. Measured
-across the two scenarios, while the store grew by an order of magnitude:
-
-| | store grew to | injected per call |
-|---|---|---|
-| incident | 9,250 chars (12×) | 8 facts · 596–961 chars |
-| vecdb | 7,655 chars (10×) | 8 facts · 522–1,065 chars |
-
-Injection stops tracking the store the moment there are more than `k` facts to
-choose from. Recall cost is set by `k` and by how big a single claim is — both
-constants — so a session can accumulate indefinitely without the per-turn bill
-following it.
-
-**Be precise about what this does and does not beat.** `search_memory` is also
-bounded per call, by *document count*. The difference is what each bound is on:
-
-```
-stock       N documents × (whatever size the agent chose to save)   ← unbounded per item
-fact graph  k claims    × (one claim)                               ← bounded by construction
-```
-
-In these runs the baseline's documents happened to be small and uniform, so its
-payload was near-constant too (spread of 57 chars). Its ceiling is soft: save
-bigger blobs and retrieval grows. Per-claim capture makes ours hard — a claim is
-a claim. Which ceiling actually binds first is what the scale scenario is for,
-and it is untested until then.
-
-*Caveat:* this library also trims the message window to the last 10 messages. In these turns (2–4 calls each) that almost certainly never binds, so it is unlikely to be contributing — but it has not been isolated, and it would matter in longer turns.
-
-**Measured token cost (N=3): this library used ~36% *fewer* input tokens** (11,587 vs 18,184 mean), consistently across all three runs. An earlier single run had suggested the opposite (~46% more); that run predated a scenario fix and is superseded. Injecting a compact, relevance-ranked fact set turned out cheaper than the baseline's accumulated history plus memory-search payloads. The direction has held in every round since that fix; the magnitude has not (~45% in the previous round), so treat it as "cheaper, not dramatically so". Output tokens are near parity and in the latest round slightly higher here (1,424 vs 1,334) — more recalled material to cite makes for longer answers.
+*One caveat on the token figures:* this library also trims the message window to the last 10 messages. In these turns (2–4 calls each) that almost certainly never binds, so it is unlikely to be contributing — but it has not been isolated, and it would matter in longer turns.
 
 ## How it works
 
@@ -314,8 +331,9 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
   - [2026-08-10 · granularity + supersede guard](results/2026-08-10-postfix-results.md)
   - [2026-08-09 · first scored run](results/2026-08-09-results.md)
 - [x] **Pre-registered second scenario** — [predictions committed before the first run](results/2026-08-11-demo2-preregistration.md), including the two metrics the baseline was expected to win
-- [x] **Instrumented N=1 pair on `gemma4:12b`**, both scenarios — `results/fresh-gemma/`
-- [ ] N=1 across the remaining four models, then N=5
+- [x] **Instrumented N=1 pairs** on `gemma4:12b` and `qwen3.5:9b` — `results/fresh-gemma/`, `results/fresh-qwen35/`
+- [ ] **[Model study](results/model-study.md)** — how the benefit differs by model; 2 of 5 measured, its own write-up
+- [ ] N=5 on the configuration that wins
 - [ ] A scale scenario large enough to find the token crossover
 - [ ] Publish write-up
 

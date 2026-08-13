@@ -100,3 +100,84 @@ def test_demotion_does_not_let_child_noise_crowd_out_constraints(conn, embedder)
 
     hits = store.search(root.id, embedder.embed("what is our budget?"), k=4)
     assert any("budget is 50k" in h.body for h in hits), [h.body for h in hits]
+
+
+def test_one_sub_agent_cannot_monopolise_the_parents_slots(conn, embedder):
+    """Delegation buys breadth, and similarity ranking alone does not protect it.
+
+    This used to hold by accident — a sub-agent crossed into its parent as
+    exactly one summary fact, so it could occupy exactly one slot. Splitting
+    summaries per claim removed the accident, and the loss was immediate: in the
+    final synthesis turn of an incident run the strongest-scoring researcher
+    took two descendant slots in all four model calls while the other two
+    researchers appeared in none, so the parent never saw their findings.
+    Breadth went from 3 subsystems named to 2.
+    """
+    store = _store(conn)
+    root = store.get_or_create_namespace("s-cap")
+    loud = store.fork_namespace(root)
+    quiet = store.fork_namespace(root)
+
+    # The loud child records many near-identical claims about the query topic;
+    # the quiet one records a single, less similar finding.
+    def w(ns, body, agent):
+        return store.write_fact(
+            ns,
+            kind="conclusion",
+            body=body,
+            source="remember_tool",
+            source_key=body,
+            agent_id=agent,
+            acting_on_behalf_of="root",
+            embedding=embedder.embed(body),
+        )
+
+    for i in range(6):
+        w(loud, f"The database connection pool was exhausted, detail {i}.", "researcher_db")
+    w(quiet, "The network path showed no packet loss.", "researcher_net")
+
+    hits = store.search(root.id, embedder.embed("what did we find about the database pool?"), k=8)
+    by_agent = {}
+    for f in hits:
+        if f.namespace_id != root.id:
+            by_agent[f.namespace_id] = by_agent.get(f.namespace_id, 0) + 1
+
+    assert by_agent.get(loud.id, 0) <= 2, "one child must not take the whole descendant budget"
+    assert quiet.id in by_agent, "the quieter child must still reach the parent"
+
+
+def test_a_split_summary_cannot_monopolise_the_parents_slots(conn, embedder):
+    """The case a namespace-keyed cap misses entirely.
+
+    `conclude_task` writes a sub-agent's summary into the PARENT namespace,
+    tagged with the child's agent_id — so summary fragments are not descendant
+    rows and carry no penalty. Once summaries were split per claim, one
+    researcher's fragments could take several of the parent's slots while other
+    researchers took none, which is how an incident run lost two of three
+    subsystems from its final synthesis.
+    """
+    store = _store(conn)
+    root = store.get_or_create_namespace("s-summary-cap")
+
+    def summary(agent, body):
+        return store.write_fact(
+            root,
+            kind="summary",
+            body=body,
+            source="conclude_task",
+            source_key=body,
+            agent_id=agent,
+            acting_on_behalf_of="root",
+            embedding=embedder.embed(body),
+        )
+
+    for i in range(6):
+        summary("researcher_db", f"The database connection pool was exhausted, detail {i}.")
+    summary("researcher_net", "The network path showed no packet loss.")
+
+    hits = store.search(root.id, embedder.embed("what did we find about the database pool?"), k=8)
+    agents = {}
+    for f in hits:
+        agents[f.agent_id] = agents.get(f.agent_id, 0) + 1
+    assert agents.get("researcher_db", 0) <= 2, "one researcher took the whole floor"
+    assert "researcher_net" in agents, "the quieter researcher must still be heard"

@@ -7,6 +7,7 @@ from pydantic import BaseModel, model_validator
 
 from .embeddings import Embedder
 from .ids import short_id
+from .segment import is_substantive, split_into_facts
 from .store import BeadsStore, Namespace
 
 _RELATIONS = ("supersedes", "contradicts", "relates_to")
@@ -163,18 +164,45 @@ def make_conclude_task(
                 target = store.resolve_short_id(ref_id, readable)
             except LookupError as e:
                 return f"Error: {e}"
-        fact = store.write_fact(
-            parent_namespace,
-            kind="summary",
-            body=summary,
-            source="conclude_task",
-            source_key=f"conclude:{child_namespace.id}",
-            agent_id=agent_id,
-            acting_on_behalf_of=acting_on_behalf_of,
-            embedding=embedder.embed(summary),
-        )
+        # One claim per fact, as everywhere else. A summary used to cross into
+        # the parent whole, which made it the last un-split write path — and the
+        # cost showed up in invalidation rather than in retrieval. Measured on a
+        # vecdb run: each researcher's summary paired a finding with a budget
+        # judgement ("Internal benchmarks show p95 ~15ms ... fits within the
+        # $100k budget"), so correcting the budget retired all three summaries
+        # whole and took the benchmark findings with them. There is no
+        # granularity at which invalidation can be right about a fact that mixes
+        # a stale premise with live findings; the fix belongs here, at capture.
+        fragments = [f for f in split_into_facts(summary) if is_substantive(f)] or [summary]
+        facts = [
+            store.write_fact(
+                parent_namespace,
+                kind="summary",
+                body=body,
+                source="conclude_task",
+                # Indexed so the parts of one summary stay distinct under the
+                # content-derived id scheme, mirroring _user_fact_specs.
+                source_key=(
+                    f"conclude:{child_namespace.id}"
+                    if len(fragments) == 1
+                    else f"conclude:{child_namespace.id}#{i}"
+                ),
+                agent_id=agent_id,
+                acting_on_behalf_of=acting_on_behalf_of,
+                embedding=embedder.embed(body),
+            )
+            for i, body in enumerate(fragments)
+        ]
+        # Every claim is a rollup of the child's exploration, not just the first
+        # — "where did this come from?" has to stay answerable per claim, which
+        # is the reason for having the edges at all.
         for child_fact in store.facts_in_namespace(child_namespace.id):
-            store.add_edge(fact.id, child_fact.id, "rollup_of")
+            for fact in facts:
+                store.add_edge(fact.id, child_fact.id, "rollup_of")
+        # The supersedes link is the sub-agent's single explicit claim about what
+        # its conclusion replaces, so it stays on one fact rather than being
+        # multiplied across fragments.
+        fact = facts[0]
         refused = target is not None and not store.add_edge(fact.id, target.id, "supersedes")
         concluded["fact_id"] = fact.id
         if refused:

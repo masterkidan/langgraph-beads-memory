@@ -104,6 +104,56 @@ def _is_stale_restatement(
     return derived or similarity >= CASCADE_TOPICAL_SIMILARITY
 
 
+# Most slots any ONE sub-agent may take in its parent's top-k, and how many
+# extra rows to fetch so the cap has something to promote in their place.
+#
+# Delegation exists to buy breadth, and a purely similarity-ordered ranker does
+# not protect it. This used to hold by accident: a sub-agent crossed into its
+# parent as exactly one summary fact, so it could occupy exactly one slot.
+# Splitting summaries per claim removed the accident and the loss was immediate
+# — in the final synthesis turn of an incident run, the strongest-scoring
+# researcher took two descendant slots in all four model calls and the other two
+# researchers appeared in none, so the parent never saw the app-tier or network
+# findings at all. Breadth went 3 subsystems to 2 and the surviving cause went
+# unnamed.
+#
+# 2 rather than 1: a sub-agent should be able to contribute a finding plus the
+# detail that supports it. The cap applies only to descendants — an agent's own
+# facts and its ancestors' are not rationed.
+DESCENDANT_MAX_PER_AGENT = int(os.environ.get("BEADS_DESCENDANT_MAX_PER_AGENT", "2"))
+_OVERFETCH = 4
+
+
+def _cap_per_descendant_agent(rows: list, k: int) -> list:
+    """Take the best k rows, letting no single descendant agent exceed the cap.
+
+    Rows arrive in rank order, so this preserves ranking within the constraint:
+    a capped agent's surplus is dropped and the next-best row moves up.
+    """
+    kept, per_agent = [], {}
+    for row in rows:
+        source, agent_id, demoted = row[6], row[7], row[10]
+        # Keyed on agent_id, and namespace is NOT usable here. `conclude_task`
+        # writes a sub-agent's summary into the PARENT namespace tagged with the
+        # child's agent_id, so a summary is not a descendant row at all — a
+        # namespace-keyed cap misses exactly the facts that need rationing, and
+        # measurably did: capping on namespace left three fragments from one
+        # researcher in a single injection, unchanged.
+        #
+        # Restricted to delegated contributions so the agent's OWN conclusions
+        # are never rationed. Those are the working context, not one voice among
+        # several competing for the floor.
+        if demoted or source in ("conclude_task", "fallback_conclude"):
+            seen = per_agent.get(agent_id, 0)
+            if seen >= DESCENDANT_MAX_PER_AGENT:
+                continue
+            per_agent[agent_id] = seen + 1
+        kept.append(row)
+        if len(kept) == k:
+            break
+    return kept
+
+
 @dataclasses.dataclass(frozen=True)
 class Namespace:
     id: uuid.UUID
@@ -480,9 +530,12 @@ class BeadsStore:
                 query_embedding,
                 descendants,
                 DESCENDANT_RANK_PENALTY,
-                k,
+                # Over-fetch so the per-agent cap below has alternatives to
+                # promote; without spare rows the cap would just shrink k.
+                k * _OVERFETCH,
             ),
         ).fetchall()
+        rows = _cap_per_descendant_agent(rows, k)
         if with_scores:
             # (fact, raw cosine distance, whether the descendant penalty applied)
             # Returned so a caller can log WHY a fact was chosen. Reconstructing

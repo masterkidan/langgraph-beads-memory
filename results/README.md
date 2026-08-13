@@ -428,6 +428,65 @@ gaps:
 
 Both are worth fixing before reading too much into a single metric on N=1.
 
+### Follow-up 2026-08-12: summaries split, and one voice cannot take the floor
+
+**Summaries are now split per claim** (`conclude_task`), the last un-split write
+path. Verified in the store rather than inferred from a score: each researcher's
+summary becomes 4–5 facts, and correcting the budget now retires only the
+budget-bearing clause of each. "Internal benchmarks confirm high performance
+(40ms p95 at 10M vectors)" and "binary quantization (up to 32x)" stay active
+where previously all three summaries were retired whole.
+
+**No single sub-agent may take more than `DESCENDANT_MAX_PER_AGENT` of the
+parent's slots.** Splitting removed a property that had held by accident: one
+researcher crossed as one summary fact and so could occupy one slot. Once split,
+one researcher's fragments could take several while others took none.
+
+The first version of this cap keyed on namespace and was a **no-op**, which the
+injection logs caught. `conclude_task` writes a summary into the PARENT
+namespace tagged with the child's agent_id, so summary fragments are not
+descendant rows at all — the cap rationed raw child exploration, which was never
+the problem. Keyed on agent_id and restricted to delegated sources, it binds:
+max facts from one agent in any injection went 3 → 2.
+
+### What is and is not established
+
+Four gemma4:12b runs per scenario, N=1 each, changes applied cumulatively.
+
+Structural claims, verified by reading the store directly:
+
+- `derived_from` edges are emitted where none existed (203–267 per run).
+- The cascade retires the stale assertions and keeps the corrected ones.
+- Summaries split, and invalidation reaches one clause instead of the whole.
+- The per-agent cap binds.
+
+Metric claims, and how much weight each carries:
+
+| | orig | four subsequent runs |
+|---|---|---|
+| `uses_revised_budget` | ✗ | ✓ ✓ ✓ ✓ |
+| `avoids_stale_budget_as_current` | ✗ | ✓ ✓ ✓ ✓ |
+| `mentions_primary_sources` | ✓ | ✗ ✓ ✗ ✗ |
+| vecdb input tokens | 11,115 | 9,848 → 8,800 |
+| incident input tokens | 16,745 | 14,320 → 12,861 |
+
+The two budget metrics are the result this work targeted and they hold across
+four consecutive runs. **`mentions_primary_sources` flaps**, and it flaps in
+runs whose stores demonstrably contain the primary-source facts as active —
+so it is measuring the model's phrasing, not retrieval, and no claim should
+rest on it.
+
+Incident objective metrics went 7 → 4 → 7 → 6 across the same sequence, which
+is scatter, not a trend: N=1 cannot separate a 1-metric movement from noise, as
+the 2026-08-11 round already established (three identical configurations scored
+3/6, 6/6 and 4/6). `breadth_subsystems_named` sat at 2 in all three post-split
+runs against 3 in the original, which is the one candidate regression worth
+chasing — but retrieval delivered all three researchers to the parent in those
+runs, so if it is real it is downstream of memory.
+
+**Nothing here should be published at N=1.** The honest next step is N≥3 per
+arm on both scenarios.
+
 ## Known limitations
 
 - **Small-model noise.** `qwen3:8b` is unreliable at root-level tool calling when

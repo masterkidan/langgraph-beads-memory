@@ -246,3 +246,68 @@ def test_reconstruction_never_echoes_the_task_back(conn, embedder):
     assert "Investigate application tier" not in out
     assert "analyze the logs" not in out.lower()
     assert "did NOT complete" in out and "MISSING" in out
+
+
+def test_a_summary_is_split_so_a_stale_premise_cannot_take_findings_with_it(conn, embedder):
+    """The last un-split write path, and the cost showed up in invalidation.
+
+    Measured on a vecdb run: each researcher paired a finding with a budget
+    judgement in one summary, so correcting the budget retired all three
+    summaries whole — and the benchmark findings went with them. No invalidation
+    rule can be right about a fact that mixes a stale premise with live
+    findings, so the granularity has to exist before the correction arrives.
+    """
+    store, root = _setup(conn, embedder)
+    summary = (
+        "Weaviate is a viable candidate. It supports self-hosting via Docker/K8s, and an "
+        "estimated annual cost of ~$60,000 fits within the $100k budget. Internal benchmarks "
+        "show strong performance (p95 ~15ms at 10M vectors with 96% recall)."
+    )
+
+    def build_agent(middleware, tools):
+        def run(task: str) -> str:
+            next(t for t in tools if t.name == "conclude_task").invoke({"summary": summary})
+            return "done"
+
+        return run
+
+    tool = make_subagent_tool(
+        "researcher",
+        "desc",
+        store=store,
+        parent_namespace=root,
+        embedder=embedder,
+        build_agent=build_agent,
+    )
+    tool.invoke({"task": "check weaviate"})
+
+    bodies = [f.body for f in store.facts_in_namespace(root.id)]
+    assert len(bodies) > 1, "a multi-claim summary must not cross as one fact"
+    # The budget judgement and the benchmark finding must be separately retirable.
+    assert any("$100k budget" in b and "Internal benchmarks" not in b for b in bodies)
+    assert any("Internal benchmarks" in b and "$100k budget" not in b for b in bodies)
+
+
+def test_a_single_claim_summary_still_crosses_as_one_fact(conn, embedder):
+    """Splitting must not fragment a summary that was already one claim."""
+    store, root = _setup(conn, embedder)
+
+    def build_agent(middleware, tools):
+        def run(task: str) -> str:
+            next(t for t in tools if t.name == "conclude_task").invoke(
+                {"summary": "Qdrant is self-hostable via a single binary."}
+            )
+            return "done"
+
+        return run
+
+    tool = make_subagent_tool(
+        "researcher",
+        "desc",
+        store=store,
+        parent_namespace=root,
+        embedder=embedder,
+        build_agent=build_agent,
+    )
+    tool.invoke({"task": "check qdrant"})
+    assert len(store.facts_in_namespace(root.id)) == 1

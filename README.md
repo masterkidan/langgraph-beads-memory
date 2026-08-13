@@ -54,7 +54,7 @@ Ranking is not similarity alone. Kind, status and provenance all participate:
 
 | | effect |
 |---|---|
-| `directive` facts | held out — questions rank highly by *resembling* the query; four of eight slots were once question fragments |
+| `directive` facts | held out of retrieval — see [Kinds](#kinds-what-a-memory-is) |
 | `superseded` facts | retired from retrieval, kept for audit — a corrected value cannot resurface |
 | descendant facts | demoted — a sub-agent's raw exploration stays reachable without displacing the parent's constraints |
 | framing | never stored — "New shift taking over." was once the top-ranked fact for "what should we try next" |
@@ -240,19 +240,16 @@ sitting on top of it.
 
 A fact's id is derived from `(session_id, namespace_id, source, source_key, sha256(body))`. Content-addressed, so a LangGraph checkpoint replay re-running a capture hook writes nothing new rather than duplicating.
 
-## The problem
+## Why not the built-in primitives
 
-LangGraph ships two memory primitives: a checkpointer for thread-scoped state, and a `BaseStore`/`PostgresStore` for cross-thread key-value memory. Frameworks built on top (LangMem, Mem0, Zep) mostly bet on automatic LLM extraction — scan the transcript, pull out "facts," write them somewhere. That's fast to wire up, but it's also imprecise, hard to audit, and gives you no way to say "this conclusion replaced that one" or "this sub-agent's exploration shouldn't pollute the parent's context."
+LangGraph ships a checkpointer for thread-scoped state and a `BaseStore` / `PostgresStore` for cross-thread key-value memory. Frameworks on top (LangMem, Mem0, Zep) mostly bet on automatic LLM extraction: scan the transcript, pull out "facts", write them somewhere. That is fast to wire up, but imprecise, hard to audit, and it gives you no way to say *this conclusion replaced that one* or *this sub-agent's exploration should not pollute the parent's context*.
 
-[beads](https://github.com/steveyegge/beads) — Steve Yegge's dependency-aware issue tracker for coding agents — took a different stance for task memory: a typed graph of issues, explicit `bd remember` calls for durable insight, and semantic decay instead of silent deletion. `langgraph-beads-memory` brings that same stance to LangGraph's conversational/multi-agent memory, backed by nothing but Postgres.
+[beads](https://github.com/steveyegge/beads) — Steve Yegge's dependency-aware issue tracker for coding agents — took a typed-graph stance for task memory: explicit `bd remember` calls, and semantic decay rather than silent deletion. This brings that stance to LangGraph's conversational and multi-agent memory.
 
-## What it does differently
+Two commitments follow, and they constrain everything else:
 
-- **Explicit, dual-path capture.** User input is captured verbatim as it arrives — no extraction LLM call needed. Agent conclusions are captured only when the agent deliberately calls a `remember_fact` tool. Nothing gets written to memory the agent (or user) didn't put there.
-- **A typed fact graph, not a blob.** Facts relate to each other through typed edges — `supersedes`, `contradicts`, `relates_to`, `derived_from`, `rollup_of` — so "this replaced that" and "this summary was derived from these five facts" are first-class, queryable relationships.
-- **Durable, auditable, enforced sub-agent rollups.** LangGraph sub-agents already have isolated context — that's not the claim. The claim: when a supervisor spawns a sub-agent, its memory forks into a child namespace, and its conclusion is *required* — the adapter synthesizes a "task did not complete" fact if the sub-agent crashes or forgets, so no delegated task ever vanishes silently. The rollup summary is a durable fact (not a message that scrolls away), linked by `rollup_of` edges back to every exploration fact that produced it, so any conclusion can be audited by drill-down. Raw exploration stays in the child namespace and is **demoted, not hidden** — a parent can still reach it (see [Ranking](#ranking)), because a summary written by a small model is lossy and the detail it drops is sometimes the one you need later.
-- **Postgres-only.** No Neo4j, no separate vector database — namespaces, facts, and edges all live in one Postgres schema (`pgvector` for embeddings).
-- **Session-scoped, not identity-coupled.** The core schema is anchored on `session_id` alone — a long-lived memory scope that deliberately spans LangGraph threads, so a new conversation that continues the same work recalls everything from earlier ones. `langgraph-beads-memory` doesn't need to know what a "user" is; if an application wants a user↔session mapping, it owns that table itself.
+- **Postgres only.** Namespaces, facts and edges live in one schema, `pgvector` for embeddings. No graph database, no separate vector store.
+- **Session-scoped, not identity-coupled.** The schema is anchored on `session_id` — a memory scope that deliberately spans LangGraph threads, so a new conversation continuing the same work starts warm. The library does not need to know what a "user" is; an application wanting a user↔session mapping owns that table.
 
 ## Using it
 
@@ -356,59 +353,26 @@ what it changed rather than quietly re-run.
 Running the demo needs Docker (Postgres + pgvector) and Ollama; see
 [results/README.md](results/README.md) for exact steps.
 
-### Honest status of the evidence
+### Evidence, and its limits
 
-The mechanism is verified working end to end with a real LLM — forked child
-namespaces, genuine `conclude_task` rollups, and `rollup_of` audit edges
-confirmed against live Postgres, not just in unit tests.
+The mechanism is verified end to end against live Postgres — forked child
+namespaces, `conclude_task` rollups, `rollup_of` audit edges — not only in unit
+tests.
 
-On the comparison, from the [latest N=3 round](results/2026-08-11-descendant-results.md)
-(the first with zero errored turns): the clearest separation is committing to a
-*feasible* option — 3/3 here versus 0/3 for the built-in memory, which
-recommended Weaviate in every run at roughly $60k/yr against a revised $50k
-budget, citing no budget figure at all. Carrying the revised budget forward is
-2/3 here versus 0/3. The blinded judge favours this library on all three
-dimensions, though it also scored a run 5/5 on "recall" whose answer contained a
-fabricated number, so weight it accordingly.
+On the comparison, the honest summary is:
 
-**Two things worth stating plainly.** The baseline is not a strawman here: it
-called `manage_memory` four times per run and `search_memory` when asked,
-reliably, in every run — and it beats us on recalling a specific buried detail
-(3/3 vs 2/3). And when the targeted metric for that round *did* improve, tracing
-the database showed only **one of three runs** was actually attributable to the
-feature under test; the rest was variance in what sub-agents chose to summarise.
-Single-metric movements of 1/3 at this N are not distinguishable from noise.
+- **Retrieval cost being constant and small is architectural**, and holds in every
+  run: injection is *k* claims per call and does not track the store.
+- **Whether a run is cheaper overall depends on the model.** Memory injection is
+  a small share of total input (~13% in one measured run), so a verbose model's
+  own message history can swamp the saving.
+- **Accuracy results are mixed and N is small.** One run per model per scenario.
 
-> **⚠ Model is an uncontrolled variable in these numbers.**
-> Every round above ran on `qwen3:8b`. In a first clean run on `gemma4:12b`
-> (2026-08-12) the **baseline carried the revised budget correctly** — the
-> metric that is 0/3 for the baseline in every qwen3 round and forms the
-> headline separation here. It also committed to a feasible option, which it
-> never did on qwen3.
->
-> A second run on the same model then went the other way (1 of 2), so this is
-> variance, not a finding. What it establishes is narrower and methodological:
-> **model is a variable these rounds did not control for.** That is why the
-> benchmark now runs the same scenarios across five models from five vendors —
-> the question "does structured memory help" is only answerable once the model
-> is held constant or varied deliberately.
->
-> Read the per-round numbers as measurements of one implementation on one
-> model, not as the architecture's ceiling. Several of the rounds above also
-> ran with bugs since fixed (see the corrections in
-> [results/README.md](results/README.md)), all of which degraded one arm or
-> the other.
->
-> Several other bugs found on 2026-08-12 also degraded only the baseline
-> (empty sub-agent returns, tool calls rejected at the schema boundary, a retry
-> loop). All are fixed, and all of them ran during the rounds above. See
-> [results/README.md](results/README.md).
-
-The scenario was designed to exercise this mechanism, so treat it as a
-demonstration on a case built for it. Full numbers, the attribution analysis and
-every disclosed correction are in
-[results/2026-08-11-descendant-results.md](results/2026-08-11-descendant-results.md),
-with the round-by-round index in [results/README.md](results/README.md).
+Method, every disclosed correction, and the operational notes:
+[results/README.md](results/README.md). It is long on purpose — several rounds
+ran with bugs that were later found and fixed, and each is recorded with what it
+changed rather than quietly re-run. How the benefit differs by model is a
+separate study: [results/model-study.md](results/model-study.md).
 
 ## Docs
 

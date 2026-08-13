@@ -19,6 +19,11 @@ from demo.scenarios import Arm, Scenario, get_arm, get_scenario
 DSN = "postgresql://beads:beads@localhost:5433/beads"
 
 
+def _default_tools(scenario: Scenario) -> list:
+    """Benchmark scenarios read a fixed corpus."""
+    return [make_read_document(scenario)]
+
+
 def make_read_document(scenario: Scenario):
     """Corpus reader bound to one scenario's document set.
 
@@ -293,7 +298,7 @@ def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: A
         make_subagent_tool,
     )
 
-    read_document = make_read_document(scenario)
+    base_tools = (scenario.tools_factory or _default_tools)(scenario)
     root_prompt = scenario.root_prompt
     if arm.subrecall:
         from demo.scenario_incident import SUBRECALL_PROMPT_SUFFIX
@@ -320,7 +325,7 @@ def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: A
             extra_tools = [t for t in tools if t not in middleware.tools]
             agent = create_agent(
                 model=make_llm(),
-                tools=[read_document] + extra_tools,
+                tools=base_tools + extra_tools,
                 system_prompt=scenario.subagent_prompt + f" Your assigned topic is: {topic}.",
                 middleware=[middleware],
             )
@@ -362,7 +367,7 @@ def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: A
         )
         agent = create_agent(
             model=make_llm(),
-            tools=[read_document] + [make_researcher(t) for t in scenario.subtopics],
+            tools=base_tools + [make_researcher(t) for t in scenario.subtopics],
             system_prompt=root_prompt,
             middleware=[middleware],
         )
@@ -384,7 +389,7 @@ def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Ar
     namespace tuple (("memories", session_id)), not by Postgres schema, so a
     unique session_id is what isolates one demo run's memories from another's.
     """
-    read_document = make_read_document(scenario)
+    base_tools = (scenario.tools_factory or _default_tools)(scenario)
 
     from langchain_ollama import OllamaEmbeddings
     from langgraph.store.postgres import PostgresStore
@@ -421,7 +426,7 @@ def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Ar
     def make_researcher(topic: str):
         researcher = create_agent(
             model=make_llm(),
-            tools=[read_document] + mem_tools,
+            tools=base_tools + mem_tools,
             system_prompt=scenario.subagent_prompt
             + f" Your assigned topic is: {topic}."
             + " Save important findings with the memory tool.",
@@ -452,7 +457,7 @@ def build_baseline(session_id: str, run_schema: str, scenario: Scenario, arm: Ar
     ) -> dict:
         agent = create_agent(
             model=make_llm(),
-            tools=[read_document] + mem_tools + [make_researcher(t) for t in scenario.subtopics],
+            tools=base_tools + mem_tools + [make_researcher(t) for t in scenario.subtopics],
             system_prompt=scenario.root_prompt.replace(
                 "remember_fact", "the manage_memory tool"
             ).replace(

@@ -32,6 +32,11 @@ class Scenario:
     corpus_dir: pathlib.Path
     conversations: tuple
     score: Callable[[list[dict]], dict]
+    # Base tools available to the agent, as a factory so a scenario can supply
+    # its own. Defaults to the corpus reader; the playground supplies web
+    # search instead, which is the only difference between a scripted
+    # benchmark and a live session as far as the memory layer is concerned.
+    tools_factory: Callable[[Scenario], list] | None = None
 
 
 @dataclasses.dataclass(frozen=True)

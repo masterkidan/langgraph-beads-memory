@@ -1,0 +1,183 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>beads-memory playground</title>
+<style>
+  :root {
+    --bg:#faf8f4; --fg:#2b2620; --muted:#8a8175; --line:#d9d2c6; --panel:#fff;
+    --warm:#b45309; --cool:#0f766e; --warmbg:#f5e3cd; --coolbg:#d5ebe8; --bad:#b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#171512; --fg:#ece5da; --muted:#93897b; --line:#3b362e; --panel:#201d19;
+      --warm:#f59e0b; --cool:#2dd4bf; --warmbg:#3a2c17; --coolbg:#12332f; --bad:#f87171;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",Helvetica,sans-serif;
+         display:grid; grid-template-columns:230px 1fr; height:100vh; }
+  aside { border-right:1px solid var(--line); padding:14px; overflow-y:auto; }
+  aside h1 { font-size:14px; margin:0 0 4px; }
+  aside p { font-size:11px; color:var(--muted); margin:0 0 12px; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line);
+           background:var(--panel); color:var(--fg); border-radius:6px; padding:6px 10px; }
+  button:hover { border-color:var(--muted); }
+  .chat { display:block; width:100%; text-align:left; margin-bottom:5px; font-size:12.5px;
+          white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chat.on { border-color:var(--cool); }
+  main { display:flex; flex-direction:column; min-width:0; }
+  header { padding:10px 16px; border-bottom:1px solid var(--line);
+           display:flex; gap:14px; align-items:baseline; }
+  header b { font-size:13px; } header span { font-size:11px; color:var(--muted); }
+  #streams { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:0; overflow:hidden; }
+  .col { overflow-y:auto; padding:14px; min-width:0; }
+  .col:first-child { border-right:1px solid var(--line); }
+  .lbl { position:sticky; top:-14px; background:var(--bg); padding:4px 0 8px;
+         font-size:11px; font-weight:650; letter-spacing:.04em; text-transform:uppercase; }
+  .lbl.b { color:var(--warm); } .lbl.t { color:var(--cool); }
+  .msg { margin-bottom:14px; }
+  .you { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+         padding:8px 10px; font-size:13px; margin-bottom:6px; }
+  .ans { border-radius:8px; padding:9px 11px; font-size:13px; white-space:pre-wrap;
+         border:1px solid var(--line); background:var(--panel); }
+  .b .ans { border-left:3px solid var(--warm); }
+  .t .ans { border-left:3px solid var(--cool); }
+  .meta { font-size:10.5px; color:var(--muted); margin-top:5px;
+          font-family:ui-monospace,Menlo,monospace; }
+  .err { color:var(--bad); }
+  details { margin-top:6px; }
+  summary { font-size:10.5px; color:var(--muted); cursor:pointer; }
+  .facts { margin-top:5px; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .fact { padding:5px 8px; font-size:11px; border-bottom:1px solid var(--line);
+          display:grid; grid-template-columns:52px 1fr; gap:8px; }
+  .fact:last-child { border-bottom:0; }
+  .fact code { font-size:10px; color:var(--muted); }
+  form { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--line); }
+  input[type=text] { flex:1; font:inherit; padding:9px 11px; border-radius:7px;
+                     border:1px solid var(--line); background:var(--panel); color:var(--fg); }
+  .empty { color:var(--muted); font-size:12.5px; padding:20px 0; }
+  .spin { color:var(--muted); font-size:12px; }
+</style>
+
+<aside>
+  <h1>beads-memory</h1>
+  <p>One message, two memory layers. Each chat is one session; every message is a
+     new thread, so anything recalled came from memory.</p>
+  <button id="new" style="width:100%; margin-bottom:12px;">+ New chat</button>
+  <div id="chats"></div>
+</aside>
+
+<main>
+  <header>
+    <b id="title">No chat</b>
+    <span id="sub"></span>
+  </header>
+  <div id="streams">
+    <div class="col b" id="colb"><div class="lbl b">Baseline · LangMem + PostgresStore</div><div id="b"></div></div>
+    <div class="col t" id="colt"><div class="lbl t">Treatment · typed fact graph</div><div id="t"></div></div>
+  </div>
+  <form id="f">
+    <input type="text" id="q" placeholder="Ask something, state a constraint, then correct it in a later message…" autocomplete="off">
+    <button type="submit" id="send">Send</button>
+  </form>
+</main>
+
+<script>
+let chatId = null;
+
+const api = async (url, opts) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+};
+
+const esc = s => (s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function factsHtml(facts) {
+  if (!facts || !facts.length) return '';
+  const rows = facts.map(f =>
+    `<div class="fact"><code>${f.distance.toFixed(3)}${f.demoted ? ' ↓' : ''}</code>
+     <div>${esc(f.body)}<br><code>${esc(f.kind)}/${esc(f.source)}</code></div></div>`).join('');
+  return `<details><summary>${facts.length} facts injected — distances, ↓ = demoted sub-agent fact</summary>
+          <div class="facts">${rows}</div></details>`;
+}
+
+function armHtml(a) {
+  if (a.error) return `<div class="ans err">${esc(a.error)}</div>`;
+  const tools = a.tools.length ? ` · tools: ${a.tools.join(', ')}` : ' · no tool calls';
+  return `<div class="ans">${esc(a.answer) || '<i>(empty answer)</i>'}</div>
+          <div class="meta">${a.seconds}s · ${a.input_tokens} input tokens${esc(tools)}</div>
+          ${factsHtml(a.injected)}`;
+}
+
+function renderTurn(turn) {
+  for (const [arm, id] of [['baseline', 'b'], ['treatment', 't']]) {
+    const el = document.getElementById(id);
+    el.insertAdjacentHTML('beforeend',
+      `<div class="msg"><div class="you">${esc(turn.user)}</div>${armHtml(turn[arm])}</div>`);
+    el.parentElement.scrollTop = el.parentElement.scrollHeight;
+  }
+}
+
+async function loadChats() {
+  const chats = await api('/api/chats');
+  document.getElementById('chats').innerHTML = chats.map(c =>
+    `<button class="chat ${c.id === chatId ? 'on' : ''}" data-id="${c.id}">${esc(c.title)}</button>`).join('')
+    || '<p style="font-size:11px;color:var(--muted)">no chats yet</p>';
+  document.querySelectorAll('.chat').forEach(b => b.onclick = () => openChat(b.dataset.id));
+}
+
+async function openChat(id) {
+  chatId = id;
+  const c = await api('/api/chats/' + id);
+  document.getElementById('title').textContent = c.title;
+  document.getElementById('sub').textContent = `${c.turns.length} messages · session ${id}`;
+  document.getElementById('b').innerHTML = '';
+  document.getElementById('t').innerHTML = '';
+  c.turns.forEach(renderTurn);
+  if (!c.turns.length) {
+    document.getElementById('b').innerHTML = '<div class="empty">Send a message to compare.</div>';
+    document.getElementById('t').innerHTML = '<div class="empty">Both arms answer the same message.</div>';
+  }
+  loadChats();
+}
+
+document.getElementById('new').onclick = async () => {
+  const c = await api('/api/chats', { method: 'POST', body: JSON.stringify({}) });
+  await loadChats();
+  openChat(c.id);
+};
+
+document.getElementById('f').onsubmit = async e => {
+  e.preventDefault();
+  const q = document.getElementById('q');
+  const text = q.value.trim();
+  if (!text || !chatId) return;
+  q.value = '';
+  const send = document.getElementById('send');
+  send.disabled = true; send.textContent = 'Running both…';
+  for (const id of ['b', 't']) {
+    const el = document.getElementById(id);
+    if (el.querySelector('.empty')) el.innerHTML = '';
+    el.insertAdjacentHTML('beforeend',
+      `<div class="msg pending"><div class="you">${esc(text)}</div><div class="spin">thinking…</div></div>`);
+  }
+  try {
+    const turn = await api(`/api/chats/${chatId}/messages`, {
+      method: 'POST', body: JSON.stringify({ text })
+    });
+    document.querySelectorAll('.pending').forEach(n => n.remove());
+    renderTurn(turn);
+    document.getElementById('sub').textContent =
+      `${turn.n + 1} messages · session ${chatId}`;
+  } catch (err) {
+    document.querySelectorAll('.pending .spin').forEach(n => {
+      n.className = 'ans err'; n.textContent = String(err);
+    });
+  } finally {
+    send.disabled = false; send.textContent = 'Send';
+  }
+};
+
+loadChats();
+</script>

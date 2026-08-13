@@ -38,8 +38,23 @@
   .msg { margin-bottom:14px; }
   .you { background:var(--panel); border:1px solid var(--line); border-radius:8px;
          padding:8px 10px; font-size:13px; margin-bottom:6px; }
-  .ans { border-radius:8px; padding:9px 11px; font-size:13px; white-space:pre-wrap;
-         border:1px solid var(--line); background:var(--panel); }
+  .ans { border-radius:8px; padding:10px 12px; font-size:13px;
+         border:1px solid var(--line); background:var(--panel); overflow-wrap:anywhere; }
+  .ans > :first-child { margin-top:0; } .ans > :last-child { margin-bottom:0; }
+  .ans h1,.ans h2,.ans h3 { font-size:13px; margin:12px 0 5px; line-height:1.35; }
+  .ans h1 { font-size:14.5px; } .ans h2 { font-size:13.5px; }
+  .ans p { margin:0 0 8px; }
+  .ans ul,.ans ol { margin:0 0 8px; padding-left:20px; }
+  .ans li { margin:2px 0; }
+  .ans li > ul, .ans li > ol { margin:2px 0; }
+  .ans code { font-family:ui-monospace,Menlo,monospace; font-size:11.5px;
+              background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 4px; }
+  .ans pre { background:var(--bg); border:1px solid var(--line); border-radius:6px;
+             padding:8px 10px; overflow-x:auto; margin:0 0 8px; }
+  .ans pre code { border:0; background:none; padding:0; font-size:11.5px; }
+  .ans a { color:var(--cool); } .ans hr { border:0; border-top:1px solid var(--line); margin:10px 0; }
+  .ans table { border-collapse:collapse; margin:0 0 8px; font-size:12px; }
+  .ans th,.ans td { border:1px solid var(--line); padding:3px 7px; text-align:left; }
   .b .ans { border-left:3px solid var(--warm); }
   .t .ans { border-left:3px solid var(--cool); }
   .meta { font-size:10.5px; color:var(--muted); margin-top:5px;
@@ -56,7 +71,16 @@
   input[type=text] { flex:1; font:inherit; padding:9px 11px; border-radius:7px;
                      border:1px solid var(--line); background:var(--panel); color:var(--fg); }
   .empty { color:var(--muted); font-size:12.5px; padding:20px 0; }
-  .spin { color:var(--muted); font-size:12px; }
+  .working { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);
+             border:1px dashed var(--line); border-radius:8px; padding:9px 11px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:currentColor;
+         animation:pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.25} 50%{opacity:1} }
+  .b .working { color:var(--warm); } .t .working { color:var(--cool); }
+  .waiting { opacity:.55; font-style:italic; }
+  #title { cursor:text; border-bottom:1px dashed transparent; }
+  #title:hover { border-bottom-color:var(--muted); }
+  .hint { font-size:11px; color:var(--muted); padding:2px 16px 0; }
 </style>
 
 <aside>
@@ -69,7 +93,7 @@
 
 <main>
   <header>
-    <b id="title">No chat</b>
+    <b id="title" title="click to rename">No chat</b>
     <span id="sub"></span>
   </header>
   <div id="streams">
@@ -77,52 +101,143 @@
     <div class="col t" id="colt"><div class="lbl t">Treatment · typed fact graph</div><div id="t"></div></div>
   </div>
   <form id="f">
-    <input type="text" id="q" placeholder="Ask something, state a constraint, then correct it in a later message…" autocomplete="off">
+    <input type="text" id="q" placeholder="Type to start — a chat is created automatically…" autocomplete="off">
     <button type="submit" id="send">Send</button>
   </form>
 </main>
 
 <script>
 let chatId = null;
+// Busy is per CHAT, not global. A single flag disabled Send everywhere, so a
+// run in one chat blocked every other chat — and switching away left the
+// button dead with no explanation.
+const busy = new Set();
+
+function syncSend() {
+  const send = document.getElementById('send');
+  const running = chatId && busy.has(chatId);
+  send.disabled = !!running;
+  send.textContent = running ? 'Running…' : 'Send';
+  document.getElementById('q').placeholder = running
+    ? 'This chat is answering — switch chats or wait…'
+    : 'Type to start — a chat is created automatically…';
+}
 
 const api = async (url, opts) => {
   const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error((await r.text()).slice(0, 300));
   return r.json();
 };
-
 const esc = s => (s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 function factsHtml(facts) {
   if (!facts || !facts.length) return '';
   const rows = facts.map(f =>
-    `<div class="fact"><code>${f.distance.toFixed(3)}${f.demoted ? ' ↓' : ''}</code>
+    `<div class="fact"><code>${f.distance.toFixed(3)}${f.demoted ? ' \u2193' : ''}</code>
      <div>${esc(f.body)}<br><code>${esc(f.kind)}/${esc(f.source)}</code></div></div>`).join('');
-  return `<details><summary>${facts.length} facts injected — distances, ↓ = demoted sub-agent fact</summary>
+  return `<details><summary>${facts.length} facts injected \u2014 distances, \u2193 = demoted sub-agent fact</summary>
           <div class="facts">${rows}</div></details>`;
 }
 
+
+// Minimal markdown -> HTML. The models answer in markdown; rendering it as
+// plain text made every reply look like a wall of asterisks and hashes.
+// Escaping happens FIRST and the transforms only ever introduce tags of our
+// own, so model output can never inject markup.
+function md(src) {
+  let t = esc(src ?? '');
+
+  // Fenced code first, parked behind placeholders so nothing else rewrites it.
+  const blocks = [];
+  t = t.replace(/```[a-z]*\n?([\s\S]*?)```/gi, (_m, code) => {
+    blocks.push(code.replace(/\n$/, ''));
+    return `\u0000BLOCK${blocks.length - 1}\u0000`;
+  });
+
+  const inline = x => x
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  const out = [];
+  let list = null;                       // 'ul' | 'ol' | null
+  const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+
+  for (const raw of t.split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (/^\u0000BLOCK\d+\u0000$/.test(line.trim())) {
+      closeList(); out.push(line.trim()); continue;
+    }
+    if (!line.trim()) { closeList(); continue; }
+    if (/^\s*(---|\*\*\*|___)\s*$/.test(line)) { closeList(); out.push('<hr>'); continue; }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { closeList(); const n = Math.min(h[1].length, 3); out.push(`<h${n}>${inline(h[2])}</h${n}>`); continue; }
+
+    const ul = line.match(/^\s*[-*+]\s+(.*)$/);
+    const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      const want = ul ? 'ul' : 'ol';
+      if (list !== want) { closeList(); out.push(`<${want}>`); list = want; }
+      out.push(`<li>${inline((ul || ol)[1])}</li>`);
+      continue;
+    }
+    closeList();
+    out.push(`<p>${inline(line)}</p>`);
+  }
+  closeList();
+
+  return out.join('\n').replace(/\u0000BLOCK(\d+)\u0000/g,
+    (_m, i) => `<pre><code>${blocks[+i]}</code></pre>`);
+}
+
 function armHtml(a) {
+  if (!a) return '';
   if (a.error) return `<div class="ans err">${esc(a.error)}</div>`;
-  const tools = a.tools.length ? ` · tools: ${a.tools.join(', ')}` : ' · no tool calls';
-  return `<div class="ans">${esc(a.answer) || '<i>(empty answer)</i>'}</div>
-          <div class="meta">${a.seconds}s · ${a.input_tokens} input tokens${esc(tools)}</div>
+  const tools = a.tools.length ? ` \u00b7 tools: ${a.tools.join(', ')}` : ' \u00b7 no tool calls';
+  return `<div class="ans">${a.answer ? md(a.answer) : '<i>(empty answer)</i>'}</div>
+          <div class="meta">${a.seconds}s \u00b7 ${a.input_tokens} input tokens${esc(tools)}</div>
           ${factsHtml(a.injected)}`;
 }
 
+// Each turn owns one node per column, so an arm can be filled in when it lands
+// without disturbing the other. Waiting for both before showing anything reads
+// as a hang when each takes minutes.
+function turnNode(col, n, user) {
+  const id = `turn-${col}-${n}`;
+  let el = document.getElementById(id);
+  if (!el) {
+    const host = document.getElementById(col);
+    host.querySelector('.empty')?.remove();
+    host.insertAdjacentHTML('beforeend',
+      `<div class="msg" id="${id}"><div class="you">${esc(user)}</div><div class="slot"></div></div>`);
+    el = document.getElementById(id);
+  }
+  return el.querySelector('.slot');
+}
+
+function showWorking(slot, label) {
+  const t0 = Date.now();
+  slot.innerHTML = `<div class="working"><span class="dot"></span><span>${label}</span>
+                    <span class="elapsed">0s</span></div>`;
+  const span = slot.querySelector('.elapsed');
+  return setInterval(() => { span.textContent = Math.round((Date.now() - t0) / 1000) + 's'; }, 1000);
+}
+
 function renderTurn(turn) {
-  for (const [arm, id] of [['baseline', 'b'], ['treatment', 't']]) {
-    const el = document.getElementById(id);
-    el.insertAdjacentHTML('beforeend',
-      `<div class="msg"><div class="you">${esc(turn.user)}</div>${armHtml(turn[arm])}</div>`);
-    el.parentElement.scrollTop = el.parentElement.scrollHeight;
+  for (const [arm, col] of [['baseline', 'b'], ['treatment', 't']]) {
+    const slot = turnNode(col, turn.n, turn.user);
+    slot.innerHTML = armHtml(turn[arm]) ||
+      '<div class="working waiting"><span>queued \u2014 runs after the other arm</span></div>';
+    slot.parentElement.parentElement.scrollTop = 1e9;
   }
 }
 
 async function loadChats() {
   const chats = await api('/api/chats');
   document.getElementById('chats').innerHTML = chats.map(c =>
-    `<button class="chat ${c.id === chatId ? 'on' : ''}" data-id="${c.id}">${esc(c.title)}</button>`).join('')
+    `<button class="chat ${c.id === chatId ? 'on' : ''}" data-id="${c.id}">${busy.has(c.id) ? '\u25cf ' : ''}${esc(c.title)}</button>`).join('')
     || '<p style="font-size:11px;color:var(--muted)">no chats yet</p>';
   document.querySelectorAll('.chat').forEach(b => b.onclick = () => openChat(b.dataset.id));
 }
@@ -131,51 +246,87 @@ async function openChat(id) {
   chatId = id;
   const c = await api('/api/chats/' + id);
   document.getElementById('title').textContent = c.title;
-  document.getElementById('sub').textContent = `${c.turns.length} messages · session ${id}`;
+  document.getElementById('sub').textContent = `${c.turns.length} messages \u00b7 session ${id}`;
   document.getElementById('b').innerHTML = '';
   document.getElementById('t').innerHTML = '';
   c.turns.forEach(renderTurn);
+  syncSend();
   if (!c.turns.length) {
-    document.getElementById('b').innerHTML = '<div class="empty">Send a message to compare.</div>';
-    document.getElementById('t').innerHTML = '<div class="empty">Both arms answer the same message.</div>';
+    document.getElementById('b').innerHTML = '<div class="empty">Send a message \u2014 both arms answer it.</div>';
+    document.getElementById('t').innerHTML = '<div class="empty">The treatment also shows what it injected.</div>';
   }
   loadChats();
 }
 
-document.getElementById('new').onclick = async () => {
+async function newChat() {
   const c = await api('/api/chats', { method: 'POST', body: JSON.stringify({}) });
   await loadChats();
-  openChat(c.id);
+  await openChat(c.id);
+  return c.id;
+}
+document.getElementById('new').onclick = newChat;
+
+// Rename in place. Chats were auto-titled from the first message with no way
+// to change it.
+document.getElementById('title').onclick = async () => {
+  if (!chatId) return;
+  const cur = document.getElementById('title').textContent;
+  const next = prompt('Rename chat', cur);
+  if (next === null || !next.trim()) return;
+  const r = await api('/api/chats/' + chatId, { method: 'PATCH', body: JSON.stringify({ title: next }) });
+  document.getElementById('title').textContent = r.title;
+  loadChats();
 };
 
 document.getElementById('f').onsubmit = async e => {
   e.preventDefault();
   const q = document.getElementById('q');
   const text = q.value.trim();
-  if (!text || !chatId) return;
+  if (!text) return;
+  // Create a chat implicitly. Requiring "+ New chat" first was a trap: the
+  // send silently did nothing and the typed message was left stranded.
+  if (!chatId) await newChat();
+
   q.value = '';
-  const send = document.getElementById('send');
-  send.disabled = true; send.textContent = 'Running both…';
-  for (const id of ['b', 't']) {
-    const el = document.getElementById(id);
-    if (el.querySelector('.empty')) el.innerHTML = '';
-    el.insertAdjacentHTML('beforeend',
-      `<div class="msg pending"><div class="you">${esc(text)}</div><div class="spin">thinking…</div></div>`);
-  }
+  const chat = chatId;             // capture: the user may switch chats mid-run
+  busy.add(chat); syncSend(); loadChats();
+
+  let turn;
   try {
-    const turn = await api(`/api/chats/${chatId}/messages`, {
-      method: 'POST', body: JSON.stringify({ text })
-    });
-    document.querySelectorAll('.pending').forEach(n => n.remove());
-    renderTurn(turn);
-    document.getElementById('sub').textContent =
-      `${turn.n + 1} messages · session ${chatId}`;
+    turn = await api(`/api/chats/${chatId}/turns`, { method: 'POST', body: JSON.stringify({ text }) });
   } catch (err) {
-    document.querySelectorAll('.pending .spin').forEach(n => {
-      n.className = 'ans err'; n.textContent = String(err);
-    });
-  } finally {
-    send.disabled = false; send.textContent = 'Send';
+    busy.delete(chat); syncSend(); loadChats();
+    q.value = text;                             // give the message back
+    alert(err); return;
+  }
+  document.getElementById('title').textContent = turn.title;
+  renderTurn({ n: turn.n, user: turn.user, baseline: null, treatment: null });
+  loadChats();
+
+  for (const [arm, col, label] of [
+    ['baseline', 'b', 'baseline thinking'],
+    ['treatment', 't', 'treatment thinking'],
+  ]) {
+    // Resolve the slot immediately before each write: switching chats rebuilds
+    // the DOM, so a node captured earlier would be detached and the answer
+    // would land nowhere.
+    const live = () => (chatId === chat ? turnNode(col, turn.n, turn.user) : null);
+    const timer = (() => { const s0 = live(); return s0 ? showWorking(s0, label) : null; })();
+    let html;
+    try {
+      const res = await api(`/api/chats/${chat}/turns/${turn.n}/${arm}`, { method: 'POST' });
+      html = armHtml(res);
+    } catch (err) {
+      html = `<div class="ans err">${esc(String(err))}</div>`;
+    }
+    if (timer) clearInterval(timer);
+    const slot = live();
+    if (slot) { slot.innerHTML = html; slot.parentElement.parentElement.scrollTop = 1e9; }
+  }
+  busy.delete(chat); syncSend(); loadChats();
+  if (chatId === chat) {
+    document.getElementById('sub').textContent = `${turn.n + 1} messages \u00b7 session ${chat}`;
+    document.getElementById('q').focus();
   }
 };
 

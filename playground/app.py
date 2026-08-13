@@ -13,6 +13,7 @@ thread, so anything either side remembers had to come from its memory layer.
 
 from __future__ import annotations
 
+import contextlib
 import pathlib
 import time
 import uuid
@@ -27,6 +28,10 @@ from demo.scenarios import SCENARIOS, Scenario
 from playground.search import web_search
 
 STATIC = pathlib.Path(__file__).parent / "static"
+# Chat titles and transcripts survive a restart. The memory itself already
+# lives in Postgres; losing the index to it on every reload was needless,
+# especially when one message costs minutes of local inference.
+STORE = pathlib.Path(__file__).parent / ".chats.json"
 
 PLAYGROUND_PROMPT = (
     "You are a helpful research assistant with durable memory across "
@@ -66,6 +71,43 @@ app = FastAPI(title="beads-memory playground")
 _chats: dict[str, dict] = {}
 
 
+def _save() -> None:
+    """Persist everything except the live arm handles, which are rebuilt lazily."""
+    import json
+
+    data = {
+        cid: {k: v for k, v in c.items() if k != "arms"}
+        | {"schemas": {a: c["arms"][a]["schema"] for a in c["arms"]}}
+        for cid, c in _chats.items()
+    }
+    with contextlib.suppress(Exception):  # a failed save must never fail a turn
+        STORE.write_text(json.dumps(data))
+
+
+def _load() -> None:
+    import json
+
+    if not STORE.exists():
+        return
+    with contextlib.suppress(Exception):
+        for cid, c in json.loads(STORE.read_text()).items():
+            c["arms"] = None  # rebuilt on first use, see _arms
+            _chats[cid] = c
+
+
+def _arms(chat: dict) -> dict:
+    """Build the two arms on demand, so a restored chat costs nothing until used."""
+    if chat.get("arms"):
+        return chat["arms"]
+    arms = {}
+    for arm in ("baseline", "treatment"):
+        schema = (chat.get("schemas") or {}).get(arm) or f"play_{arm}_{chat['id']}"
+        (invoke, cleanup), _ = build(arm, "playground", chat["session_id"], schema)
+        arms[arm] = {"invoke": invoke, "cleanup": cleanup, "schema": schema}
+    chat["arms"] = arms
+    return arms
+
+
 class NewChat(BaseModel):
     title: str | None = None
 
@@ -97,6 +139,7 @@ def _make_chat(title: str | None) -> dict:
 def create_chat(body: NewChat):
     chat = _make_chat(body.title)
     _chats[chat["id"]] = chat
+    _save()
     return {"id": chat["id"], "title": chat["title"], "session_id": chat["session_id"]}
 
 
@@ -121,7 +164,7 @@ def _run_arm(chat: dict, arm: str, text: str, thread_id: str) -> dict:
     recorder: list = []
     started = time.monotonic()
     try:
-        result = chat["arms"][arm]["invoke"](thread_id, text, recorder=recorder)
+        result = _arms(chat)[arm]["invoke"](thread_id, text, recorder=recorder)
         msgs = result["messages"]
         answer = str(msgs[-1].content) if msgs else ""
         tokens = sum(
@@ -151,30 +194,68 @@ def _run_arm(chat: dict, arm: str, text: str, thread_id: str) -> dict:
     }
 
 
-@app.post("/api/chats/{chat_id}/messages")
-def send(chat_id: str, body: Message):
+class Rename(BaseModel):
+    title: str
+
+
+@app.patch("/api/chats/{chat_id}")
+def rename(chat_id: str, body: Rename):
+    chat = _chats.get(chat_id)
+    if not chat:
+        raise HTTPException(404, "no such chat")
+    chat["title"] = body.title.strip()[:64] or chat["title"]
+    chat["named"] = True
+    _save()
+    return {"id": chat_id, "title": chat["title"]}
+
+
+@app.post("/api/chats/{chat_id}/turns")
+def start_turn(chat_id: str, body: Message):
+    """Register the user's message and return its index.
+
+    Turns are created before either arm runs so the UI can show the message
+    immediately and fill each answer in as it arrives. Both arms take minutes
+    on local hardware; waiting for both before showing anything reads as a
+    hang.
+    """
     chat = _chats.get(chat_id)
     if not chat:
         raise HTTPException(404, "no such chat")
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "empty message")
+    n = len(chat["turns"])
+    chat["turns"].append({"user": text, "n": n, "baseline": None, "treatment": None})
+    if n == 0 and not chat.get("named"):
+        chat["title"] = text[:48]
+    _save()
+    return {"n": n, "user": text, "title": chat["title"]}
 
-    # A NEW thread per message, deliberately. LangGraph's checkpointer keeps
+
+@app.post("/api/chats/{chat_id}/turns/{n}/{arm}")
+def run_turn_arm(chat_id: str, n: int, arm: str):
+    """Run ONE arm of a turn. The UI calls this once per arm, in sequence.
+
+    Sequential by design: one Ollama serves both, so running them concurrently
+    would make each slower and muddy the per-arm timings. Splitting the
+    endpoint is what lets the first answer appear while the second is still
+    running.
+    """
+    chat = _chats.get(chat_id)
+    if not chat:
+        raise HTTPException(404, "no such chat")
+    if arm not in ("baseline", "treatment"):
+        raise HTTPException(400, "unknown arm")
+    if n >= len(chat["turns"]):
+        raise HTTPException(404, "no such turn")
+    turn = chat["turns"][n]
+    # A NEW thread per message, deliberately: LangGraph's checkpointer keeps
     # history within a thread, so a fresh thread means neither arm can lean on
     # message history — anything recalled came from its memory layer.
-    turn_no = len(chat["turns"])
-    thread_id = f"{chat['session_id']}-t{turn_no}"
-
-    # Sequential, not parallel: one Ollama serves both, so concurrency would
-    # only make each slower and muddy the per-arm timings.
-    out = {"user": text, "n": turn_no}
-    for arm in ("baseline", "treatment"):
-        out[arm] = _run_arm(chat, arm, text, thread_id)
-    chat["turns"].append(out)
-    if turn_no == 0 and chat["title"] == "New chat":
-        chat["title"] = text[:48]
-    return out
+    thread_id = f"{chat['session_id']}-t{n}"
+    turn[arm] = _run_arm(chat, arm, turn["user"], thread_id)
+    _save()
+    return turn[arm]
 
 
 @app.get("/api/chats/{chat_id}/memory")
@@ -187,15 +268,18 @@ def memory(chat_id: str):
 
     return {
         "baseline": snapshot_memory(
-            "baseline", chat["arms"]["baseline"]["schema"], chat["session_id"]
+            "baseline", _arms(chat)["baseline"]["schema"], chat["session_id"]
         ),
         "treatment": snapshot_memory(
-            "treatment", chat["arms"]["treatment"]["schema"], chat["session_id"]
+            "treatment", _arms(chat)["treatment"]["schema"], chat["session_id"]
         ),
     }
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+
+_load()
 
 
 @app.get("/")

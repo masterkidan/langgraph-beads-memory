@@ -225,13 +225,48 @@ function showWorking(slot, label) {
   return setInterval(() => { span.textContent = Math.round((Date.now() - t0) / 1000) + 's'; }, 1000);
 }
 
-function renderTurn(turn) {
-  for (const [arm, col] of [['baseline', 'b'], ['treatment', 't']]) {
-    const slot = turnNode(col, turn.n, turn.user);
-    slot.innerHTML = armHtml(turn[arm]) ||
-      '<div class="working waiting"><span>queued \u2014 runs after the other arm</span></div>';
-    slot.parentElement.parentElement.scrollTop = 1e9;
+function slotHtml(turn, arm, label) {
+  if (turn[arm]) return armHtml(turn[arm]);
+  const st = turn[arm + '_status'] || 'queued';
+  if (st === 'running') {
+    const since = turn[arm + '_started'] ? Math.round(Date.now() / 1000 - turn[arm + '_started']) : 0;
+    return `<div class="working"><span class="dot"></span><span>${label} running</span>
+            <span class="elapsed">${since}s</span></div>`;
   }
+  return '<div class="working waiting"><span>queued \u2014 waiting for the model</span></div>';
+}
+
+function renderTurn(turn) {
+  for (const [arm, col, label] of [['baseline', 'b', 'baseline'], ['treatment', 't', 'treatment']]) {
+    const slot = turnNode(col, turn.n, turn.user);
+    slot.innerHTML = slotHtml(turn, arm, label);
+  }
+}
+
+function incomplete(turns) {
+  return turns.some(t => !t.baseline || !t.treatment);
+}
+
+let poll = null;
+async function refresh(scroll) {
+  if (!chatId) return;
+  const c = await api('/api/chats/' + chatId);
+  document.getElementById('title').textContent = c.title;
+  document.getElementById('sub').textContent = `${c.turns.length} messages \u00b7 session ${chatId}`;
+  c.turns.forEach(renderTurn);
+  if (scroll) document.querySelectorAll('.col').forEach(el => el.scrollTop = 1e9);
+
+  // Busy is derived from the server, not tracked client-side, so a reload or a
+  // second tab shows the same truth.
+  const running = incomplete(c.turns);
+  if (running !== busy.has(chatId)) {
+    running ? busy.add(chatId) : busy.delete(chatId);
+    loadChats();
+  }
+  syncSend();
+  clearInterval(poll);
+  // Poll while anything is unfinished; the elapsed counters also need ticking.
+  if (running) poll = setInterval(() => refresh(false), 1000);
 }
 
 async function loadChats() {
@@ -244,34 +279,28 @@ async function loadChats() {
 
 async function openChat(id) {
   chatId = id;
-  const c = await api('/api/chats/' + id);
-  document.getElementById('title').textContent = c.title;
-  document.getElementById('sub').textContent = `${c.turns.length} messages \u00b7 session ${id}`;
+  clearInterval(poll);
   document.getElementById('b').innerHTML = '';
   document.getElementById('t').innerHTML = '';
-  c.turns.forEach(renderTurn);
-  syncSend();
+  const c = await api('/api/chats/' + id);
   if (!c.turns.length) {
     document.getElementById('b').innerHTML = '<div class="empty">Send a message \u2014 both arms answer it.</div>';
     document.getElementById('t').innerHTML = '<div class="empty">The treatment also shows what it injected.</div>';
   }
+  await refresh(true);
   loadChats();
 }
 
 async function newChat() {
   const c = await api('/api/chats', { method: 'POST', body: JSON.stringify({}) });
-  await loadChats();
   await openChat(c.id);
   return c.id;
 }
 document.getElementById('new').onclick = newChat;
 
-// Rename in place. Chats were auto-titled from the first message with no way
-// to change it.
 document.getElementById('title').onclick = async () => {
   if (!chatId) return;
-  const cur = document.getElementById('title').textContent;
-  const next = prompt('Rename chat', cur);
+  const next = prompt('Rename chat', document.getElementById('title').textContent);
   if (next === null || !next.trim()) return;
   const r = await api('/api/chats/' + chatId, { method: 'PATCH', body: JSON.stringify({ title: next }) });
   document.getElementById('title').textContent = r.title;
@@ -283,51 +312,18 @@ document.getElementById('f').onsubmit = async e => {
   const q = document.getElementById('q');
   const text = q.value.trim();
   if (!text) return;
-  // Create a chat implicitly. Requiring "+ New chat" first was a trap: the
-  // send silently did nothing and the typed message was left stranded.
-  if (!chatId) await newChat();
-
+  if (!chatId) await newChat();      // implicit chat: requiring "+ New chat" first was a trap
   q.value = '';
-  const chat = chatId;             // capture: the user may switch chats mid-run
-  busy.add(chat); syncSend(); loadChats();
-
-  let turn;
   try {
-    turn = await api(`/api/chats/${chatId}/turns`, { method: 'POST', body: JSON.stringify({ text }) });
+    await api(`/api/chats/${chatId}/turns`, { method: 'POST', body: JSON.stringify({ text }) });
   } catch (err) {
-    busy.delete(chat); syncSend(); loadChats();
-    q.value = text;                             // give the message back
+    q.value = text;                  // give the message back
     alert(err); return;
   }
-  document.getElementById('title').textContent = turn.title;
-  renderTurn({ n: turn.n, user: turn.user, baseline: null, treatment: null });
+  // The server runs the turn; this just watches. Closing the tab no longer
+  // strands it.
+  await refresh(true);
   loadChats();
-
-  for (const [arm, col, label] of [
-    ['baseline', 'b', 'baseline thinking'],
-    ['treatment', 't', 'treatment thinking'],
-  ]) {
-    // Resolve the slot immediately before each write: switching chats rebuilds
-    // the DOM, so a node captured earlier would be detached and the answer
-    // would land nowhere.
-    const live = () => (chatId === chat ? turnNode(col, turn.n, turn.user) : null);
-    const timer = (() => { const s0 = live(); return s0 ? showWorking(s0, label) : null; })();
-    let html;
-    try {
-      const res = await api(`/api/chats/${chat}/turns/${turn.n}/${arm}`, { method: 'POST' });
-      html = armHtml(res);
-    } catch (err) {
-      html = `<div class="ans err">${esc(String(err))}</div>`;
-    }
-    if (timer) clearInterval(timer);
-    const slot = live();
-    if (slot) { slot.innerHTML = html; slot.parentElement.parentElement.scrollTop = 1e9; }
-  }
-  busy.delete(chat); syncSend(); loadChats();
-  if (chatId === chat) {
-    document.getElementById('sub').textContent = `${turn.n + 1} messages \u00b7 session ${chat}`;
-    document.getElementById('q').focus();
-  }
 };
 
 loadChats();

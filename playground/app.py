@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
+import threading
 import time
 import uuid
 
@@ -69,6 +70,10 @@ SCENARIOS["playground"] = _playground_scenario
 
 app = FastAPI(title="beads-memory playground")
 _chats: dict[str, dict] = {}
+
+# One model call at a time, across every chat. A single Ollama serves both arms
+# and every chat, so running them concurrently only makes each slower.
+_gpu = threading.Lock()
 
 
 def _save() -> None:
@@ -233,33 +238,46 @@ def start_turn(chat_id: str, body: Message):
     if n == 0 and not chat.get("named"):
         chat["title"] = text[:48]
     _save()
+    _schedule(chat, n)
     return {"n": n, "user": text, "title": chat["title"]}
 
 
-@app.post("/api/chats/{chat_id}/turns/{n}/{arm}")
-def run_turn_arm(chat_id: str, n: int, arm: str):
-    """Run ONE arm of a turn. The UI calls this once per arm, in sequence.
+def _execute_turn(chat: dict, n: int) -> None:
+    """Run both arms for a turn, in the background.
 
-    Sequential by design: one Ollama serves both, so running them concurrently
-    would make each slower and muddy the per-arm timings. Splitting the
-    endpoint is what lets the first answer appear while the second is still
-    running.
+    Execution used to be driven by the browser: the client POSTed once per arm.
+    Anything that interrupted that loop — a reload, a closed tab — left the turn
+    stranded forever, showing "queued" with nothing able to advance it. The
+    server now owns execution, so a turn completes whether or not anyone is
+    watching, and the UI is free to be a view over state rather than the thing
+    that causes it.
     """
-    chat = _chats.get(chat_id)
-    if not chat:
-        raise HTTPException(404, "no such chat")
-    if arm not in ("baseline", "treatment"):
-        raise HTTPException(400, "unknown arm")
-    if n >= len(chat["turns"]):
-        raise HTTPException(404, "no such turn")
     turn = chat["turns"][n]
-    # A NEW thread per message, deliberately: LangGraph's checkpointer keeps
-    # history within a thread, so a fresh thread means neither arm can lean on
-    # message history — anything recalled came from its memory layer.
     thread_id = f"{chat['session_id']}-t{n}"
-    turn[arm] = _run_arm(chat, arm, turn["user"], thread_id)
-    _save()
-    return turn[arm]
+    for arm in ("baseline", "treatment"):
+        if turn.get(arm):
+            continue  # already done, e.g. resuming a partly-finished turn
+        with _gpu:
+            turn[f"{arm}_status"] = "running"
+            turn[f"{arm}_started"] = time.time()
+            _save()
+            turn[arm] = _run_arm(chat, arm, turn["user"], thread_id)
+            turn[f"{arm}_status"] = "done"
+            _save()
+
+
+def _schedule(chat: dict, n: int) -> None:
+    for arm in ("baseline", "treatment"):
+        chat["turns"][n].setdefault(f"{arm}_status", "queued")
+    threading.Thread(target=_execute_turn, args=(chat, n), daemon=True).start()
+
+
+def _resume_unfinished() -> None:
+    """Re-queue anything left incomplete by a restart."""
+    for chat in _chats.values():
+        for turn in chat.get("turns", []):
+            if not (turn.get("baseline") and turn.get("treatment")):
+                _schedule(chat, turn["n"])
 
 
 @app.get("/api/chats/{chat_id}/memory")
@@ -284,6 +302,7 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 _load()
+_resume_unfinished()
 
 
 @app.get("/")

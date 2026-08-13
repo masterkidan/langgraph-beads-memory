@@ -251,6 +251,97 @@ Two commitments follow, and they constrain everything else:
 - **Postgres only.** Namespaces, facts and edges live in one schema, `pgvector` for embeddings. No graph database, no separate vector store.
 - **Session-scoped, not identity-coupled.** The schema is anchored on `session_id` — a memory scope that deliberately spans LangGraph threads, so a new conversation continuing the same work starts warm. The library does not need to know what a "user" is; an application wanting a user↔session mapping owns that table.
 
+## Running it yourself
+
+Everything runs locally: Postgres for storage, Ollama for inference. No API keys.
+
+### Setup
+
+```bash
+docker compose up -d                       # Postgres + pgvector on :5433
+brew services start ollama                 # or: ollama serve
+ollama pull gemma4:12b                     # the default model
+ollama pull nomic-embed-text               # embeddings, 768-d
+uv sync --all-extras                       # includes the demo + playground extras
+```
+
+Any model works if it advertises tool calling and fits your hardware. The
+benchmark set is `gemma4:12b`, `qwen3.5:9b`, `granite4.1:8b`,
+`ministral-3:14b`, `lfm2.5:8b` — select one with `BEADS_DEMO_MODEL`.
+
+### The gate — run this first
+
+```bash
+uv run python -m demo.smoke_test
+```
+
+Three checks: structured tool calls, extraction-shaped output, 768-d
+embeddings. A model that fails any of them produces a meaningless comparison
+in one direction or the other, so fix the model rather than proceeding.
+
+### The benchmarks
+
+Two scenarios. `vecdb` picks a vector database across 3 threads; `incident`
+debugs a production incident across 4. Arms are `baseline` (LangMem +
+PostgresStore), `treatment` (this library), and two ablations.
+
+```bash
+# one paired run of each scenario
+uv run python -m demo.harness --runs 1 --scenario incident --conditions baseline treatment
+uv run python -m demo.harness --runs 1 --scenario vecdb    --conditions baseline treatment
+
+# a single cell, e.g. to re-run one arm
+uv run python -m demo.harness --scenario incident --only treatment:0
+
+# N=5 across all four arms
+uv run python -m demo.harness --runs 5 --scenario incident \
+  --conditions baseline treatment treatment-nosupersede treatment-subrecall
+
+# the full model x arm matrix, restarting Ollama between runs
+scripts/run_model_matrix.sh incident 3 "gemma4:12b qwen3.5:9b" "baseline treatment"
+```
+
+Runs land in `results/raw/`. On a 16GB M4 a single incident run is roughly
+10–18 minutes, so plan the matrix accordingly.
+
+### Reading the results
+
+```bash
+uv run python -m demo.aggregate  results/raw          # per-metric table, one scenario
+uv run python -m demo.compare_models results/matrix   # paired within-model deltas
+uv run python -m demo.judge      results/raw          # blinded LLM judge
+uv run python -m demo.show_memory results/raw --turn conv-3
+```
+
+`show_memory` is the one worth knowing: it prints what a run stored, by kind
+and source, and for any turn the ranked facts that actually reached the model
+with their cosine distances. The ranking is readable rather than asserted.
+
+```bash
+scripts/reset_db.sh          # drop every run schema and start clean
+```
+
+### The playground
+
+A live two-pane chat: you type once, both memory layers answer, side by side.
+Each chat is one session, and **every message runs on a new LangGraph thread**
+— so neither side can lean on message history, and anything recalled came from
+its memory layer. It uses web search rather than a fixed corpus.
+
+```bash
+uv run uvicorn playground.app:app --port 8100
+# then open http://localhost:8100
+```
+
+Turns run server-side, so closing the tab does not strand them, and an
+unfinished turn resumes on restart. Under each treatment reply is the ranked
+set of facts it injected, with distances. Chats persist to
+`playground/.chats.json`; the memory itself lives in Postgres.
+
+To try the mechanism deliberately: state a constraint, ask something
+unrelated, **correct the constraint**, then ask a question that depends on it.
+The correction is where the two diverge.
+
 ## Using it
 
 ```python

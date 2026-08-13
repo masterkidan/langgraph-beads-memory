@@ -1,6 +1,7 @@
 # How different models benefit from a memory harness
 
-**Status: three models, both scenarios, N=1 per cell. Six usable cells.**
+**Status: three models, both scenarios. Six cells at N=1, one of them
+re-measured at N=3.**
 
 A separate question from "does structured memory help", and it deserves its own
 treatment. The library's three properties — constant retrieval cost, small
@@ -48,12 +49,45 @@ is stated rather than left implicit: it gives up two of four accuracy wins and
 takes the token result from 5-cheaper/4-costlier to 5-cheaper/1-costlier. Runs,
 reasons and figures in [excluded/README.md](excluded/README.md).
 
+## The one cell measured at N=3
+
+`qwen3.5:9b` · incident was the only cell where the fact graph cost *more* input
+than the document store (+3.6%), which made it the single figure standing
+against the cost claim. Re-run at N=3 per arm on 2026-08-12, it was a one-off:
+
+| | run 1 | run 2 | run 3 | mean |
+|---|---|---|---|---|
+| baseline accuracy | 3/8 | 3/8 | 5/8 | 3.67 |
+| treatment accuracy | 6/8 | 6/8 | 7/8 | **6.33** |
+| baseline input | 14,551 | 14,551 | 17,079 | 15,394 |
+| treatment input | 12,999 | 14,304 | 14,332 | **13,878** |
+
+**−9.8% input, not +3.6%**, and neither distribution overlaps: the most
+expensive treatment run (14,332) is cheaper than the cheapest baseline run
+(14,551), and the worst treatment accuracy (6) beats the best baseline (5).
+
+Two caveats that matter more than the headline:
+
+- The treatment arm ran on the **2026-08-12 code** (derived_from edges,
+  value-aware cascade, split summaries, per-agent cap); the baseline arm is
+  unchanged. So this re-measures the cell rather than reproducing the N=1 row
+  below.
+- It also **shrinks the accuracy win**. The N=1 row claimed +62 pts (8/8 vs
+  3/8); at N=3 it is +33 pts (6.33 vs 3.67). The 8/8 was the top of a range,
+  not the centre of one — which is the whole reason N=1 rows are not worth
+  arguing over.
+
+Runs in [n3-qwen-incident/](n3-qwen-incident/).
+
 ## Results — three models, both scenarios, N=1 per cell
+
+Everything below is N=1 and predates the 2026-08-12 invalidation work. It is
+kept as the record of what was measured, not as a claim about the current code.
 
 | model | scenario | accuracy | input tokens | verdict |
 |---|---|---|---|---|
 | `gemma4:12b` | incident | +0 pts (7/8 both) | **−29%** | win — same, cheaper |
-| `qwen3.5:9b` | incident | **+62 pts** (8/8 vs 3/8) | +4% | trade — far more accurate |
+| `qwen3.5:9b` | incident | **+62 pts** (8/8 vs 3/8) | +4% | superseded by the N=3 cell above |
 | `lfm2.5:8b` † | incident | +38 pts | **−42%** | win — but see caveat |
 | `gemma4:12b` | vecdb | −17 pts | **−29%** | trade — cheaper, one metric lost |
 | `qwen3.5:9b` | vecdb | +0 pts (5/6 both) | **−32%** | win — same, cheaper |
@@ -76,15 +110,18 @@ run the same experiment — and is archived in
 
 ## What the set shows
 
-**Accuracy never regressed on the incident scenario**: +0, +62, +38. Every
-accuracy loss in the table is in vecdb — which is where the documented
+**Accuracy never regressed on the incident scenario**: +0, +33, +38 (qwen at
+N=3, the other two at N=1). Every accuracy loss in the table is in vecdb — which is where the documented
 supersede limitation lived, and where a stale restatement could outrank its own
 correction.
 
-**Five cells cheaper (−29 to −43%), one costlier (+4%).** Read that with the
-exclusion in mind: with granite and ministral present it was five cheaper and
-*four* costlier, so this is a claim about three chosen models, not about
-memory-augmented agents in general.
+**Six cells cheaper (−10 to −43%), none costlier.** The one costlier cell (+4%)
+did not survive N=3 — it is −9.8% when measured three times per arm.
+
+Read that with the exclusion in mind, though: with granite and ministral present
+it was five cheaper and *four* costlier. This is a claim about three chosen
+models, not about memory-augmented agents in general, and the two excluded ones
+are exactly where the cost went the other way.
 
 The excluded runs are what explain the split, and the analysis survives them.
 Decomposing granite's +44%: its injected block averaged 841 chars — about
@@ -118,7 +155,9 @@ answers were an accurate report of an empty store it had failed to populate.
 The same model handled vecdb fine. So this is not a capability claim: **save
 and recall are independent decisions in the stock design and nothing
 reconciles them.** Passive capture removes the possibility, because writing is
-not a decision. On the same model and prompts the treatment scored 8 of 8.
+not a decision. On the same model and prompts the treatment averaged 6.33 of 8
+across three runs, against the baseline's 3.67 — and its worst run beat the
+baseline's best.
 
 ## What this is not, yet
 

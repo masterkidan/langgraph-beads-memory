@@ -46,19 +46,31 @@ def make_read_document(scenario: Scenario):
     return read_document
 
 
-# LangGraph's ToolNode dispatches a message's tool calls across a thread pool,
-# so the three researchers hit Ollama simultaneously. That reproducibly wedges
-# the server: two separate N=3 attempts stalled with the client blocked, Ollama
-# idle, and five or six connections open — no error, no progress, and it stayed
-# wedged until a restart (a fresh request got no response in 45s, versus ~6s on
-# a healthy server). Client-side timeouts do not rescue this; see demo/llm.py.
+# How many of a message's tool calls LangGraph's ToolNode runs at once. This is
+# what decides whether three sub-agents research in parallel or in sequence.
 #
-# get_executor_for_config honours max_concurrency, so 1 serialises tool calls
-# and avoids the condition entirely. The cost is real — profiling measured
-# ~2.4x effective concurrency — but a run that finishes slowly beats a run that
-# hangs, and the earlier microbenchmark put the throughput gain at only ~1.05x
-# because the GPU is already saturated by a single stream.
-MAX_CONCURRENCY = int(os.environ.get("BEADS_DEMO_MAX_CONCURRENCY", "1"))
+# It was pinned to 1 for a long time, and the reason is worth keeping: three
+# researchers hitting Ollama simultaneously reproducibly wedged the server —
+# two separate N=3 attempts stalled with the client blocked, Ollama idle, five
+# or six connections open, and no progress until a restart.
+#
+# Raised to 2 on the grounds that the wedge was probably never really about
+# concurrency. Two things found later are better candidates: the demo built a
+# fresh ollama.Client, and therefore a fresh connection pool, per turn AND per
+# sub-agent invocation — roughly 24 per run, none ever closed — and the
+# "recovery" policy meant to repair a wedge could never have worked, because it
+# nulled the client and the underlying library raises on a null client rather
+# than rebuilding it. Both are fixed.
+#
+# 2 rather than 3: it halves the delegation turn while keeping one researcher's
+# worth of headroom, and if the wedge does return the blast radius is smaller.
+# Set BEADS_DEMO_MAX_CONCURRENCY=1 to restore the old serial behaviour, or
+# higher on hardware with room.
+#
+# Both arms get the same value, so this never favours one side. It does change
+# wall-clock timings, so runs either side of this change are comparable on
+# tokens and accuracy but not on duration.
+MAX_CONCURRENCY = int(os.environ.get("BEADS_DEMO_MAX_CONCURRENCY", "2"))
 
 
 # Bound on graph super-steps for one agent invocation. Set explicitly, and

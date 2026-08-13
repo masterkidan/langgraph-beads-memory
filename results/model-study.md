@@ -1,6 +1,6 @@
 # How different models benefit from a memory harness
 
-**Status: in progress — 2 of 5 models, both scenarios, N=1 per cell.**
+**Status: five models, both scenarios, N=1 per cell. Nine usable cells.**
 
 A separate question from "does structured memory help", and it deserves its own
 treatment. The library's three properties — constant retrieval cost, small
@@ -37,47 +37,61 @@ fits but has no tool calling, which would gut both arms.
 All five pass `demo/smoke_test.py`, which gates on structured tool calls *and*
 fact extraction.
 
-## Results so far (N=1 per cell)
+## Results — five models, both scenarios, N=1 per cell
 
 | model | scenario | accuracy | input tokens | verdict |
 |---|---|---|---|---|
-| `gemma4:12b` | incident | +0 pts (7/8 both) | −29% | win — same, cheaper |
-| `gemma4:12b` | vecdb | −17 pts (4/6 vs 5/6) | −29% | trade — cheaper, one metric lost |
-| `qwen3.5:9b` | incident | +62 pts (8/8 vs 3/8) | +4% | trade — far more accurate |
-| `qwen3.5:9b` | vecdb | +0 pts (5/6 both) | −32% | win — same, cheaper |
+| `gemma4:12b` | incident | +0 pts (7/8 both) | **−29%** | win — same, cheaper |
+| `qwen3.5:9b` | incident | **+62 pts** (8/8 vs 3/8) | +4% | trade — far more accurate |
 | `granite4.1:8b` | incident | +12 pts | +44% | trade — more accurate, costlier |
+| `ministral-3:14b` | incident | +12 pts | +27% | trade — more accurate, costlier |
+| `lfm2.5:8b` † | incident | +38 pts | **−42%** | win — but see caveat |
+| `gemma4:12b` | vecdb | −17 pts | **−29%** | trade — cheaper, one metric lost |
+| `qwen3.5:9b` | vecdb | +0 pts (5/6 both) | **−32%** | win — same, cheaper |
+| `ministral-3:14b` | vecdb | +0 pts | +65% | **loss — costlier, no better** |
+| `lfm2.5:8b` † | vecdb | −50 pts | **−43%** | trade — but see caveat |
+
+† **Both `lfm2.5:8b` cells are compromised, in opposite directions.** It hit the
+recursion limit once per scenario, and the errored turn landed on a different
+arm each time: on incident the **baseline** lost a turn, inflating the +38 in
+the library's favour; on vecdb the **treatment** lost one, inflating the −50
+against it. Neither figure should be read at face value. Excluding both is
+roughly neutral, which is why they are shown rather than dropped.
 
 `granite4.1:8b` · vecdb is **excluded and archived**: its treatment delegated
 all three researchers on conv-1, a constraints-only turn, while its baseline
-did not — so the arms did not run the same experiment. Evidence and reasoning
-in [confounded/README.md](confounded/README.md). The same confound removed a
-`gemma4:12b` vecdb pair earlier. Its incident pair is unaffected and stays,
-including the +44% token result.
+did not — so the arms did not run the same experiment. Evidence in
+[confounded/README.md](confounded/README.md). The same confound removed a
+`gemma4:12b` vecdb pair earlier.
 
-Five usable cells: two wins, three trades. Tokens split three cheaper, two
-costlier. More mixed than the first four suggested, and the mix is the finding
-rather than an inconvenience in it.
+## What the full set shows
 
-## The emerging shape
+**Accuracy never regressed on the incident scenario.** Across all five models:
++0, +62, +12, +12, +38. Every accuracy loss in the table is in vecdb — which is
+where the documented shallow-supersede limitation lives, and where a stale
+restatement can outrank its own correction.
 
-**The token saving is not unconditional.** It appeared as −29%, −29%, −32% on
-`gemma4:12b` and `qwen3.5:9b`, and reversed to +44% and +28% on
-`granite4.1:8b`. Decomposing the granite incident run explains why: the
-injected block averaged 841 chars (~210 tokens), about **13% of mean input**.
-The rest is the system prompt and the windowed message history. granite writes
-longer messages and made 19 model calls against the baseline's 18, so its own
-output dominated the context and swamped a memory saving that is real but
-small in absolute terms.
+**The token result is genuinely split**: five cells cheaper (−29 to −43%), four
+costlier (+4 to +65%). It is not the reliable win the first two models
+suggested.
 
-The claim that survives is narrower than "cheaper": **retrieval cost is
-constant and small**, which holds in every run — injection does not track the
-store. Whether the *run* is cheaper depends on how much of the context is
-memory versus the model's own verbosity.
+Decomposing `granite4.1:8b`'s +44% explains the split. Its injected block
+averaged 841 chars — about **13% of mean input**. The rest is the system prompt
+and the windowed message history. A verbose model that writes long messages and
+makes more calls swamps a memory saving that is real but small in absolute
+terms.
+
+So the claim the data supports is narrower than "cheaper", and it is worth
+stating precisely:
+
+> **Retrieval cost is constant and small in every run** — injection is *k*
+> claims per call and does not track the store. Whether a *run* is cheaper
+> depends on how much of the context is memory rather than the model's own
+> output.
 
 **Where the model reliably calls its memory tools, the harness buys
-efficiency.** Same answers, ~30% less context on two of three models.
-
-**Where it does not, it buys correctness.** On the incident scenario
+efficiency.** Where it does not, it buys correctness — and the failure mode is
+narrower and more troubling than "the model is weak". On incident,
 `qwen3.5:9b`'s baseline made these tool calls:
 
 ```
@@ -100,7 +114,6 @@ not a decision. On the same model and prompts the treatment scored 8 of 8.
 - **N=1 per model.** The qwen3.5 baseline collapse is one observation. The
   *mechanism* is visible in the transcript rather than inferred, which is worth
   more than the count, but it is still one run.
-- **Three models unmeasured.**
 - **Both scenarios are in the table, one run each.** gemma4:12b's vecdb loss is
   the documented shallow-supersede limitation: the injection log shows the
   stale $100k restatement and its own $50k correction reaching the model two

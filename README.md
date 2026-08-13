@@ -2,11 +2,12 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **implemented and measured.** 238 tests against real Postgres.
+> Status: **implemented and measured.** 254 tests against real Postgres.
 > Retrieval cost is constant in the size of the store, the payload is ~5×
 > smaller than document-based recall, and ranking is typed rather than
-> similarity-only. Measured on `gemma4:12b`, N=1: 16,745 input tokens against
-> 23,561 at equal accuracy.
+> similarity-only. Best-measured cell, `qwen3.5:9b` · incident at N=3 per arm:
+> **−9.8% input tokens and 6.33 of 8 objective metrics against 3.67**, with
+> neither distribution overlapping.
 > Method and every disclosed correction: [results/README.md](results/README.md).
 > How the benefit differs by model is a separate study:
 > [results/model-study.md](results/model-study.md).
@@ -63,7 +64,23 @@ Ranking is not similarity alone. Kind, status and provenance all participate:
 
 ### Measured effect
 
-One instrumented run, incident scenario, `gemma4:12b`, N=1:
+The best-measured cell is the incident scenario on `qwen3.5:9b`, **N=3 per
+arm** — every run, not a mean hiding a range:
+
+| | stock memory | this library |
+|---|---|---|
+| objective metrics passed | 3, 3, 5 of 8 | **6, 6, 7 of 8** |
+| input tokens | 14,551 · 14,551 · 17,079 | **12,999 · 14,304 · 14,332** |
+| mean input | 15,394 | **13,878** (−9.8%) |
+
+Neither distribution overlaps: the most expensive run of this library is
+cheaper than the cheapest stock-memory run, and its worst accuracy beats stock
+memory's best. This cell is worth singling out because it used to be the one
+place the fact graph cost *more* input (+3.6% at N=1) — that figure did not
+survive being measured three times.
+
+A single instrumented run on `gemma4:12b` is where the larger token figures
+come from:
 
 | | stock memory | this library |
 |---|---|---|
@@ -76,9 +93,12 @@ Same accuracy, 29% less input. The store being larger is incidental — it is
 recorded because it shows retrieval cost is decoupled from store size, not
 because storing more is itself useful.
 
-N=1 on one model. The direction has held across four earlier N=3 rounds on a
-different model, but the magnitude has varied (−36%, −45%, −29%), so treat it
-as "meaningfully cheaper" rather than as a fixed figure.
+**The direction is consistent; the magnitude is not.** Across N=3 rounds the
+figure has been −36%, −45%, −29% and now −9.8%, so treat it as "meaningfully
+cheaper" rather than as a fixed number. Most cells in the model study are still
+N=1, and one N=1 row shrank by half when re-measured — the qwen accuracy win
+read +62 points at N=1 and +33 at N=3, because 8/8 was the top of a range
+rather than its centre.
 
 You can read the ranking off any run rather than taking it on faith:
 
@@ -422,7 +442,7 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] Architecture design ([spec](docs/superpowers/specs/2026-07-31-beads-memory-design.md))
 - [x] Competitive landscape research ([brief](docs/superpowers/specs/2026-07-31-beads-memory-competitive-brief.md))
 - [x] Demo/benchmark design ([spec](docs/superpowers/specs/2026-08-08-beads-memory-demo-design.md))
-- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 238 tests against real Postgres.
+- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 254 tests against real Postgres.
 - [x] **Comparison harness** — two scenarios, four arms, objective metrics, blinded LLM judge with a grounding dimension
 - [x] **Instrumentation** — every run records what retrieval injected (with cosine distances) and a snapshot of what it stored, so rankings are read rather than reconstructed: `uv run python -m demo.show_memory <run-dir>`
 - [x] **Diagrams** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg), [write + ranking pipeline](docs/assets/memory-pipeline.svg), [why it costs less context](docs/assets/token-mechanism.svg)
@@ -433,8 +453,9 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
   - [2026-08-09 · first scored run](results/2026-08-09-results.md)
 - [x] **Pre-registered second scenario** — [predictions committed before the first run](results/2026-08-11-demo2-preregistration.md), including the two metrics the baseline was expected to win
 - [x] **Instrumented N=1 pairs** on `gemma4:12b` and `qwen3.5:9b` — `results/fresh-gemma/`, `results/fresh-qwen35/`
-- [ ] **[Model study](results/model-study.md)** — how the benefit differs by model; 2 of 5 measured, its own write-up
-- [ ] N=5 on the configuration that wins
+- [x] **N=3 pair on the one cell that contradicted the cost claim** — `qwen3.5:9b` · incident, [results/n3-qwen-incident/](results/n3-qwen-incident/). +3.6% at N=1 became −9.8%, with no overlap between the arms
+- [ ] **[Model study](results/model-study.md)** — how the benefit differs by model; three models, five of six cells still N=1
+- [ ] N=3 on the remaining five cells — the honest bar for publishing
 - [ ] A scale scenario large enough to find the token crossover
 - [ ] Publish write-up
 
@@ -459,7 +480,16 @@ On the comparison, the honest summary is:
 - **Whether a run is cheaper overall depends on the model.** Memory injection is
   a small share of total input (~13% in one measured run), so a verbose model's
   own message history can swamp the saving.
-- **Accuracy results are mixed and N is small.** One run per model per scenario.
+- **Accuracy results are mixed and N is mostly 1.** One cell has been measured
+  at N=3 and it separated cleanly on both axes; the other five are single runs.
+  Re-measuring changed one of them substantially, so the N=1 rows should be read
+  as "what happened once", not as effect sizes.
+- **The model set was narrowed after results were known.** Two of the original
+  five were dropped — one that could not execute the scenario, one whose second
+  scenario was confounded — and that removed the two cells where this library
+  cost *more* input. The reasons and the before/after figures are in
+  [results/excluded/](results/excluded/README.md); the cost claim should be read
+  as a claim about three models rather than about memory-augmented agents.
 
 Method, every disclosed correction, and the operational notes:
 [results/README.md](results/README.md). It is long on purpose — several rounds

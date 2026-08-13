@@ -99,7 +99,7 @@ uv run python -m demo.show_memory results/fresh-gemma/incident --turn conv-3
 
 ## Limits
 
-- **Supersede is shallow.** Retiring a fact retires that row; a *paraphrased* restatement of a corrected value can survive. Near-verbatim restatements are cascaded; reworded ones are not.
+- **Invalidation is only as granular as capture.** A correction now cascades along `derived_from` edges recorded at capture time, and retires facts that assert the superseded value but not its replacement. What it cannot do is partially retire a fact: one stored claim that mixed a stale budget with two still-valid constraints was retired whole, and the live constraints went with it.
 - **Constant retrieval cost is demonstrated at ~9,000 characters of memory.** Where a document store's retrieval begins to strain a context window has not been measured.
 - **N is small.** One run per model per scenario so far.
 

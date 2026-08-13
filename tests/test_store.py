@@ -436,3 +436,148 @@ def test_no_cascade_when_the_ablation_disables_retirement(conn):
     store.add_edge(correction.id, target.id, "supersedes")
     assert _status(conn, target.id) == "active"
     assert _status(conn, restatement.id) == "active"
+
+
+# --------------------------------------------------------------------------
+# Value-aware cascade. The similarity threshold above catches near-verbatim
+# restatements only; these are the cases where it could not, taken from the two
+# runs in results/. A paraphrase scored 0.720 and a must-keep root-cause
+# synthesis scored 0.689 — 0.03 apart, so no threshold splits them, and the
+# stale value survived its own correction.
+# --------------------------------------------------------------------------
+
+
+def _incident(conn, ranker, body, similarity, kind="conclusion"):
+    store = BeadsStore(conn)
+    store.init_schema()
+    ns = store.get_or_create_namespace("cascade-v")
+    return (
+        store,
+        ns,
+        store.write_fact(
+            ns,
+            kind=kind,
+            body=body,
+            source="passive_capture",
+            source_key=body[:20],
+            agent_id="root",
+            acting_on_behalf_of="user",
+            embedding=ranker.at(similarity) if similarity < 1 else ranker.query("deploy"),
+        ),
+    )
+
+
+def test_paraphrase_below_the_verbatim_threshold_is_still_retired(conn):
+    """0.72 — the measured vecdb paraphrase that used to survive its correction."""
+    ranker = FakeRanker()
+    store, ns, target = _incident(conn, ranker, "the budget is $100k per year", 1, "user_input")
+    _, _, paraphrase = _incident(conn, ranker, "The annual budget is $100,000.", 0.72)
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="budget is $50k per year, not $100k",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.70),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, paraphrase.id) == "superseded"
+
+
+def test_a_synthesis_asserting_no_contested_value_survives(conn):
+    """0.689, and retiring it would delete the finding that names the cause —
+    the reason the threshold could not simply be lowered to 0.68."""
+    ranker = FakeRanker()
+    store, ns, target = _incident(
+        conn, ranker, "Release 2.14 was deployed at 13:50 UTC.", 1, "user_input"
+    )
+    _, _, synthesis = _incident(
+        conn, ranker, "Synthesis: the issue is in the application tier.", 0.689
+    )
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the deploy actually went out at 13:20 UTC, not 13:50",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.70),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, synthesis.id) == "active"
+
+
+def test_a_fact_carrying_both_values_is_the_corrected_one_and_survives(conn):
+    """ "deployed at 13:20 UTC (the 13:50 timestamp was the canary promotion)"
+    names the stale value in order to reject it. Matching on the stale value
+    alone would retire the very fact that fixes the record."""
+    ranker = FakeRanker()
+    store, ns, target = _incident(
+        conn, ranker, "Release 2.14 was deployed at 13:50 UTC.", 1, "user_input"
+    )
+    _, _, corrected = _incident(
+        conn,
+        ranker,
+        "Deployed at 13:20 UTC; the 13:50 timestamp was the canary promotion.",
+        0.80,
+    )
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the deploy actually went out at 13:20 UTC, not 13:50",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.70),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, corrected.id) == "active"
+
+
+def test_a_value_the_correction_did_not_change_is_not_implicated(conn):
+    """The corrected fact also carries "2.14", which is still true. Retiring on
+    "shares any figure" would take the release notes with the timestamp."""
+    ranker = FakeRanker()
+    store, ns, target = _incident(
+        conn, ranker, "Release 2.14 was deployed at 13:50 UTC.", 1, "user_input"
+    )
+    _, _, unchanged = _incident(conn, ranker, "Release 2.14 introduced a new caching layer.", 0.75)
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="the deploy actually went out at 13:20 UTC, not 13:50",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.70),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, unchanged.id) == "active"
+
+
+def test_derived_from_reaches_a_restatement_similarity_would_miss(conn):
+    """Recorded provenance beats a distance: a fact known to have been written
+    while the stale one was in context is cascaded even below the topical floor."""
+    ranker = FakeRanker()
+    store, ns, target = _incident(conn, ranker, "the budget is $100k per year", 1, "user_input")
+    _, _, distant = _incident(
+        conn, ranker, "All three options fall within the $100,000 budget.", 0.30
+    )
+    store.add_edge(distant.id, target.id, "derived_from")
+    correction = store.write_fact(
+        ns,
+        kind="user_input",
+        body="budget is $50k per year, not $100k",
+        source="passive_capture",
+        source_key="c",
+        agent_id="root",
+        acting_on_behalf_of="user",
+        embedding=ranker.at(0.70),
+    )
+    store.add_edge(correction.id, target.id, "supersedes")
+    assert _status(conn, distant.id) == "superseded"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -41,6 +43,9 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         # re-running the query later against a store that has since changed —
         # which produced a confidently wrong ranking analysis once already.
         self.recorder = recorder
+        # The facts injected into the most recent model call. Written by
+        # wrap_model_call, consumed by after_model as derivation provenance.
+        self._last_injected: list = []
         self.tools = [
             make_remember_fact(
                 store,
@@ -159,7 +164,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         for body in split_into_facts(whole):
             if not is_substantive(body):
                 continue
-            self.store.write_fact(
+            fact = self.store.write_fact(
                 self.namespace,
                 kind="conclusion",
                 body=body,
@@ -172,7 +177,29 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 acting_on_behalf_of=self.acting_on_behalf_of,
                 embedding=self.embedder.embed(body),
             )
+            self._record_provenance(fact.id)
         return None
+
+    def _record_provenance(self, fact_id: uuid.UUID) -> None:
+        """Link a captured conclusion to the facts that were in context for it.
+
+        Provenance is free here and unavailable anywhere else. The injected set
+        is exactly what memory contributed to the answer, so recording the edge
+        at capture time needs no extraction call — which matters, because this
+        runs in the model-call hot path where an LLM round trip is not an option.
+
+        This is what makes invalidation follow derivation instead of guessing
+        from cosine distance. Without it a correction retires the row it points
+        at and leaves everything computed from that row standing; the measured
+        version of that was an answer still citing a $100,000 budget three turns
+        after the user corrected it to $50,000.
+
+        Self-links are skipped: restating a claim collapses onto the same
+        content-derived id, so a fact can appear in its own injected set.
+        """
+        for source_id in self._last_injected:
+            if source_id != fact_id:
+                self.store.add_edge(fact_id, source_id, "derived_from")
 
     # -- view-only window trim + fact injection -----------------------------
     def wrap_model_call(self, request, handler):
@@ -216,6 +243,8 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 with_scores=True,
             )
             facts = [f for f, _d, _demoted in scored]
+        # Held for after_model, which turns it into `derived_from` edges.
+        self._last_injected = [f.id for f in facts]
         if self.recorder is not None:
             self.recorder.append(
                 {

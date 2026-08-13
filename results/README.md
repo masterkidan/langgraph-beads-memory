@@ -353,25 +353,80 @@ incompatible thresholds:
 
 A threshold low enough to catch vecdb's paraphrase would retire incident's
 root-cause synthesis — deleting the finding that lets the agent name the cause,
-which is worse than leaving a stale value. So the floor is 0.85: **near-verbatim
-restatements are retired, reworded ones survive.** vecdb's regression is
-therefore still open.
+which is worse than leaving a stale value. So the floor was 0.85: near-verbatim
+restatements retired, reworded ones surviving.
 
-Closing it properly needs `derived_from` edges emitted when a conclusion is
-captured, so invalidation can follow provenance instead of guessing from
-similarity. Passive capture runs in the model-call hot path and cannot afford an
-LLM to identify what a conclusion was derived from, so this is unresolved rather
-than merely unimplemented.
+### Resolved 2026-08-12 — read the value instead of the distance
 
-Candidate remedies for the remaining gap:
+The threshold search was the wrong frame. 0.720 and 0.689 are 0.03 apart, so no
+threshold splits them, and no amount of tuning was going to. The two sentences
+differ in exactly the token embeddings are worst at — the number itself — so it
+is now read directly rather than inferred from a distance.
 
-1. Demote `passive_capture` conclusions in ranking — a restatement derived
-   from memory is weaker evidence than the fact it came from. Cheapest, reuses
-   the existing `DESCENDANT_RANK_PENALTY` machinery.
-2. Cascade invalidation along `derived_from`. Correct, but requires emitting
-   those edges at capture time, which the no-LLM hot path cannot do.
-3. Stop capturing agent restatements of user constraints. Simplest, but
-   discards genuine conclusions along with the echoes.
+Two changes:
+
+**`derived_from` edges are emitted at capture time.** The facts injected into a
+model call are exactly what memory contributed to the answer, so `after_model`
+links each captured conclusion to them. No extraction call, which is what makes
+this viable in the no-LLM hot path — the earlier note that this "cannot be done"
+assumed provenance had to be inferred from the text, when it was already sitting
+in the injection set.
+
+**The cascade is value-aware** (`_is_stale_restatement`). A fact is retired when
+it carries a *contested* value and not its replacement. Contested matters: the
+incident's corrected fact also carries "2.14", which is still true, so matching
+on "shares any figure" would retire "Release 2.14 introduced a caching layer".
+A value counts only when the correction asserts a different value of the same
+shape — `13:50 → 13:20`, leaving `2.14` alone. A fact carrying *both* values is
+the corrected version restating what it supersedes and must survive.
+
+Replayed over every fact in the five stored treatment runs, respecting the
+created_at ordering, the rule retires 1–3 facts per incident run and 1–5 per
+vecdb run, and every retirement is a genuine stale assertion.
+
+Live re-run, gemma4:12b, vecdb N=1 — the same configuration as the regression
+at the top of this section:
+
+| | before | after |
+|---|---|---|
+| `uses_revised_budget` | ✗ | **✓** |
+| `avoids_stale_budget_as_current` | ✗ | **✓** |
+| `mentions_primary_sources` | ✓ | **✗** |
+| input tokens | 11,115 | 9,848 |
+| `derived_from` edges | 0 | 267 |
+
+5 of 6 against 4 of 6. The token drop is a side effect worth naming: a retired
+fact stops being injected, so invalidation pays for itself in context.
+
+### The cost, which is real and is not a cascade bug
+
+`mentions_primary_sources` regressed, and the cascade caused it. The retired set
+included:
+
+> "I have recorded your requirements: a $100,000 annual budget, the requirement
+> for a self-hostable solution, and the constraint to rely exclusively on
+> internal primary benchmark data rather than vendor marketing."
+
+One fact asserting three constraints, one of which went stale. Retiring it took
+the other two with it. The three sub-agent summaries went the same way — each
+paired "fits within the $100,000 budget" with "Internal benchmarks confirm...".
+
+The user's original "I only trust primary benchmark data" stayed active
+throughout, so the constraint was still in the store; it just stopped being
+restated where the model would trip over it.
+
+This is a **splitting** failure surfacing as an invalidation cost. A fact that
+mixes a stale premise with live constraints cannot be invalidated cleanly by any
+mechanism, because there is no granularity at which to be correct. Two specific
+gaps:
+
+1. `_split_enumeration` merges noun-phrase enumerations back together, since
+   "the requirement for a self-hostable solution" has no clause verb. The
+   under-splitting bias is right in general and wrong for a labelled list.
+2. Sub-agent summaries are written whole by `conclude_task` and never split,
+   unlike conclusions.
+
+Both are worth fixing before reading too much into a single metric on N=1.
 
 ## Known limitations
 

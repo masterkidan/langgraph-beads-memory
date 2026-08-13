@@ -282,3 +282,55 @@ def test_framing_in_an_answer_is_not_stored(conn, embedder):
     )
     bodies = [f.body for f in store.facts_in_namespace(ns.id)]
     assert "New shift taking over." not in bodies
+
+
+def test_a_conclusion_is_linked_to_the_facts_that_were_in_context_for_it(conn, embedder):
+    """Provenance recorded at capture time, with no extraction call.
+
+    This is what lets invalidation follow derivation. A correction retires the
+    row it points at; without these edges, everything computed from that row
+    stays active — measured as an answer still citing a $100,000 budget three
+    turns after the user corrected it.
+    """
+    store, ns, mw = _mw(conn, embedder)
+    mw.before_model({"messages": [HumanMessage("the budget is $100k per year", id="m1")]}, None)
+    source = store.facts_in_namespace(ns.id)[0]
+
+    request = SimpleNamespace(
+        messages=[HumanMessage("what is the budget?", id="m2")],
+        system_message=SystemMessage(""),
+        override=lambda **kw: SimpleNamespace(**kw),
+    )
+    mw.wrap_model_call(request, lambda r: r)
+    mw.after_model({"messages": [AIMessage("The annual budget is $100,000.", id="a1")]}, None)
+
+    conclusion = next(f for f in store.facts_in_namespace(ns.id) if f.kind == "conclusion")
+    edges = conn.execute(
+        "SELECT to_fact_id FROM fact_edges WHERE from_fact_id=%s AND relation='derived_from'",
+        (conclusion.id,),
+    ).fetchall()
+    assert (source.id,) in edges
+
+
+def test_a_conclusion_is_not_linked_to_itself(conn, embedder):
+    """Restating a claim collapses onto the same content-derived id, so a fact
+    can appear in the injected set for the very call that rewrites it."""
+    store, ns, mw = _mw(conn, embedder)
+    mw.after_model({"messages": [AIMessage("The annual budget is $100,000.", id="a1")]}, None)
+    fact = store.facts_in_namespace(ns.id)[0]
+
+    request = SimpleNamespace(
+        messages=[HumanMessage("what is the annual budget?", id="m1")],
+        system_message=SystemMessage(""),
+        override=lambda **kw: SimpleNamespace(**kw),
+    )
+    mw.wrap_model_call(request, lambda r: r)
+    mw.after_model({"messages": [AIMessage("The annual budget is $100,000.", id="a2")]}, None)
+
+    assert (
+        conn.execute(
+            "SELECT count(*) FROM fact_edges WHERE from_fact_id=%s AND to_fact_id=%s",
+            (fact.id, fact.id),
+        ).fetchone()[0]
+        == 0
+    )

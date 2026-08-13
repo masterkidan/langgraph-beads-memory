@@ -10,6 +10,7 @@ import uuid
 import psycopg
 
 from .ids import derive_fact_id, derive_namespace_id, random_fork_suffix
+from .segment import contested_values, value_tokens
 
 # Cosine-similarity floor for a `supersedes` edge. Chosen from measurement, not
 # taste: on real run data the legitimate budget revision scored 0.730 against
@@ -48,11 +49,59 @@ DESCENDANT_RANK_PENALTY = float(os.environ.get("BEADS_DESCENDANT_PENALTY", "0.15
 # agent name the cause, which is far worse than leaving a stale value behind.
 # 0.85 catches near-verbatim restatements safely and MISSES paraphrased ones.
 #
-# So this is a partial fix, and the limitation is real: a stale value that has
-# been reworded rather than repeated still survives its supersede. Closing that
-# needs `derived_from` edges emitted at capture time, which the no-LLM hot path
-# cannot currently do. Recorded in results/README.md rather than papered over.
+# So this alone is a partial fix, and it is now the *fallback* path. The
+# paraphrase gap is closed by asking a question cosine distance cannot answer —
+# which value does this fact actually assert — see _is_stale_restatement.
 CASCADE_MIN_SIMILARITY = float(os.environ.get("BEADS_CASCADE_MIN_SIMILARITY", "0.85"))
+
+# Topical floor for the value-aware path. Much lower than the verbatim
+# threshold, because the discriminating work is done by the contested-value test
+# rather than by similarity: this only has to exclude a fact from an unrelated
+# discussion that happens to mention the same figure. A fact carrying a
+# `derived_from` edge to the superseded one skips this entirely — recorded
+# provenance is better evidence than a distance.
+CASCADE_TOPICAL_SIMILARITY = float(os.environ.get("BEADS_CASCADE_TOPICAL", "0.45"))
+
+
+def _is_stale_restatement(
+    body: str,
+    similarity: float,
+    derived: bool,
+    stale_values: set[str],
+    new_values: set[str],
+) -> bool:
+    """Does this earlier fact still assert the value that was just corrected?
+
+    The measured problem: a stale "$100,000" and its own "$50,000" correction
+    reached the model two ranks apart, 0.002 of cosine distance from each other.
+    Similarity cannot separate them, because the two sentences differ in exactly
+    the token embeddings are worst at — the number. So it is read directly.
+
+    A fact is retired when it carries a contested stale value and does NOT carry
+    the replacement. Carrying both means it is the corrected version restating
+    what it supersedes ("deployed at 13:20 UTC, the 13:50 timestamp was the
+    canary promotion"), which must survive.
+
+    Verified against the two runs the cascade exists for:
+
+        "Release 2.14 was deployed at 13:50 UTC."          13:50, no 13:20  RETIRE
+        "Incident timeline: ... 13:50 UTC; p99 180ms ..."  13:50, no 13:20  RETIRE
+        "... 13:20 UTC (13:50 was the canary promotion)"   has 13:20        keep
+        "Synthesis: the issue is the application tier"     no time at all   keep
+        "The annual budget ... is $100,000."               100k, no 50k     RETIRE
+        "Qdrant was evaluated as a managed service"        no figure        keep
+
+    The last two lines are what the old 0.85 threshold could not reach: 0.720
+    and 0.500 are too close together to split, and they no longer have to be.
+    """
+    if similarity >= CASCADE_MIN_SIMILARITY:
+        return True  # near-verbatim, no figures needed
+    if not stale_values:
+        return False
+    tokens = value_tokens(body)
+    if not tokens & stale_values or tokens & new_values:
+        return False
+    return derived or similarity >= CASCADE_TOPICAL_SIMILARITY
 
 
 @dataclasses.dataclass(frozen=True)
@@ -303,24 +352,46 @@ class BeadsStore:
         because the cost of wrongly retiring a live fact is higher than the cost
         of leaving a stale one.
         """
-        rows = self._conn.execute(
+        bodies = dict(
+            self._conn.execute(
+                "SELECT id, body FROM facts WHERE id IN (%s, %s)", (from_fact_id, to_fact_id)
+            ).fetchall()
+        )
+        stale_values, new_values = contested_values(
+            bodies.get(to_fact_id, ""), bodies.get(from_fact_id, "")
+        )
+
+        candidates = self._conn.execute(
             """
             WITH target AS (SELECT embedding, namespace_id FROM facts WHERE id = %s),
                  newer  AS (SELECT created_at FROM facts WHERE id = %s)
-            UPDATE facts f SET status = 'superseded'
+            SELECT f.id,
+                   f.body,
+                   1 - (f.embedding <=> (SELECT embedding FROM target)) AS similarity,
+                   EXISTS (
+                       SELECT 1 FROM fact_edges e
+                       WHERE e.from_fact_id = f.id
+                         AND e.to_fact_id = %s
+                         AND e.relation = 'derived_from'
+                   ) AS derived
+            FROM facts f
             WHERE f.status = 'active'
               AND f.id <> %s
               AND f.namespace_id = (SELECT namespace_id FROM target)
               AND f.created_at < (SELECT created_at FROM newer)
               AND f.embedding IS NOT NULL
               AND (SELECT embedding FROM target) IS NOT NULL
-              AND 1 - (f.embedding <=> (SELECT embedding FROM target))
-                  >= %s
-            RETURNING f.id
             """,
-            (to_fact_id, from_fact_id, from_fact_id, CASCADE_MIN_SIMILARITY),
+            (to_fact_id, from_fact_id, to_fact_id, from_fact_id),
         ).fetchall()
+
+        rows = [
+            (fact_id,)
+            for fact_id, body, similarity, derived in candidates
+            if _is_stale_restatement(body, similarity, derived, stale_values, new_values)
+        ]
         for (stale_id,) in rows:
+            self._conn.execute("UPDATE facts SET status='superseded' WHERE id=%s", (stale_id,))
             # Record why it was retired, so the audit trail shows a cascade
             # rather than an unexplained status change.
             self._conn.execute(

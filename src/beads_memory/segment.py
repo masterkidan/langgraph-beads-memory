@@ -360,3 +360,68 @@ def classify_fragment(text: str) -> str:
     if any(lowered.startswith(p) for p in _INTERROGATIVE_PHRASES + _IMPERATIVE_PHRASES):
         return DIRECTIVE
     return STATEMENT
+
+
+# --------------------------------------------------------------------------
+# Values, for invalidation
+# --------------------------------------------------------------------------
+
+_VALUE = re.compile(r"\b\d{1,2}:\d{2}\b|\b\d[\d,]*(?:\.\d+)?\s*[kmb]?\b", re.IGNORECASE)
+_MULT = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}
+
+
+def value_tokens(text: str) -> set[str]:
+    """Normalised figures in a piece of text, for comparing what a fact asserts.
+
+    "$100k" and "$100,000" are the same value written two ways; a stale
+    restatement of a corrected fact almost always writes it the other way. Times
+    are kept verbatim, since 13:50 is not a quantity.
+
+    This exists because cosine distance cannot tell $100,000 from $50,000 — the
+    two scored 0.002 apart in a real run and the model took the stale one. A
+    normalised token comparison separates them exactly.
+    """
+    out: set[str] = set()
+    for match in _VALUE.finditer(text.lower()):
+        token = match.group(0).strip()
+        if ":" in token:
+            out.add(token)
+            continue
+        multiplier = 1
+        if token and token[-1] in _MULT:
+            multiplier = _MULT[token[-1]]
+            token = token[:-1].strip()
+        try:
+            value = float(token.replace(",", "")) * multiplier
+        except ValueError:
+            continue
+        out.add(f"{value:.10g}")
+    return out
+
+
+def _shape(token: str) -> str:
+    return "time" if ":" in token else "number"
+
+
+def contested_values(old: str, new: str) -> tuple[set[str], set[str]]:
+    """Which values a correction actually changed: `(stale, replacement)`.
+
+    Not every figure in a corrected fact is stale. "Release 2.14 was deployed at
+    13:50 UTC", corrected to 13:20, leaves 2.14 perfectly current — so retiring
+    every later fact that merely mentions a value from the old one would take
+    "Release 2.14 introduced a caching layer" with it.
+
+    A value is contested only when the correction asserts a *different* value of
+    the same shape. Times and numbers are separate shapes, which is enough to
+    keep a changed timestamp from implicating an unchanged version number.
+
+    Note that a correction routinely names the old value while rejecting it
+    ("went out at 13:20 UTC, not 13:50"), so the stale set cannot simply be
+    "old minus new" — it is the old fact's values of any shape the correction
+    disturbed.
+    """
+    old_tokens, new_tokens = value_tokens(old), value_tokens(new)
+    introduced = new_tokens - old_tokens
+    shapes = {_shape(t) for t in introduced}
+    stale = {t for t in old_tokens if _shape(t) in shapes}
+    return stale, introduced

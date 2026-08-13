@@ -46,11 +46,17 @@ fact extraction.
 | `qwen3.5:9b` | incident | +62 pts (8/8 vs 3/8) | +4% | trade — far more accurate |
 | `qwen3.5:9b` | vecdb | +0 pts (5/6 both) | −32% | win — same, cheaper |
 | `granite4.1:8b` | incident | +12 pts | +44% | trade — more accurate, costlier |
-| `granite4.1:8b` | vecdb | −17 pts | +28% | **loss — costlier and no better** |
 
-Six cells: two wins, three trades, one loss. Tokens split three cheaper and
-three costlier. This is a more mixed picture than the first four cells
-suggested, and the mix is the finding rather than an inconvenience in it.
+`granite4.1:8b` · vecdb is **excluded and archived**: its treatment delegated
+all three researchers on conv-1, a constraints-only turn, while its baseline
+did not — so the arms did not run the same experiment. Evidence and reasoning
+in [confounded/README.md](confounded/README.md). The same confound removed a
+`gemma4:12b` vecdb pair earlier. Its incident pair is unaffected and stays,
+including the +44% token result.
+
+Five usable cells: two wins, three trades. Tokens split three cheaper, two
+costlier. More mixed than the first four suggested, and the mix is the finding
+rather than an inconvenience in it.
 
 ## The emerging shape
 

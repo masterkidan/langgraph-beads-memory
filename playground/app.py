@@ -75,11 +75,15 @@ def _save() -> None:
     """Persist everything except the live arm handles, which are rebuilt lazily."""
     import json
 
-    data = {
-        cid: {k: v for k, v in c.items() if k != "arms"}
-        | {"schemas": {a: c["arms"][a]["schema"] for a in c["arms"]}}
-        for cid, c in _chats.items()
-    }
+    data = {}
+    for cid, c in _chats.items():
+        rec = {k: v for k, v in c.items() if k != "arms"}
+        # A chat restored from disk has arms=None until first use, and a turn is
+        # saved before either arm is built. Read schemas from the live arms only
+        # when they exist; otherwise the record already carries them.
+        if c.get("arms"):
+            rec["schemas"] = {a: c["arms"][a]["schema"] for a in c["arms"]}
+        data[cid] = rec
     with contextlib.suppress(Exception):  # a failed save must never fail a turn
         STORE.write_text(json.dumps(data))
 

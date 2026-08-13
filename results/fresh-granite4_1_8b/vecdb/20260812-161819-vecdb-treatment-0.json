@@ -1,0 +1,2368 @@
+{
+  "condition": "treatment",
+  "scenario": "vecdb",
+  "model": "granite4.1:8b",
+  "run": 0,
+  "session_id": "treatment-run0-3aada2",
+  "transcript": [
+    {
+      "conversation": "conv-1",
+      "user": "We need to pick a vector database for our product. Constraints: the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data we measured ourselves, not vendor marketing numbers.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "We need to pick a vector database for our product. Constraints: the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data we measured ourselves, not vendor marketing numbers.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "941bf996-7b4b-4873-8985-55cfa65ee971"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-12T23:18:45.332496Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 24562122333,
+              "load_duration": 86704125,
+              "prompt_eval_count": 784,
+              "prompt_eval_duration": 9085675000,
+              "eval_count": 171,
+              "eval_duration": 15381239000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff845-055f-7943-8a03-0bf871e52bfe-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "relation": null,
+                  "body": "Budget constraint: $100,000 per year.",
+                  "relates_to": null
+                },
+                "id": "9d3be70e-0f0f-436f-877b-ea7117a16a7b",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Self-hostable requirement: the vector database must be deployable on our own infrastructure.",
+                  "relates_to": null,
+                  "relation": null
+                },
+                "id": "9163573d-3134-48c5-815a-7a941224dd8e",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Only trust primary benchmark data measured by ourselves; disregard vendor marketing numbers.",
+                  "relates_to": null,
+                  "relation": null
+                },
+                "id": "3975b4c6-36ce-4e37-8331-b288968bd92a",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 784,
+              "output_tokens": 171,
+              "total_tokens": 955
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-7064ae12]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "17c569bd-1fb0-4d39-bbb6-c1aa7f2f8570",
+            "tool_call_id": "9d3be70e-0f0f-436f-877b-ea7117a16a7b",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-a14d07d6]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "dd9f4f8c-a248-4bcd-b8ed-f9682e37f7a6",
+            "tool_call_id": "9163573d-3134-48c5-815a-7a941224dd8e",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-161680a7]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "b933af1c-11be-4b55-9432-4c15d35e1fc9",
+            "tool_call_id": "3975b4c6-36ce-4e37-8331-b288968bd92a",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "All constraints have been recorded:\n\n1. **Budget**: $100,000 per year  \n2. **Self\u2011hostable**: Must be deployable on our own infrastructure  \n3. **Benchmark trust**: Only primary benchmark data we measure ourselves is trusted; vendor marketing numbers are disregarded  \n\nI will now investigate suitable vector database options that satisfy these constraints. \n\n**Delegation:** I will delegate the research to focused sub\u2011agents for each candidate (pgvector, Qdrant, Weaviate) to gather detailed information on cost, deployment model, and benchmark performance.\n\n",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-12T23:19:25.240533Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 39438464542,
+              "load_duration": 72179417,
+              "prompt_eval_count": 1082,
+              "prompt_eval_duration": 11274274000,
+              "eval_count": 278,
+              "eval_duration": 28045619000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff845-6728-7893-8e05-d0264065bab6-0",
+            "tool_calls": [
+              {
+                "name": "researcher_pgvector",
+                "args": {
+                  "task": "Investigate pgvector as a vector database option, focusing on self-hostability, annual cost \u2264 $100k, and primary benchmark data availability."
+                },
+                "id": "2597bbb5-7148-4fea-85bc-aeb647b50f46",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_qdrant",
+                "args": {
+                  "task": "Investigate Qdrant as a vector database option, focusing on self-hostability, annual cost \u2264 $100k, and primary benchmark data availability."
+                },
+                "id": "5c04d66f-dde5-450f-995f-e25508744a4a",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_weaviate",
+                "args": {
+                  "task": "Investigate Weaviate as a vector database option, focusing on self-hostability, annual cost \u2264 $100k, and primary benchmark data availability."
+                },
+                "id": "01e8c3f8-833d-4891-bbb3-cde4059d44ac",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1082,
+              "output_tokens": 278,
+              "total_tokens": 1360
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "**Conclusion Summary for Supervisor:**\n\npgvector satisfies all the specified requirements:\n\n- **Self\u2011hostability:** It functions as a PostgreSQL extension, requiring only installation on an existing Postgres setup\u2014no separate service or new infrastructure.\n- **Cost Constraint:** Annual operational expenses for our workload (10\u202fM vectors, 768 dimensions) are estimated at **$12k/year** when self\u2011hosted on EC2 or **$18k/year** on managed Postgres, both well within the **$100k/year** budget ceiling.\n- **Benchmark Data Availability:** Our own primary benchmarking demonstrates that an HNSW index provides **~40\u202fms p95 latency with 95% recall** for 10\u202fM vectors. During bulk loading, write throughput experiences a **~20% degradation**, and the rebuild process completes in about **50 minutes**.\n- **Operational Overhead:** No new operational expertise is needed beyond existing PostgreSQL knowledge; backups integrate seamlessly with the current Postgres backup pipeline.\n\nThus, pgvector is recommended as a viable vector database option for our needs. \n\n---  \n*Fact ID:* fact-8aa93ee6 (supersedes earlier considerations)",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_pgvector",
+            "id": "cd692eb7-0b52-4374-9601-c12e0aec2523",
+            "tool_call_id": "2597bbb5-7148-4fea-85bc-aeb647b50f46",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "**Conclusion Summary for Supervisor:**\n\nQdrant satisfies all specified criteria:\n- **Self\u2011hostability:** Deployable via Docker/K8s or as a single binary under the Apache 2.0 license.\n- **Cost:** Estimated annual operational cost for a self\u2011hosted, high\u2011availability setup (10M vectors, 768 dimensions) is roughly **$30k**, well within the $100k budget.\n- **Performance:** Primary benchmark data shows a p95 latency of about **12\u202fms** at **97\u202f% recall**, indicating strong performance for our workload.\n- **Memory Optimization:** Binary quantization can reduce RAM usage up to **32\u00d7** (e.g., from ~24\u202fGB to <2\u202fGB hot RAM) with only a modest impact on recall.\n- **Data Trust:** Only primary benchmark data measured by ourselves was considered; vendor marketing numbers were disregarded.\n\nThus, Qdrant is a viable vector database option that meets the self\u2011hostability, cost, and performance requirements. \n\n---  \n**Fact Recorded:** [fact-45f26434] (summary)",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_qdrant",
+            "id": "9c07acf7-15a4-4423-b441-73e498138040",
+            "tool_call_id": "5c04d66f-dde5-450f-995f-e25508744a4a",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "**Conclusion Summary for Supervisor:**\n\nWeaviate satisfies all the specified criteria:\n- **Self\u2011hostability:** It can be deployed via Docker or Kubernetes, meeting the self\u2011hosting requirement.\n- **Performance:** Primary benchmark data shows a p95 latency of approximately 15\u202fms at 10\u202fM vectors with 96\u202f% recall, demonstrating strong query performance.\n- **Cost:** A high\u2011availability self\u2011hosted deployment is estimated to cost around $60,000 per year, comfortably within the $100k annual budget limit.\n\nThe evaluation was based exclusively on independently measured benchmark results, deliberately excluding any vendor marketing claims. Thus, Weaviate emerges as a viable vector database option for our needs.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_weaviate",
+            "id": "1b5339e8-9911-453b-9ed7-c9d8f3d84854",
+            "tool_call_id": "01e8c3f8-833d-4891-bbb3-cde4059d44ac",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-12T23:25:24.212819Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 49037964416,
+              "load_duration": 160190916,
+              "prompt_eval_count": 2370,
+              "prompt_eval_duration": 37447656000,
+              "eval_count": 92,
+              "eval_duration": 11323890000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff84a-bbe3-79f0-ad4d-b8d0cd3a92d9-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Weaviate meets self-hostability, primary benchmark performance (~15\u202fms p95 latency at 10M vectors with 96\u202f% recall), and fits within the $100k annual budget (~$60k for high-availability deployment). Evaluation based solely on independently measured benchmarks.",
+                  "relates_to": null,
+                  "relation": "supersedes"
+                },
+                "id": "1086b33e-013b-4ad8-a24a-75d5f9650629",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 2370,
+              "output_tokens": 92,
+              "total_tokens": 2462
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-9e2b147b]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "284d52ac-7b5f-4f3b-97dd-3f20114c5775",
+            "tool_call_id": "1086b33e-013b-4ad8-a24a-75d5f9650629",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "All candidate vector databases have been evaluated:\n\n1. **pgvector** \u2013 Self\u2011hostable as a PostgreSQL extension, estimated annual cost $12k\u2013$18k, primary benchmark shows ~40\u202fms p95 latency with 95\u202f% recall for 10M vectors.  \n2. **Qdrant** \u2013 Fully self\u2011hostable (Docker/K8s), estimated annual cost \u2248\u202f$30k, primary benchmark shows ~12\u202fms p95 latency at 97\u202f% recall. Memory can be reduced up to 32\u00d7 with modest recall loss.  \n3. **Weaviate** \u2013 Self\u2011hostable via Docker/Kubernetes, primary benchmark shows ~15\u202fms p95 latency at 10M vectors with 96\u202f% recall, and a high\u2011availability deployment costs \u2248\u202f$60k per year.\n\nAll options satisfy the constraints of self\u2011hostability, budget \u2264\u202f$100k/year, and reliance solely on our own primary benchmark data (vendor marketing numbers are ignored).\n\n**Recommendation:**  \n- If minimal operational overhead and low cost are paramount, **pgvector** is the most economical choice.  \n- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization.  \n- If you prioritize a feature\u2011rich platform with robust scalability and still stay within budget, **Weaviate** provides excellent performance (~15\u202fms) and fits comfortably within the $100k limit.\n\nYou may select based on whether cost or performance (or additional features) is the primary driver for your deployment.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-12T23:56:31.419404Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 78002609125,
+              "load_duration": 72076041,
+              "prompt_eval_count": 2481,
+              "prompt_eval_duration": 1841039649000,
+              "eval_count": 342,
+              "eval_duration": 25540877000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff84b-7d0f-79d0-8ecc-4e4a82bb6d05-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 2481,
+              "output_tokens": 342,
+              "total_tokens": 2823
+            }
+          }
+        }
+      ],
+      "final": "All candidate vector databases have been evaluated:\n\n1. **pgvector** \u2013 Self\u2011hostable as a PostgreSQL extension, estimated annual cost $12k\u2013$18k, primary benchmark shows ~40\u202fms p95 latency with 95\u202f% recall for 10M vectors.  \n2. **Qdrant** \u2013 Fully self\u2011hostable (Docker/K8s), estimated annual cost \u2248\u202f$30k, primary benchmark shows ~12\u202fms p95 latency at 97\u202f% recall. Memory can be reduced up to 32\u00d7 with modest recall loss.  \n3. **Weaviate** \u2013 Self\u2011hostable via Docker/Kubernetes, primary benchmark shows ~15\u202fms p95 latency at 10M vectors with 96\u202f% recall, and a high\u2011availability deployment costs \u2248\u202f$60k per year.\n\nAll options satisfy the constraints of self\u2011hostability, budget \u2264\u202f$100k/year, and reliance solely on our own primary benchmark data (vendor marketing numbers are ignored).\n\n**Recommendation:**  \n- If minimal operational overhead and low cost are paramount, **pgvector** is the most economical choice.  \n- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization.  \n- If you prioritize a feature\u2011rich platform with robust scalability and still stay within budget, **Weaviate** provides excellent performance (~15\u202fms) and fits comfortably within the $100k limit.\n\nYou may select based on whether cost or performance (or additional features) is the primary driver for your deployment.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "We need to pick a vector database for our product. Constraints: the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data we measured ourselves, not vendor market",
+          "k": 8,
+          "excluded": 4,
+          "injected": []
+        },
+        {
+          "agent_id": "root",
+          "query": "We need to pick a vector database for our product. Constraints: the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data we measured ourselves, not vendor market",
+          "k": 8,
+          "excluded": 4,
+          "injected": [
+            {
+              "id": "fact-a14d07d6",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2319,
+              "demoted": false,
+              "body": "Self-hostable requirement: the vector database must be deployable on our own infrastructure."
+            },
+            {
+              "id": "fact-161680a7",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3779,
+              "demoted": false,
+              "body": "Only trust primary benchmark data measured by ourselves; disregard vendor marketing numbers."
+            },
+            {
+              "id": "fact-7064ae12",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3807,
+              "demoted": false,
+              "body": "Budget constraint: $100,000 per year."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "We need to pick a vector database for our product. Constraints: the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data we measured ourselves, not vendor market",
+          "k": 8,
+          "excluded": 4,
+          "injected": [
+            {
+              "id": "fact-0eb82596",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.317,
+              "demoted": false,
+              "body": "Weaviate meets the self-hostability requirement, provides strong primary benchmark performance (p95 ~15ms latency at 10M vectors with 96% recall), and fits with"
+            },
+            {
+              "id": "fact-45f26434",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.321,
+              "demoted": false,
+              "body": "Qdrant meets the self-hostability requirement and offers strong primary benchmark performance (p95 ~12ms at 97% recall for 10M vectors). The estimated annual co"
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3326,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-161680a7",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3779,
+              "demoted": false,
+              "body": "Only trust primary benchmark data measured by ourselves; disregard vendor marketing numbers."
+            },
+            {
+              "id": "fact-7064ae12",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3807,
+              "demoted": false,
+              "body": "Budget constraint: $100,000 per year."
+            },
+            {
+              "id": "fact-0c6f6ca9",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.2671,
+              "demoted": true,
+              "body": "annual cost \u2264 $100k, primary benchmark data availability."
+            },
+            {
+              "id": "fact-28321991",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.2671,
+              "demoted": true,
+              "body": "annual cost \u2264 $100k, primary benchmark data availability."
+            },
+            {
+              "id": "fact-496af2d1",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.2671,
+              "demoted": true,
+              "body": "annual cost \u2264 $100k, primary benchmark data availability."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "We need to pick a vector database for our product. Constraints: the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data we measured ourselves, not vendor market",
+          "k": 8,
+          "excluded": 0,
+          "injected": [
+            {
+              "id": "fact-9e2b147b",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3144,
+              "demoted": false,
+              "body": "Weaviate meets self-hostability, primary benchmark performance (~15\u202fms p95 latency at 10M vectors with 96\u202f% recall), and fits within the $100k annual budget (~$"
+            },
+            {
+              "id": "fact-0eb82596",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.317,
+              "demoted": false,
+              "body": "Weaviate meets the self-hostability requirement, provides strong primary benchmark performance (p95 ~15ms latency at 10M vectors with 96% recall), and fits with"
+            },
+            {
+              "id": "fact-45f26434",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.321,
+              "demoted": false,
+              "body": "Qdrant meets the self-hostability requirement and offers strong primary benchmark performance (p95 ~12ms at 97% recall for 10M vectors). The estimated annual co"
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3326,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-161680a7",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3779,
+              "demoted": false,
+              "body": "Only trust primary benchmark data measured by ourselves; disregard vendor marketing numbers."
+            },
+            {
+              "id": "fact-7064ae12",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3807,
+              "demoted": false,
+              "body": "Budget constraint: $100,000 per year."
+            },
+            {
+              "id": "fact-cc739b51",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3876,
+              "demoted": false,
+              "body": "I only trust primary benchmark data we measured ourselves, not vendor marketing numbers."
+            },
+            {
+              "id": "fact-36b2d0ef",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.399,
+              "demoted": false,
+              "body": "the budget is $100k per year"
+            }
+          ]
+        }
+      ],
+      "seconds": 504.1
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "60424d1e-d6eb-44af-bd0b-13f0b70e851d"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-12T23:56:44.502181Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 11758192750,
+              "load_duration": 82504000,
+              "prompt_eval_count": 1330,
+              "prompt_eval_duration": 8265464000,
+              "eval_count": 53,
+              "eval_duration": 3271408000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff867-fe66-7512-82da-5260b13c4f55-0",
+            "tool_calls": [
+              {
+                "name": "researcher_pgvector",
+                "args": {
+                  "task": "Investigate pgvector in depth, covering architecture, performance benchmarks, cost estimates for self-hosted vs managed deployment, operational requirements, scalability, and any limitations."
+                },
+                "id": "4e59db95-91b5-4acf-b897-58c60fc73f5b",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1330,
+              "output_tokens": 53,
+              "total_tokens": 1383
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "**Investigation Summary of pgvector**\n\n**Architecture**\n- **Integration**: pgvector operates as a native PostgreSQL extension, utilizing existing Postgres data types and SQL interfaces. No separate service or additional runtime is required.\n- **Indexing Mechanism**: Employs an HNSW (Hierarchical Navigable Small World) index for efficient vector similarity search.\n\n**Performance Benchmarks**\n- **Latency**: Primary benchmark shows ~40\u202fms p95 latency with 95\u202f% recall for a dataset of 10\u202fM vectors, each with 768 dimensions.\n- **Write Throughput**: During HNSW index build, write throughput degrades by approximately 20\u202f%.\n- **Rebuild Time**: Index rebuild after bulk loading takes roughly 50\u202fminutes for the tested 10\u202fM vector dataset.\n\n**Cost Estimates**\n- **Self\u2011Hosted on EC2**: Annual operational cost \u2248 **$12k**, comfortably under a $100k budget.\n- **Managed PostgreSQL (e.g., Amazon RDS)**: Annual cost \u2248 **$18k**, also well within the budget.\n- Both scenarios assume the workload of 10\u202fM vectors at 768 dimensions.\n\n**Operational Requirements**\n- **Backup & Monitoring**: Leverages standard Postgres backup and monitoring tools; no new operational surface is introduced.\n- **Expertise Needed**: Existing PostgreSQL knowledge suffices; no additional skill set required.\n- **Maintenance Tasks**: Index rebuild post\u2011bulk load (\u224850\u202fmin) and routine Postgres maintenance.\n\n**Scalability**\n- **Vertical Scaling**: Supports scaling via single-node vertical expansion only. No built\u2011in distributed sharding like Citus.\n- **Horizontal Scaling**: Not natively supported; would require external clustering solutions if needed.\n\n**Limitations**\n- **Memory Usage**: Consumes approximately 6\u202fGB of RAM for 10\u202fM, 768\u2011dimensional vectors (no native binary quantization in the tested version).\n- **Filtering Capabilities**: Limited to SQL WHERE clause filtering; no advanced query pushdown features.\n- **Bulk Load Rebuild Time**: Significant (~50\u202fmin) after large data imports.\n\n**Conclusion**\npgvector is a cost\u2011effective, straightforward solution for vector similarity search within PostgreSQL environments. It meets performance targets, stays well within budget constraints, and requires only existing Postgres operational expertise. However, users should be aware of its single\u2011node scalability limits, memory footprint, and the need for periodic index rebuilds after bulk operations. Overall, pgvector is recommended as an economical choice for organizations already leveraging PostgreSQL. \n\n--- \n**Fact Reference**: [fact-6fec147a] (summary)",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_pgvector",
+            "id": "f04954b1-a0d0-4038-92d8-29724bd49969",
+            "tool_call_id": "4e59db95-91b5-4acf-b897-58c60fc73f5b",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-12T23:59:22.641396Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 43297945000,
+              "load_duration": 93485875,
+              "prompt_eval_count": 2076,
+              "prompt_eval_duration": 36595147000,
+              "eval_count": 54,
+              "eval_duration": 6425137000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff869-eced-7832-b090-c24eee8f6009-0",
+            "tool_calls": [
+              {
+                "name": "researcher_qdrant",
+                "args": {
+                  "task": "Investigate Qdrant in depth, covering architecture, performance benchmarks, cost estimates for self-hosted vs managed deployment, operational requirements, scalability, and any limitations."
+                },
+                "id": "ae9acecc-a38f-40f8-9f0e-e64bb6e9b308",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 2076,
+              "output_tokens": 54,
+              "total_tokens": 2130
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "**Conclusion Summary for Qdrant Investigation**\n\nQdrant, implemented in Rust, delivers robust vector database capabilities with notable performance metrics: approximately **12\u202fms p95 latency** when serving **10 million vectors** at a **97\u202f% recall** rate. It supports flexible deployment options\u2014either as a fully self\u2011hosted solution using Docker or Kubernetes, or via a managed cloud service.\n\n### Cost Estimates\n- **Self\u2011Hosted High\u2011Availability Cluster**: Roughly **$30,000 per year**, comfortably within a **$100k annual budget**.\n- **Managed Cloud Service**: Not detailed in the provided document but implied to be comparable or higher than self\u2011hosting costs.\n\n### Operational Requirements\n- **Monitoring & Maintenance**: Introduction of new monitoring tools and upgrade procedures; snapshot/restore mechanisms are well\u2011supported.\n- **Rust Experience**: No prior Rust operational expertise is mandatory, though it does expand the team\u2019s surface area for potential issues.\n\n### Scalability & Memory Optimization\n- **Binary Quantization**: Enables up to **32\u00d7 RAM reduction** (e.g., reducing a 24\u202fGB deployment to under **2\u202fGB of hot RAM**) with only modest recall degradation.\n- **Scalability**: Designed to handle large vector sets efficiently, supporting high\u2011throughput query workloads.\n\n### Limitations\n- **Recall Trade\u2011offs**: Aggressive quantization may lead to moderate recall loss.\n- **Learning Curve**: Managing a new Rust\u2011based service introduces an operational learning curve for the team.\n\n**Overall Assessment:** Qdrant is well\u2011suited for environments prioritizing high query performance and cost\u2011effective self\u2011hosting, provided the team can manage its operational aspects. It offers strong scalability through quantization techniques but requires careful consideration of recall impacts and operational readiness. \n\n---  \n*Fact ID: fact-f0307de2 (supersedes prior summary)*",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_qdrant",
+            "id": "cde4abfb-7ade-49fe-85ff-d7b4df7d6af2",
+            "tool_call_id": "ae9acecc-a38f-40f8-9f0e-e64bb6e9b308",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:02:35.915656Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 43224077500,
+              "load_duration": 87544583,
+              "prompt_eval_count": 2609,
+              "prompt_eval_duration": 37393673000,
+              "eval_count": 54,
+              "eval_duration": 5649790000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff86c-e031-7680-b723-4263b252cbdd-0",
+            "tool_calls": [
+              {
+                "name": "researcher_weaviate",
+                "args": {
+                  "task": "Investigate Weaviate in depth, covering architecture, performance benchmarks, cost estimates for self-hosted vs managed deployment, operational requirements, scalability, and any limitations."
+                },
+                "id": "c449fcd2-87e0-4a95-94d6-302c94608f35",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 2609,
+              "output_tokens": 54,
+              "total_tokens": 2663
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "**Investigation Summary for Weaviate**\n\nWeaviate is an open-source vector database that provides a GraphQL\u2011flavored API. It excels in performance, delivering approximately **15\u202fms p95 latency** when serving **10\u202fmillion vectors** with **96\u202f% recall**. The system can be deployed either self\u2011hosted (via Docker or Kubernetes) or through a managed cloud offering.\n\n### Architecture\n- **GraphQL API**: Central interface for all queries, enabling complex hybrid searches (text + vector).\n- **Modules**: Extensible plug\u2011in framework for reranking, custom vectorizers, and other enhancements.\n- **Data Model**: Schemaless objects stored as vectors with associated metadata.\n\n### Performance Benchmarks\n- **Latency**: ~15\u202fms p95 for 10M vectors at 96\u202f% recall.\n- **Hybrid Search**: BM25 + vector hybrid improves relevance on short queries.\n- **Scalability**: Supports horizontal scaling via sharding/clustering, allowing linear growth with data volume.\n\n### Cost Estimates\n| Deployment Type | Approx. Annual Cost | Notes |\n|------------------|--------------------|-------|\n| **Self\u2011hosted (HA)** | **\u2248\u202f$60,000** | Requires a dedicated Kubernetes cluster and the commercial module tier; fits within a $100k budget. |\n| **Managed Cloud** | Not provided in detail, but expected to be higher than self\u2011hosted due to service fees. |\n\n### Operational Requirements\n- **Infrastructure**: Needs a robust Kubernetes environment (or equivalent) for high availability.\n- **Team Skills**: Familiarity with GraphQL and container orchestration; commercial modules add upgrade complexity.\n- **Monitoring & Maintenance**: Additional tooling required for health checks, backups, and version upgrades.\n\n### Scalability\n- **Horizontal Scaling**: Achieved through sharding/clustering, enabling the system to handle larger datasets efficiently.\n- **Modular Extensibility**: Allows adding custom rerankers or vectorizers without disrupting core functionality.\n\n### Limitations\n- **Operational Overhead**: Higher than simpler solutions due to Kubernetes management and GraphQL learning curve.\n- **Quantization Trade\u2011offs**: Aggressive quantization may reduce recall; not extensively benchmarked in the provided data.\n- **Learning Curve**: Teams new to GraphQL will need time to adapt, impacting initial rollout speed.\n\n### Conclusion\nWeaviate offers strong query performance and flexible extensibility, making it suitable for applications demanding advanced vector search capabilities. However, its operational complexity and associated costs (\u2248\u202f$60k/year for a self\u2011hosted HA setup) should be carefully weighed against the team\u2019s expertise and budget constraints. For organizations prioritizing high performance with moderate cost and capable of managing Kubernetes environments, Weaviate is a viable choice.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_weaviate",
+            "id": "19c20026-2bed-4ebc-8081-6dda0e099b4d",
+            "tool_call_id": "c449fcd2-87e0-4a95-94d6-302c94608f35",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:06:58.255702Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 81795581750,
+              "load_duration": 188808834,
+              "prompt_eval_count": 3297,
+              "prompt_eval_duration": 55012056000,
+              "eval_count": 216,
+              "eval_duration": 26386708000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff870-4a55-7e71-b35e-2e8c68302e64-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Synthesis: pgvector is economical (self-hosted $12k/year or managed $18k/year) with ~40ms p95 latency and 95% recall, limited scalability but low ops overhead. Qdrant offers ~12ms p95 latency, strong quantization (up to 32x RAM reduction), self-hosted HA cost ~$30k/year within budget, higher performance but requires Rust ops knowledge. Weaviate provides ~15ms p95 latency, GraphQL API with modular extensibility, horizontal scaling via sharding/clustering, commercial self-hosted HA cost ~$60k/year, fits $100k budget but entails higher operational complexity and Kubernetes expertise. Overall recommendation: pgvector for minimal cost & ops; Qdrant for best raw performance at moderate cost; Weaviate for advanced extensibility when team can manage K8s.",
+                  "relates_to": "fact-00380fc4",
+                  "relation": "supersedes"
+                },
+                "id": "917f7691-3e1d-48ee-918f-e06e565965e4",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 3297,
+              "output_tokens": 216,
+              "total_tokens": 3513
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-c83bea97]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "52e21985-acb2-42cd-91d8-24351bf03a56",
+            "tool_call_id": "917f7691-3e1d-48ee-918f-e06e565965e4",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "All constraints and options have been recorded. Here's a concise synthesis of the investigation:\n\n**Synthesis**\n- **pgvector**: Economical (self\u2011hosted $12k/year or managed $18k/year) with ~40\u202fms p95 latency, 95\u202f% recall, low ops overhead but limited scalability.\n- **Qdrant**: Offers ~12\u202fms p95 latency, strong quantization (up to 32\u00d7 RAM reduction), self\u2011hosted HA cost ~$30k/year within budget; higher performance but requires Rust ops knowledge.\n- **Weaviate**: Provides ~15\u202fms p95 latency, GraphQL API with modular extensibility, horizontal scaling via sharding/clustering, commercial self\u2011hosted HA cost ~$60k/year; fits $100k budget but entails higher operational complexity and Kubernetes expertise.\n\n**Overall Recommendation**\n- Choose **pgvector** for minimal cost & operations.\n- Opt for **Qdrant** if raw performance at moderate cost is prioritized.\n- Select **Weaviate** when advanced extensibility and team capability to manage Kubernetes are available. \n\nAll findings are within the $100k annual budget constraint.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:08:20.114905Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 81452720209,
+              "load_duration": 89552000,
+              "prompt_eval_count": 3550,
+              "prompt_eval_duration": 54288473000,
+              "eval_count": 246,
+              "eval_duration": 26955027000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff871-8b63-7ff1-a163-f80a77b773cf-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 3550,
+              "output_tokens": 246,
+              "total_tokens": 3796
+            }
+          }
+        }
+      ],
+      "final": "All constraints and options have been recorded. Here's a concise synthesis of the investigation:\n\n**Synthesis**\n- **pgvector**: Economical (self\u2011hosted $12k/year or managed $18k/year) with ~40\u202fms p95 latency, 95\u202f% recall, low ops overhead but limited scalability.\n- **Qdrant**: Offers ~12\u202fms p95 latency, strong quantization (up to 32\u00d7 RAM reduction), self\u2011hosted HA cost ~$30k/year within budget; higher performance but requires Rust ops knowledge.\n- **Weaviate**: Provides ~15\u202fms p95 latency, GraphQL API with modular extensibility, horizontal scaling via sharding/clustering, commercial self\u2011hosted HA cost ~$60k/year; fits $100k budget but entails higher operational complexity and Kubernetes expertise.\n\n**Overall Recommendation**\n- Choose **pgvector** for minimal cost & operations.\n- Opt for **Qdrant** if raw performance at moderate cost is prioritized.\n- Select **Weaviate** when advanced extensibility and team capability to manage Kubernetes are available. \n\nAll findings are within the $100k annual budget constraint.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-98204f3d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2695,
+              "demoted": false,
+              "body": "All candidate vector databases have been evaluated:\n\n1."
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.357,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3881,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-45f26434",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.4046,
+              "demoted": false,
+              "body": "Qdrant meets the self-hostability requirement and offers strong primary benchmark performance (p95 ~12ms at 97% recall for 10M vectors). The estimated annual co"
+            },
+            {
+              "id": "fact-9e2b147b",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4132,
+              "demoted": false,
+              "body": "Weaviate meets self-hostability, primary benchmark performance (~15\u202fms p95 latency at 10M vectors with 96\u202f% recall), and fits within the $100k annual budget (~$"
+            },
+            {
+              "id": "fact-0eb82596",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.4213,
+              "demoted": false,
+              "body": "Weaviate meets the self-hostability requirement, provides strong primary benchmark performance (p95 ~15ms latency at 10M vectors with 96% recall), and fits with"
+            },
+            {
+              "id": "fact-9c056ae9",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4327,
+              "demoted": false,
+              "body": "**Qdrant** \u2013 Fully self\u2011hostable (Docker/K8s)"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-98204f3d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2695,
+              "demoted": false,
+              "body": "All candidate vector databases have been evaluated:\n\n1."
+            },
+            {
+              "id": "fact-6fec147a",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.2971,
+              "demoted": false,
+              "body": "pgvector satisfies all evaluation criteria: it is fully self-hostable as a PostgreSQL extension, meets performance targets with ~40ms p95 latency and 95% recall"
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.357,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3881,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-45f26434",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.4046,
+              "demoted": false,
+              "body": "Qdrant meets the self-hostability requirement and offers strong primary benchmark performance (p95 ~12ms at 97% recall for 10M vectors). The estimated annual co"
+            },
+            {
+              "id": "fact-9e2b147b",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4132,
+              "demoted": false,
+              "body": "Weaviate meets self-hostability, primary benchmark performance (~15\u202fms p95 latency at 10M vectors with 96\u202f% recall), and fits within the $100k annual budget (~$"
+            },
+            {
+              "id": "fact-0eb82596",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.4213,
+              "demoted": false,
+              "body": "Weaviate meets the self-hostability requirement, provides strong primary benchmark performance (p95 ~15ms latency at 10M vectors with 96% recall), and fits with"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-98204f3d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2695,
+              "demoted": false,
+              "body": "All candidate vector databases have been evaluated:\n\n1."
+            },
+            {
+              "id": "fact-6fec147a",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.2971,
+              "demoted": false,
+              "body": "pgvector satisfies all evaluation criteria: it is fully self-hostable as a PostgreSQL extension, meets performance targets with ~40ms p95 latency and 95% recall"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.357,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3881,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-9e2b147b",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4132,
+              "demoted": false,
+              "body": "Weaviate meets self-hostability, primary benchmark performance (~15\u202fms p95 latency at 10M vectors with 96\u202f% recall), and fits within the $100k annual budget (~$"
+            },
+            {
+              "id": "fact-0eb82596",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.4213,
+              "demoted": false,
+              "body": "Weaviate meets the self-hostability requirement, provides strong primary benchmark performance (p95 ~15ms latency at 10M vectors with 96% recall), and fits with"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-00380fc4",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_weaviate",
+              "distance": 0.2495,
+              "demoted": false,
+              "body": "Weaviate is an open-source vector database featuring a GraphQL API, offering strong performance with ~15\u202fms p95 latency for 10M vectors at 96\u202f% recall. It can b"
+            },
+            {
+              "id": "fact-98204f3d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2695,
+              "demoted": false,
+              "body": "All candidate vector databases have been evaluated:\n\n1."
+            },
+            {
+              "id": "fact-6fec147a",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.2971,
+              "demoted": false,
+              "body": "pgvector satisfies all evaluation criteria: it is fully self-hostable as a PostgreSQL extension, meets performance targets with ~40ms p95 latency and 95% recall"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.357,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3881,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-9c056ae9",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4327,
+              "demoted": false,
+              "body": "**Qdrant** \u2013 Fully self\u2011hostable (Docker/K8s)"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate our vector database options in depth. Delegate pgvector, Qdrant, and Weaviate to your researchers, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-98204f3d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2695,
+              "demoted": false,
+              "body": "All candidate vector databases have been evaluated:\n\n1."
+            },
+            {
+              "id": "fact-c83bea97",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2749,
+              "demoted": false,
+              "body": "Synthesis: pgvector is economical (self-hosted $12k/year or managed $18k/year) with ~40ms p95 latency and 95% recall, limited scalability but low ops overhead. "
+            },
+            {
+              "id": "fact-6fec147a",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.2971,
+              "demoted": false,
+              "body": "pgvector satisfies all evaluation criteria: it is fully self-hostable as a PostgreSQL extension, meets performance targets with ~40ms p95 latency and 95% recall"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.357,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3881,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-9c056ae9",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4327,
+              "demoted": false,
+              "body": "**Qdrant** \u2013 Fully self\u2011hostable (Docker/K8s)"
+            }
+          ]
+        }
+      ],
+      "seconds": 708.1
+    },
+    {
+      "conversation": "conv-2",
+      "user": "One correction before we wrap up: the budget is $50k per year, not $100k.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "One correction before we wrap up: the budget is $50k per year, not $100k.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "966498e5-2a60-4042-b823-00126f5df7fa"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:08:34.619394Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 13838021917,
+              "load_duration": 75389125,
+              "prompt_eval_count": 1026,
+              "prompt_eval_duration": 9556982000,
+              "eval_count": 49,
+              "eval_duration": 4063241000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff872-cc1b-7373-86c7-c260eed33b9b-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Budget constraint: $50,000 per year.",
+                  "relates_to": "[fact-7064ae12]",
+                  "relation": "supersedes"
+                },
+                "id": "5b99e310-50ec-4e8e-96a2-56cea7ae9546",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1026,
+              "output_tokens": 49,
+              "total_tokens": 1075
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Error: short id '[fact-7064ae12]' matched 0 facts",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "abd4c28a-d1c7-4541-972e-5f136490d769",
+            "tool_call_id": "5b99e310-50ec-4e8e-96a2-56cea7ae9546",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:08:39.203115Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 4416536792,
+              "load_duration": 81714875,
+              "prompt_eval_count": 1102,
+              "prompt_eval_duration": 934033000,
+              "eval_count": 36,
+              "eval_duration": 3394026000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff873-02e1-7ca0-b4a8-0be31de3582c-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Budget constraint: $50,000 per year.",
+                  "relation": "supersedes"
+                },
+                "id": "183a772c-bef2-4ddb-b37b-f291ba3087d2",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1102,
+              "output_tokens": 36,
+              "total_tokens": 1138
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-70e4677c]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "24c5ad9d-c4a6-40e5-9f7b-7bf739f4d768",
+            "tool_call_id": "183a772c-bef2-4ddb-b37b-f291ba3087d2",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Acknowledged. The budget is now recorded as **$50,000 per year**, superseding the previous $100,000 figure.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:08:52.548139Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 13102493708,
+              "load_duration": 81916875,
+              "prompt_eval_count": 1153,
+              "prompt_eval_duration": 11105442000,
+              "eval_count": 28,
+              "eval_duration": 1880426000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff873-1514-7013-bb69-f4ad6ead5cbd-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1153,
+              "output_tokens": 28,
+              "total_tokens": 1181
+            }
+          }
+        }
+      ],
+      "final": "Acknowledged. The budget is now recorded as **$50,000 per year**, superseding the previous $100,000 figure.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "One correction before we wrap up: the budget is $50k per year, not $100k.",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-36b2d0ef",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.138,
+              "demoted": false,
+              "body": "the budget is $100k per year"
+            },
+            {
+              "id": "fact-7064ae12",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.1593,
+              "demoted": false,
+              "body": "Budget constraint: $100,000 per year."
+            },
+            {
+              "id": "fact-f9f7910f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2244,
+              "demoted": false,
+              "body": "All findings are within the $100k annual budget constraint."
+            },
+            {
+              "id": "fact-5b4b6ae6",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3679,
+              "demoted": false,
+              "body": "All options satisfy the constraints of self\u2011hostability, budget \u2264\u202f$100k/year"
+            },
+            {
+              "id": "fact-173e696b",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.37,
+              "demoted": false,
+              "body": "estimated annual cost $12k\u2013$18k"
+            },
+            {
+              "id": "fact-e0ca328d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3965,
+              "demoted": false,
+              "body": "commercial self\u2011hosted HA cost ~$60k/year, fits $100k budget but entails higher operational complexity, Kubernetes expertise."
+            },
+            {
+              "id": "fact-8b1757d9",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4089,
+              "demoted": false,
+              "body": "estimated annual cost \u2248\u202f$30k"
+            },
+            {
+              "id": "fact-4d770dbb",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4266,
+              "demoted": false,
+              "body": "a high\u2011availability deployment costs \u2248\u202f$60k per year."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "One correction before we wrap up: the budget is $50k per year, not $100k.",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-36b2d0ef",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.138,
+              "demoted": false,
+              "body": "the budget is $100k per year"
+            },
+            {
+              "id": "fact-7064ae12",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.1593,
+              "demoted": false,
+              "body": "Budget constraint: $100,000 per year."
+            },
+            {
+              "id": "fact-f9f7910f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2244,
+              "demoted": false,
+              "body": "All findings are within the $100k annual budget constraint."
+            },
+            {
+              "id": "fact-5b4b6ae6",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3679,
+              "demoted": false,
+              "body": "All options satisfy the constraints of self\u2011hostability, budget \u2264\u202f$100k/year"
+            },
+            {
+              "id": "fact-173e696b",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.37,
+              "demoted": false,
+              "body": "estimated annual cost $12k\u2013$18k"
+            },
+            {
+              "id": "fact-e0ca328d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3965,
+              "demoted": false,
+              "body": "commercial self\u2011hosted HA cost ~$60k/year, fits $100k budget but entails higher operational complexity, Kubernetes expertise."
+            },
+            {
+              "id": "fact-8b1757d9",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4089,
+              "demoted": false,
+              "body": "estimated annual cost \u2248\u202f$30k"
+            },
+            {
+              "id": "fact-4d770dbb",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4266,
+              "demoted": false,
+              "body": "a high\u2011availability deployment costs \u2248\u202f$60k per year."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "One correction before we wrap up: the budget is $50k per year, not $100k.",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-36b2d0ef",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.138,
+              "demoted": false,
+              "body": "the budget is $100k per year"
+            },
+            {
+              "id": "fact-70e4677c",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.1563,
+              "demoted": false,
+              "body": "Budget constraint: $50,000 per year."
+            },
+            {
+              "id": "fact-7064ae12",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.1593,
+              "demoted": false,
+              "body": "Budget constraint: $100,000 per year."
+            },
+            {
+              "id": "fact-f9f7910f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2244,
+              "demoted": false,
+              "body": "All findings are within the $100k annual budget constraint."
+            },
+            {
+              "id": "fact-5b4b6ae6",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3679,
+              "demoted": false,
+              "body": "All options satisfy the constraints of self\u2011hostability, budget \u2264\u202f$100k/year"
+            },
+            {
+              "id": "fact-173e696b",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.37,
+              "demoted": false,
+              "body": "estimated annual cost $12k\u2013$18k"
+            },
+            {
+              "id": "fact-e0ca328d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3965,
+              "demoted": false,
+              "body": "commercial self\u2011hosted HA cost ~$60k/year, fits $100k budget but entails higher operational complexity, Kubernetes expertise."
+            },
+            {
+              "id": "fact-8b1757d9",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4089,
+              "demoted": false,
+              "body": "estimated annual cost \u2248\u202f$30k"
+            }
+          ]
+        }
+      ],
+      "seconds": 32.0
+    },
+    {
+      "conversation": "conv-3",
+      "user": "Given everything we've established, which vector database should we pick and why? Be specific about how it fits our constraints.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Given everything we've established, which vector database should we pick and why? Be specific about how it fits our constraints.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "485092f1-a586-405e-982b-18a3eabe8cc0"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:09:27.887739Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 35091499958,
+              "load_duration": 81583958,
+              "prompt_eval_count": 1570,
+              "prompt_eval_duration": 16890632000,
+              "eval_count": 200,
+              "eval_duration": 18063546000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff873-493a-7113-a265-6d7957ed2200-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Recommendation: Choose pgvector as the primary vector database. It satisfies all evaluation criteria: fully self-hostable as a PostgreSQL extension, meets performance targets (~40ms p95 latency and 95% recall for 10M vectors at 768 dimensions), incurs modest operational costs (\u2248$12k/year on EC2 or $18k/year on managed Postgres) well within the $100k budget, requires only existing PostgreSQL expertise, and scales via single-node vertical scaling. Limitations include ~6\u202fGB memory usage for 10M vectors (no native quantization), a ~50\u2011minute rebuild after bulk loads, and SQL\u2011only filtering capabilities. Overall, pgvector is an economical and straightforward choice for vector similarity search within PostgreSQL environments.",
+                  "relates_to": "fact-98204f3d",
+                  "relation": "supersedes"
+                },
+                "id": "1ded9b7c-4598-4de0-a42b-3c377b3feaa5",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1570,
+              "output_tokens": 200,
+              "total_tokens": 1770
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-e23a3d67]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "c6a52e4d-426f-4c6d-a78a-31017906cc0d",
+            "tool_call_id": "1ded9b7c-4598-4de0-a42b-3c377b3feaa5",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "**Chosen Vector Database:** **pgvector**\n\n### Why pgvector fits our constraints\n\n| Constraint | How pgvector Meets It |\n|-------------|-----------------------|\n| **Budget \u2264\u202f$100k/year** | Operational cost for a self\u2011hosted deployment on EC2 is \u2248\u202f$12\u202fk/yr, and even the managed Postgres option (which includes pgvector) costs \u2248\u202f$18\u202fk/yr \u2013 both comfortably under $100\u202fk. |\n| **Performance** | Benchmarks show ~40\u202fms p95 latency with 95\u202f% recall for 10\u202fM vectors at 768 dimensions, satisfying our speed requirement without over\u2011provisioning resources. |\n| **Self\u2011hostability** | pgvector is a PostgreSQL extension; no separate service installation or cloud provider lock\u2011in is needed\u2014fits the \u201cfully self\u2011hosted\u201d preference. |\n| **Existing Expertise** | Our team already uses PostgreSQL, so adoption requires only learning the vector extension\u2014not a new language stack (e.g., Rust for Qdrant). |\n| **Scalability** | Scales via vertical scaling of a single node; while it lacks native quantization, the modest RAM usage (~6\u202fGB for 10\u202fM vectors) is manageable within our budget. |\n| **Operational Simplicity** | No additional monitoring or upgrade pipelines beyond standard PostgreSQL ops, reducing long\u2011term maintenance overhead. |\n\n### Comparison with Alternatives (for context)\n\n- **Qdrant**: Offers ~12\u202fms latency and strong quantization (up to 32\u00d7 RAM reduction) but a self\u2011hosted HA setup costs \u2248\u202f$30\u202fk/yr and introduces Rust operational complexity.\n- **Weaviate**: Provides ~15\u202fms latency, GraphQL API, and horizontal scaling via Kubernetes; commercial self\u2011hosted HA runs \u2248\u202f$60\u202fk/yr but demands Kubernetes expertise.\n\nGiven the need for minimal cost, straightforward operations, and sufficient performance within our budget, **pgvector** is the optimal choice. \n\n---  \n\n*Recommendation recorded as fact \u201cfact-e23a3d67\u201d (supersedes earlier generic recommendation).*",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:10:43.918831Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 75647198416,
+              "load_duration": 75255291,
+              "prompt_eval_count": 1926,
+              "prompt_eval_duration": 22174698000,
+              "eval_count": 468,
+              "eval_duration": 53322388000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff873-d3cc-7f42-becc-9b9783f3d898-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1926,
+              "output_tokens": 468,
+              "total_tokens": 2394
+            }
+          }
+        }
+      ],
+      "final": "**Chosen Vector Database:** **pgvector**\n\n### Why pgvector fits our constraints\n\n| Constraint | How pgvector Meets It |\n|-------------|-----------------------|\n| **Budget \u2264\u202f$100k/year** | Operational cost for a self\u2011hosted deployment on EC2 is \u2248\u202f$12\u202fk/yr, and even the managed Postgres option (which includes pgvector) costs \u2248\u202f$18\u202fk/yr \u2013 both comfortably under $100\u202fk. |\n| **Performance** | Benchmarks show ~40\u202fms p95 latency with 95\u202f% recall for 10\u202fM vectors at 768 dimensions, satisfying our speed requirement without over\u2011provisioning resources. |\n| **Self\u2011hostability** | pgvector is a PostgreSQL extension; no separate service installation or cloud provider lock\u2011in is needed\u2014fits the \u201cfully self\u2011hosted\u201d preference. |\n| **Existing Expertise** | Our team already uses PostgreSQL, so adoption requires only learning the vector extension\u2014not a new language stack (e.g., Rust for Qdrant). |\n| **Scalability** | Scales via vertical scaling of a single node; while it lacks native quantization, the modest RAM usage (~6\u202fGB for 10\u202fM vectors) is manageable within our budget. |\n| **Operational Simplicity** | No additional monitoring or upgrade pipelines beyond standard PostgreSQL ops, reducing long\u2011term maintenance overhead. |\n\n### Comparison with Alternatives (for context)\n\n- **Qdrant**: Offers ~12\u202fms latency and strong quantization (up to 32\u00d7 RAM reduction) but a self\u2011hosted HA setup costs \u2248\u202f$30\u202fk/yr and introduces Rust operational complexity.\n- **Weaviate**: Provides ~15\u202fms latency, GraphQL API, and horizontal scaling via Kubernetes; commercial self\u2011hosted HA runs \u2248\u202f$60\u202fk/yr but demands Kubernetes expertise.\n\nGiven the need for minimal cost, straightforward operations, and sufficient performance within our budget, **pgvector** is the optimal choice. \n\n---  \n\n*Recommendation recorded as fact \u201cfact-e23a3d67\u201d (supersedes earlier generic recommendation).*",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Given everything we've established, which vector database should we pick and why? Be specific about how it fits our constraints.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-98204f3d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2318,
+              "demoted": false,
+              "body": "All candidate vector databases have been evaluated:\n\n1."
+            },
+            {
+              "id": "fact-6fec147a",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3768,
+              "demoted": false,
+              "body": "pgvector satisfies all evaluation criteria: it is fully self-hostable as a PostgreSQL extension, meets performance targets with ~40ms p95 latency and 95% recall"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3897,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4187,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ab6fcc2d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4208,
+              "demoted": false,
+              "body": "You may select based on whether cost or performance (or additional features) is the primary driver for your deployment."
+            },
+            {
+              "id": "fact-a9739aca",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.423,
+              "demoted": false,
+              "body": "**Overall Recommendation**\n- Choose **pgvector** for minimal cost & operations."
+            },
+            {
+              "id": "fact-c83bea97",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4263,
+              "demoted": false,
+              "body": "Synthesis: pgvector is economical (self-hosted $12k/year or managed $18k/year) with ~40ms p95 latency and 95% recall, limited scalability but low ops overhead. "
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.4364,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Given everything we've established, which vector database should we pick and why? Be specific about how it fits our constraints.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-e23a3d67",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2702,
+              "demoted": false,
+              "body": "Recommendation: Choose pgvector as the primary vector database. It satisfies all evaluation criteria: fully self-hostable as a PostgreSQL extension, meets perfo"
+            },
+            {
+              "id": "fact-6fec147a",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.3768,
+              "demoted": false,
+              "body": "pgvector satisfies all evaluation criteria: it is fully self-hostable as a PostgreSQL extension, meets performance targets with ~40ms p95 latency and 95% recall"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3897,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-ff279f8a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4187,
+              "demoted": false,
+              "body": "**pgvector** is the most economical choice."
+            },
+            {
+              "id": "fact-ab6fcc2d",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4208,
+              "demoted": false,
+              "body": "You may select based on whether cost or performance (or additional features) is the primary driver for your deployment."
+            },
+            {
+              "id": "fact-a9739aca",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.423,
+              "demoted": false,
+              "body": "**Overall Recommendation**\n- Choose **pgvector** for minimal cost & operations."
+            },
+            {
+              "id": "fact-c83bea97",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4263,
+              "demoted": false,
+              "body": "Synthesis: pgvector is economical (self-hosted $12k/year or managed $18k/year) with ~40ms p95 latency and 95% recall, limited scalability but low ops overhead. "
+            },
+            {
+              "id": "fact-8aa93ee6",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_pgvector",
+              "distance": 0.4364,
+              "demoted": false,
+              "body": "pgvector meets all criteria: it is fully self-hostable as a PostgreSQL extension, annual operational costs for our workload (10M vectors, 768 dimensions) are ap"
+            }
+          ]
+        }
+      ],
+      "seconds": 111.9
+    },
+    {
+      "conversation": "conv-3",
+      "user": "And remind me \u2014 what was that big memory optimization the Qdrant researcher found, and roughly how much did it save?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "And remind me \u2014 what was that big memory optimization the Qdrant researcher found, and roughly how much did it save?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "a91ce8af-155a-4848-a508-0199e96f92f1"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:11:03.203954Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 18536806667,
+              "load_duration": 63321750,
+              "prompt_eval_count": 1268,
+              "prompt_eval_duration": 15420521000,
+              "eval_count": 27,
+              "eval_duration": 2967233000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff874-fe3a-7492-9f2a-37361b611cdd-0",
+            "tool_calls": [
+              {
+                "name": "recall_from_subagents",
+                "args": {
+                  "agent_id": "researcher_qdrant"
+                },
+                "id": "cb2ad490-bcca-4798-90bd-2233afaca305",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1268,
+              "output_tokens": 27,
+              "total_tokens": 1295
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Sub-agent findings:\n- [fact-9c686d56] (researcher_qdrant) cost estimates for self-hosted vs managed deployment, operational requirements, scalability, any limitations.\n- [fact-e78d49df] (researcher_qdrant) Investigate Qdrant in depth, covering architecture, performance benchmarks\n- [fact-4dba4262] (researcher_qdrant) Qdrant is self-hostable via Docker/K8s or as a single binary (Apache 2.0). For our workload of 10M vectors (768 dimensions) with high availability, the estimated annual cost for a self-hosted cluster is about $30k, which includes operational overhead and on-call support. Primary benchmark data shows p95 latency around 12ms at 97% recall, demonstrating strong performance. Memory optimization via binary quantization can reduce RAM usage up to 32x (e.g., from ~24GB to <2GB hot RAM) with a modest recall trade-off.\n- [fact-28321991] (researcher_qdrant) annual cost \u2264 $100k, primary benchmark data availability.\n- [fact-ac5dd1de] (researcher_qdrant) Investigate Qdrant as a vector database option, focusing on self-hostability",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "recall_from_subagents",
+            "id": "b53cc86f-c83a-4c57-834b-bccf6fc68912",
+            "tool_call_id": "cb2ad490-bcca-4798-90bd-2233afaca305",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:11:18.530859Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 15096145167,
+              "load_duration": 81728792,
+              "prompt_eval_count": 1575,
+              "prompt_eval_duration": 5026808000,
+              "eval_count": 89,
+              "eval_duration": 9976305000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff875-4789-7c50-9b47-b92b7eca4c9e-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "relates_to": "fact-f0307de2",
+                  "relation": "supersedes",
+                  "body": "Qdrant supports binary quantization that can reduce RAM usage up to 32\u00d7 (e.g., shrinking a ~24\u202fGB setup to under 2\u202fGB hot RAM) with only modest recall degradation."
+                },
+                "id": "5f7747c3-e574-4d87-a92e-9b78e53cc57b",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1575,
+              "output_tokens": 89,
+              "total_tokens": 1664
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-bdf56e2f]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "bd16b240-179e-4867-99bd-eafa2cb673fe",
+            "tool_call_id": "5f7747c3-e574-4d87-a92e-9b78e53cc57b",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "The Qdrant researcher found that **binary quantization** can reduce RAM usage up to **32\u00d7**, shrinking a ~24\u202fGB setup down to under 2\u202fGB of hot memory, with only a modest impact on recall. This is the big memory optimization they identified.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "granite4.1:8b",
+              "created_at": "2026-08-13T00:11:42.735269Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 23901058042,
+              "load_duration": 75496875,
+              "prompt_eval_count": 1556,
+              "prompt_eval_duration": 18062021000,
+              "eval_count": 60,
+              "eval_duration": 5690071000,
+              "logprobs": null,
+              "model_name": "granite4.1:8b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff875-83b0-75e1-bfdc-470c8e3ae398-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1556,
+              "output_tokens": 60,
+              "total_tokens": 1616
+            }
+          }
+        }
+      ],
+      "final": "The Qdrant researcher found that **binary quantization** can reduce RAM usage up to **32\u00d7**, shrinking a ~24\u202fGB setup down to under 2\u202fGB of hot memory, with only a modest impact on recall. This is the big memory optimization they identified.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "And remind me \u2014 what was that big memory optimization the Qdrant researcher found, and roughly how much did it save?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-d3a64943",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3478,
+              "demoted": false,
+              "body": "|\n| **Performance** | Benchmarks show ~40\u202fms p95 latency with 95\u202f% recall for 10\u202fM vectors at 768 dimensions, satisfying our speed requirement without over\u2011prov"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3504,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-636db04a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3625,
+              "demoted": false,
+              "body": "Memory can be reduced up to 32\u00d7 with modest recall loss."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3639,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-70cd6009",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3737,
+              "demoted": false,
+              "body": "Offers ~12\u202fms p95 latency, strong quantization (up to 32\u00d7 RAM reduction)"
+            },
+            {
+              "id": "fact-16083a88",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3818,
+              "demoted": false,
+              "body": "the modest RAM usage (~6\u202fGB for 10\u202fM vectors) is manageable within our budget."
+            },
+            {
+              "id": "fact-80cfc586",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.39,
+              "demoted": false,
+              "body": "strong quantization (up to 32\u00d7 RAM reduction) but a self\u2011hosted HA setup costs \u2248\u202f$30\u202fk/yr, introduces Rust operational complexity."
+            },
+            {
+              "id": "fact-3679b95c",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.391,
+              "demoted": false,
+              "body": "- Opt for **Qdrant** if raw performance at moderate cost is prioritized."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "And remind me \u2014 what was that big memory optimization the Qdrant researcher found, and roughly how much did it save?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-d3a64943",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3478,
+              "demoted": false,
+              "body": "|\n| **Performance** | Benchmarks show ~40\u202fms p95 latency with 95\u202f% recall for 10\u202fM vectors at 768 dimensions, satisfying our speed requirement without over\u2011prov"
+            },
+            {
+              "id": "fact-f0307de2",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_qdrant",
+              "distance": 0.3504,
+              "demoted": false,
+              "body": "Qdrant, a Rust-based vector database, offers strong performance with ~12\u202fms p95 latency for 10M vectors at 97\u202f% recall. It is fully self-hostable via Docker/K8s"
+            },
+            {
+              "id": "fact-636db04a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3625,
+              "demoted": false,
+              "body": "Memory can be reduced up to 32\u00d7 with modest recall loss."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3639,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-70cd6009",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3737,
+              "demoted": false,
+              "body": "Offers ~12\u202fms p95 latency, strong quantization (up to 32\u00d7 RAM reduction)"
+            },
+            {
+              "id": "fact-16083a88",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3818,
+              "demoted": false,
+              "body": "the modest RAM usage (~6\u202fGB for 10\u202fM vectors) is manageable within our budget."
+            },
+            {
+              "id": "fact-80cfc586",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.39,
+              "demoted": false,
+              "body": "strong quantization (up to 32\u00d7 RAM reduction) but a self\u2011hosted HA setup costs \u2248\u202f$30\u202fk/yr, introduces Rust operational complexity."
+            },
+            {
+              "id": "fact-3679b95c",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.391,
+              "demoted": false,
+              "body": "- Opt for **Qdrant** if raw performance at moderate cost is prioritized."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "And remind me \u2014 what was that big memory optimization the Qdrant researcher found, and roughly how much did it save?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-bdf56e2f",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3088,
+              "demoted": false,
+              "body": "Qdrant supports binary quantization that can reduce RAM usage up to 32\u00d7 (e.g., shrinking a ~24\u202fGB setup to under 2\u202fGB hot RAM) with only modest recall degradati"
+            },
+            {
+              "id": "fact-d3a64943",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3478,
+              "demoted": false,
+              "body": "|\n| **Performance** | Benchmarks show ~40\u202fms p95 latency with 95\u202f% recall for 10\u202fM vectors at 768 dimensions, satisfying our speed requirement without over\u2011prov"
+            },
+            {
+              "id": "fact-636db04a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3625,
+              "demoted": false,
+              "body": "Memory can be reduced up to 32\u00d7 with modest recall loss."
+            },
+            {
+              "id": "fact-ad4e80f1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3639,
+              "demoted": false,
+              "body": "- For the best raw query performance with moderate cost, **Qdrant** offers strong latency (~12\u202fms) and flexible memory optimization."
+            },
+            {
+              "id": "fact-70cd6009",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3737,
+              "demoted": false,
+              "body": "Offers ~12\u202fms p95 latency, strong quantization (up to 32\u00d7 RAM reduction)"
+            },
+            {
+              "id": "fact-16083a88",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3818,
+              "demoted": false,
+              "body": "the modest RAM usage (~6\u202fGB for 10\u202fM vectors) is manageable within our budget."
+            },
+            {
+              "id": "fact-80cfc586",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.39,
+              "demoted": false,
+              "body": "strong quantization (up to 32\u00d7 RAM reduction) but a self\u2011hosted HA setup costs \u2248\u202f$30\u202fk/yr, introduces Rust operational complexity."
+            },
+            {
+              "id": "fact-3679b95c",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.391,
+              "demoted": false,
+              "body": "- Opt for **Qdrant** if raw performance at moderate cost is prioritized."
+            }
+          ]
+        }
+      ],
+      "seconds": 58.3
+    }
+  ],
+  "errors": [],
+  "tokens": {
+    "input_tokens": 30755,
+    "output_tokens": 2463
+  },
+  "constraint_carry": {
+    "uses_revised_budget": false,
+    "avoids_stale_budget_as_current": false,
+    "mentions_selfhost": false,
+    "mentions_primary_sources": false,
+    "mentions_feasible_option": true,
+    "buried_detail_recalled": true
+  },
+  "memory": {
+    "arm": "treatment",
+    "facts": [
+      {
+        "kind": "user_input",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 10,
+        "chars": 711
+      },
+      {
+        "kind": "conclusion",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 44,
+        "chars": 3696
+      },
+      {
+        "kind": "directive",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 12,
+        "chars": 857
+      },
+      {
+        "kind": "conclusion",
+        "source": "remember_tool",
+        "status": "active",
+        "n": 9,
+        "chars": 3790
+      },
+      {
+        "kind": "summary",
+        "source": "conclude_task",
+        "status": "active",
+        "n": 2,
+        "chars": 1235
+      },
+      {
+        "kind": "conclusion",
+        "source": "remember_tool",
+        "status": "superseded",
+        "n": 5,
+        "chars": 2292
+      },
+      {
+        "kind": "summary",
+        "source": "conclude_task",
+        "status": "superseded",
+        "n": 4,
+        "chars": 2442
+      },
+      {
+        "kind": "conclusion",
+        "source": "passive_capture",
+        "status": "superseded",
+        "n": 2,
+        "chars": 250
+      }
+    ],
+    "total_facts": 88,
+    "total_chars": 15273
+  },
+  "seconds": 1414.5
+}

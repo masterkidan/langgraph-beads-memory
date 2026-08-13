@@ -1,0 +1,754 @@
+{
+  "condition": "baseline",
+  "scenario": "incident",
+  "model": "ministral-3:14b",
+  "run": 0,
+  "session_id": "baseline-run0-ef9d57",
+  "transcript": [
+    {
+      "conversation": "conv-1",
+      "user": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on the response: whatever we try must be reversible within 30 minutes, and we are not taking a full outage to fix this.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on the response: whatever we try must be reversible within 30 minutes, and we are not taking a full outage to fix this.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "6e2d149b-f814-4ea0-a79e-bb8568b2a1ad"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "manage_memory[ARGS]{\"action\": \"create\", \"content\": {\"fact\": \"Symptom: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC.\", \"timestamp\": \"14:05 UTC\"}}\n\nUnderstood. I\u2019ve recorded:\n- **Symptoms**: p99 latency spike (180ms \u2192 4.2s) and error rate surge (0.3% \u2192 7%) starting at **14:05 UTC**.\n- **Deploy**: Release **2.14** deployed at **13:50 UTC**.\n- **Constraints**:\n  - Fix must be reversible within **30 minutes**.\n  - No full outage permitted.\n\nReady for next steps (e.g., investigation, delegation, or hypothesis testing).",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:13:05.95264Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 51133027542,
+              "load_duration": 192337709,
+              "prompt_eval_count": 776,
+              "prompt_eval_duration": 12497018000,
+              "eval_count": 320,
+              "eval_duration": 38426158000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff876-5e60-7b21-83da-2fc978493651-0",
+            "tool_calls": [
+              {
+                "name": "manage_memory",
+                "args": {
+                  "action": "create",
+                  "content": {
+                    "fact": "Symptom: error rate increased from 0.3% to 7%.",
+                    "timestamp": "14:05 UTC"
+                  }
+                },
+                "id": "b2eacb20-1ec0-4707-bb70-d02e09dcea41",
+                "type": "tool_call"
+              },
+              {
+                "name": "manage_memory",
+                "args": {
+                  "action": "create",
+                  "content": {
+                    "fact": "Deployed release 2.14 at 13:50 UTC.",
+                    "timestamp": "13:50 UTC"
+                  }
+                },
+                "id": "5edc8482-0c18-4763-a1ae-4da2bd04a7d7",
+                "type": "tool_call"
+              },
+              {
+                "name": "manage_memory",
+                "args": {
+                  "action": "create",
+                  "content": {
+                    "constraint": "Any fix must be reversible within 30 minutes."
+                  }
+                },
+                "id": "800649a2-51b7-4027-b3f5-cfef084280c7",
+                "type": "tool_call"
+              },
+              {
+                "name": "manage_memory",
+                "args": {
+                  "action": "create",
+                  "content": {
+                    "constraint": "No full outage allowed for the fix."
+                  }
+                },
+                "id": "ba76fd9a-7b75-49d9-be61-edf02c181f0f",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 776,
+              "output_tokens": 320,
+              "total_tokens": 1096
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "created memory d5eccf24-0d3d-4eec-8909-e714e5346d93",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "manage_memory",
+            "id": "a78c4487-e3f3-4496-b9fe-08857a8db706",
+            "tool_call_id": "b2eacb20-1ec0-4707-bb70-d02e09dcea41",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "created memory 1de0d8c6-17fe-4f95-afb1-f521d4ff9c61",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "manage_memory",
+            "id": "4cb5342b-f2ab-4929-94ea-649a18b2fd6d",
+            "tool_call_id": "5edc8482-0c18-4763-a1ae-4da2bd04a7d7",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "created memory e9ee6a15-d8c7-4549-9fa5-912af233909c",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "manage_memory",
+            "id": "c888c132-6215-41dc-90e3-cd24f1e732b9",
+            "tool_call_id": "800649a2-51b7-4027-b3f5-cfef084280c7",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "created memory f769bdc8-0f4e-4b9b-8a6e-669bf1a45399",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "manage_memory",
+            "id": "9fb39567-7bca-4f80-9548-81fa35f59445",
+            "tool_call_id": "ba76fd9a-7b75-49d9-be61-edf02c181f0f",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Acknowledgements recorded for all facts and constraints. Ready to proceed with investigation or hypothesis testing.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:13:17.015325Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 9473397417,
+              "load_duration": 133087167,
+              "prompt_eval_count": 1221,
+              "prompt_eval_duration": 7342482000,
+              "eval_count": 20,
+              "eval_duration": 1926744000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff877-2c54-7041-ad2c-01e610354eb4-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1221,
+              "output_tokens": 20,
+              "total_tokens": 1241
+            }
+          }
+        }
+      ],
+      "final": "Acknowledgements recorded for all facts and constraints. Ready to proceed with investigation or hypothesis testing.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [],
+      "seconds": 62.2
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "ecf9826d-f198-4097-8eed-a4ef8efe64b4"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "researcher_db[ARGS]{\"task\": \"Investigate the current state of the database subsystem for anomalies, errors, or performance degradation during the ongoing incident. Include metrics like latency, error rates, and recent changes (e.g., schema updates, deployments).\"}",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:13:38.871745Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 21818555959,
+              "load_duration": 228381334,
+              "prompt_eval_count": 707,
+              "prompt_eval_duration": 928519000,
+              "eval_count": 164,
+              "eval_duration": 20630461000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff877-517c-7a11-97c8-d79cd5069342-0",
+            "tool_calls": [
+              {
+                "name": "researcher_network",
+                "args": {
+                  "task": "Investigate the network subsystem for anomalies, bottlenecks, or failures that could be contributing to the production incident. Focus on latency, packet loss, connectivity issues, and recent configuration changes."
+                },
+                "id": "9275f30f-cd7c-4e4b-9380-ee51508a1802",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_apptier",
+                "args": {
+                  "task": "Investigate the application tier for errors, crashes, or performance degradation during the ongoing incident. Include metrics like error rates (5xx, 4xx), latency spikes, deployment history, and recent code changes that could be contributing to the issue."
+                },
+                "id": "ffcf4a8c-9886-4b14-b9b0-2e0e85c92dd1",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 707,
+              "output_tokens": 164,
+              "total_tokens": 871
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "read_document[ARGS]{\"name\": \"network\"}",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_network",
+            "id": "296f91a6-d7d9-436d-83e5-ee1d646f1c60",
+            "tool_call_id": "9275f30f-cd7c-4e4b-9380-ee51508a1802",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "read_document[ARGS]{\"name\": \"apptier\"}",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_apptier",
+            "id": "de167118-991c-4463-a650-cd54dea60f77",
+            "tool_call_id": "ffcf4a8c-9886-4b14-b9b0-2e0e85c92dd1",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:13:59.847931Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 4868855334,
+              "load_duration": 133185584,
+              "prompt_eval_count": 892,
+              "prompt_eval_duration": 3604093000,
+              "eval_count": 11,
+              "eval_duration": 1065925000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff877-e5a0-76f0-bf79-5313f0b90d34-0",
+            "tool_calls": [
+              {
+                "name": "read_document",
+                "args": {
+                  "name": "db"
+                },
+                "id": "6be267b0-377f-4ff0-9189-3bd0e687cc87",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 892,
+              "output_tokens": 11,
+              "total_tokens": 903
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "# Database Investigation \u2014 INC-4471\n\nScope: Postgres primary + 2 replicas behind the checkout service.\n\n## Connection pool\nPool max is 200 connections. Peak utilisation during the incident window\nwas 34%, with **zero** connection wait events recorded. Pool checkout time\np99 stayed at 0.8ms throughout.\n\n**Conclusion: connection pool exhaustion is RULED OUT.** It was the first\ntheory raised in the channel and it does not survive the data.\n\n## Query performance\nNo new entries in the slow query log during the window. Checkout's read\npath p99 query time was 8ms before, during, and after the spike \u2014\nunchanged. The write path p99 was 11ms, also unchanged.\n\n## Replication\nReplica lag peaked at 0.4s, well inside our 5s alerting threshold. No\nfailover occurred.\n\n## Autovacuum\nAn autovacuum on `checkout_sessions` began at 14:10 UTC. This is AFTER the\nsymptom onset at 14:05, so it cannot be causal \u2014 it is a consequence of the\nelevated write volume from request retries, not a cause.\n\n## Assessment\nNothing in the database layer explains the latency spike. The database was\nhealthy throughout and was responding normally to a workload that had\nitself become abnormal.\n",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "read_document",
+            "id": "df315734-74f8-4756-a234-b20d34fde05a",
+            "tool_call_id": "6be267b0-377f-4ff0-9189-3bd0e687cc87",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:14:23.277858Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 23409903917,
+              "load_duration": 138851625,
+              "prompt_eval_count": 1205,
+              "prompt_eval_duration": 6277558000,
+              "eval_count": 127,
+              "eval_duration": 16922042000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff877-f8b3-7b21-8243-9255f6e8c90e-0",
+            "tool_calls": [
+              {
+                "name": "manage_memory",
+                "args": {
+                  "action": "create",
+                  "content": {
+                    "details": {
+                      "autovacuum": {
+                        "causal": false,
+                        "checkout_sessions_vacuum_started_at_utc": 1410
+                      },
+                      "connection_pool": {
+                        "utilization_peak": 34,
+                        "wait_events": 0
+                      },
+                      "query_performance": {
+                        "read_p99_latency_ms": 8,
+                        "write_p99_latency_ms": 11
+                      },
+                      "replication_lag": {
+                        "peak_seconds": 0.4
+                      }
+                    },
+                    "status": "healthy",
+                    "subsystem": "db"
+                  }
+                },
+                "id": "cafb3e98-2e33-4948-a35e-30c931e43641",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1205,
+              "output_tokens": 127,
+              "total_tokens": 1332
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "created memory f9d84506-92da-4f14-b10f-6c5094ca6479",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "manage_memory",
+            "id": "02eab28c-d179-4324-89e3-27adc1564985",
+            "tool_call_id": "cafb3e98-2e33-4948-a35e-30c931e43641",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:14:59.057863Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 35621364042,
+              "load_duration": 156058500,
+              "prompt_eval_count": 1349,
+              "prompt_eval_duration": 3099809000,
+              "eval_count": 242,
+              "eval_duration": 32321401000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff878-54cb-7c30-96bd-4f6c06c394a4-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1349,
+              "output_tokens": 242,
+              "total_tokens": 1591
+            }
+          }
+        }
+      ],
+      "final": "",
+      "errored": false,
+      "empty_final": true,
+      "injections": [],
+      "seconds": 102.1
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "bda905cd-a034-43c1-a2e9-c1ed410e9719"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "manage_memory[ARGS]{\"action\": \"update\", \"id\": \"<MEMORY_ID_FOR_DEPLOY_TIME>\", \"content\": {\"deploy_time_utc\": \"13:20 UTC (corrected from earlier 13:50 UTC)\", \"note\": \"The 13:50 timestamp was for the canary promotion to full traffic.\"}}",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:15:10.678977Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 11553300875,
+              "load_duration": 233949333,
+              "prompt_eval_count": 730,
+              "prompt_eval_duration": 1561104000,
+              "eval_count": 77,
+              "eval_duration": 9691811000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff878-e033-7f43-9309-df84a62f7b96-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 730,
+              "output_tokens": 77,
+              "total_tokens": 807
+            }
+          }
+        }
+      ],
+      "final": "manage_memory[ARGS]{\"action\": \"update\", \"id\": \"<MEMORY_ID_FOR_DEPLOY_TIME>\", \"content\": {\"deploy_time_utc\": \"13:20 UTC (corrected from earlier 13:50 UTC)\", \"note\": \"The 13:50 timestamp was for the canary promotion to full traffic.\"}}",
+      "errored": false,
+      "empty_final": false,
+      "injections": [],
+      "seconds": 11.6
+    },
+    {
+      "conversation": "conv-3",
+      "user": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "7cb28963-cefe-4720-a2e1-c4ca0f04e566"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "search_memory[ARGS]{\"query\": \"ruled out\"}",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:15:13.285743Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 2555296167,
+              "load_duration": 167933625,
+              "prompt_eval_count": 714,
+              "prompt_eval_duration": 1255368000,
+              "eval_count": 12,
+              "eval_duration": 1121193000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff879-0d88-7a21-a8cf-89dfed308889-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 714,
+              "output_tokens": 12,
+              "total_tokens": 726
+            }
+          }
+        }
+      ],
+      "final": "search_memory[ARGS]{\"query\": \"ruled out\"}",
+      "errored": false,
+      "empty_final": false,
+      "injections": [],
+      "seconds": 2.6
+    },
+    {
+      "conversation": "conv-4",
+      "user": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "e5256898-cd82-4d27-b2cf-884155c4f110"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "search_memory[ARGS]{\"query\": \"TLS handshake p99\"}",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:15:15.750984Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 2439944791,
+              "load_duration": 132896000,
+              "prompt_eval_count": 703,
+              "prompt_eval_duration": 544769000,
+              "eval_count": 16,
+              "eval_duration": 1746678000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff879-179e-75b3-83bd-535477c58a86-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 703,
+              "output_tokens": 16,
+              "total_tokens": 719
+            }
+          }
+        }
+      ],
+      "final": "search_memory[ARGS]{\"query\": \"TLS handshake p99\"}",
+      "errored": false,
+      "empty_final": false,
+      "injections": [],
+      "seconds": 2.5
+    },
+    {
+      "conversation": "conv-4",
+      "user": "And list everything we investigated and ruled out, with the measurement behind each one.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "And list everything we investigated and ruled out, with the measurement behind each one.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "c8e9cda4-c408-4610-a82d-661090028887"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "search_memory[ARGS]{\"query\": \"ruled out\"}",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:15:17.844805Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 2038977834,
+              "load_duration": 156779584,
+              "prompt_eval_count": 695,
+              "prompt_eval_duration": 634219000,
+              "eval_count": 12,
+              "eval_duration": 1240312000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff879-215c-7981-90a9-15dc4a28cdc3-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 695,
+              "output_tokens": 12,
+              "total_tokens": 707
+            }
+          }
+        }
+      ],
+      "final": "search_memory[ARGS]{\"query\": \"ruled out\"}",
+      "errored": false,
+      "empty_final": false,
+      "injections": [],
+      "seconds": 2.1
+    },
+    {
+      "conversation": "conv-4",
+      "user": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "033413b0-2055-438f-ba78-e00325581f6b"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "search_memory[ARGS]{\"query\": \"release 2.14 deployment time\"}",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "ministral-3:14b",
+              "created_at": "2026-08-13T00:15:20.498604Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 2619805167,
+              "load_duration": 135798917,
+              "prompt_eval_count": 701,
+              "prompt_eval_duration": 567530000,
+              "eval_count": 17,
+              "eval_duration": 1912577000,
+              "logprobs": null,
+              "model_name": "ministral-3:14b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--019ff879-2975-7212-bf14-baa33593d306-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 701,
+              "output_tokens": 17,
+              "total_tokens": 718
+            }
+          }
+        }
+      ],
+      "final": "search_memory[ARGS]{\"query\": \"release 2.14 deployment time\"}",
+      "errored": false,
+      "empty_final": false,
+      "injections": [],
+      "seconds": 2.7
+    }
+  ],
+  "errors": [],
+  "tokens": {
+    "input_tokens": 9693,
+    "output_tokens": 1018
+  },
+  "constraint_carry": {
+    "avoids_reproposing_ruled_out": true,
+    "names_surviving_cause": false,
+    "proposes_reversible_fix": false,
+    "uses_corrected_deploy_time": false,
+    "avoids_stale_deploy_time": true,
+    "buried_metric_recalled": false,
+    "breadth_subsystems_named": 0,
+    "breadth_complete": false,
+    "numerically_grounded": true,
+    "_reproposed": [],
+    "_unsupported_numbers": []
+  },
+  "memory": {
+    "arm": "baseline",
+    "documents": 5,
+    "chars": 621
+  },
+  "seconds": 185.8
+}

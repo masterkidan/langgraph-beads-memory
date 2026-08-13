@@ -266,8 +266,10 @@ uv sync --all-extras                       # includes the demo + playground extr
 ```
 
 Any model works if it advertises tool calling and fits your hardware. The
-benchmark set is `gemma4:12b`, `qwen3.5:9b`, `granite4.1:8b`,
-`ministral-3:14b`, `lfm2.5:8b` — select one with `BEADS_DEMO_MODEL`.
+benchmark set is `gemma4:12b`, `qwen3.5:9b`, `lfm2.5:8b` — select one with
+`BEADS_DEMO_MODEL`. `granite4.1:8b` and `ministral-3:14b` were benchmarked and
+dropped — the runs, the reasons and what the exclusion changes are in
+[results/excluded/](results/excluded/README.md).
 
 ### The gate — run this first
 

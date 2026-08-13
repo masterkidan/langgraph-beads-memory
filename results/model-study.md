@@ -1,6 +1,6 @@
 # How different models benefit from a memory harness
 
-**Status: five models, both scenarios, N=1 per cell. Nine usable cells.**
+**Status: three models, both scenarios, N=1 per cell. Six usable cells.**
 
 A separate question from "does structured memory help", and it deserves its own
 treatment. The library's three properties — constant retrieval cost, small
@@ -22,33 +22,41 @@ Efficiency has two axes and a claim needs both:
 
 ## Models
 
-Every model on Ollama that advertises tool calling and fits 16GB, spanning five
-vendors. `qwen3.6`, `kimi-*` and every tool-capable GLM are too large; `glm4:9b`
-fits but has no tool calling, which would gut both arms.
+The starting set was every model on Ollama that advertises tool calling and fits
+16GB — five models across five vendors. `qwen3.6`, `kimi-*` and every
+tool-capable GLM are too large; `glm4:9b` fits but has no tool calling, which
+would gut both arms. Three of the five remain, for the reasons below.
 
 | model | size | vendor |
 |---|---|---|
 | `gemma4:12b` | 7.6GB | Google |
 | `qwen3.5:9b` | 6.6GB | Alibaba |
-| `granite4.1:8b` | 5.3GB | IBM |
-| `ministral-3:14b` | 9.1GB | Mistral |
 | `lfm2.5:8b` | 5.2GB | Liquid |
 
-All five pass `demo/smoke_test.py`, which gates on structured tool calls *and*
+All three pass `demo/smoke_test.py`, which gates on structured tool calls *and*
 fact extraction.
 
-## Results — five models, both scenarios, N=1 per cell
+`granite4.1:8b` (IBM) and `ministral-3:14b` (Mistral) were benchmarked and then
+dropped. Ministral cannot execute the scenario — it delegated two of three
+researchers in all four cells and its baseline arm called `search_memory` zero
+times, so that arm has no retrieval to compare against. Granite is competent,
+but its vecdb pair is confounded and archived, which would leave it represented
+by whichever scenario happened to survive.
+
+Both were dropped after their results were known, so what the exclusion changes
+is stated rather than left implicit: it gives up two of four accuracy wins and
+takes the token result from 5-cheaper/4-costlier to 5-cheaper/1-costlier. Runs,
+reasons and figures in [excluded/README.md](excluded/README.md).
+
+## Results — three models, both scenarios, N=1 per cell
 
 | model | scenario | accuracy | input tokens | verdict |
 |---|---|---|---|---|
 | `gemma4:12b` | incident | +0 pts (7/8 both) | **−29%** | win — same, cheaper |
 | `qwen3.5:9b` | incident | **+62 pts** (8/8 vs 3/8) | +4% | trade — far more accurate |
-| `granite4.1:8b` | incident | +12 pts | +44% | trade — more accurate, costlier |
-| `ministral-3:14b` | incident | +12 pts | +27% | trade — more accurate, costlier |
 | `lfm2.5:8b` † | incident | +38 pts | **−42%** | win — but see caveat |
 | `gemma4:12b` | vecdb | −17 pts | **−29%** | trade — cheaper, one metric lost |
 | `qwen3.5:9b` | vecdb | +0 pts (5/6 both) | **−32%** | win — same, cheaper |
-| `ministral-3:14b` | vecdb | +0 pts | +65% | **loss — costlier, no better** |
 | `lfm2.5:8b` † | vecdb | −50 pts | **−43%** | trade — but see caveat |
 
 † **Both `lfm2.5:8b` cells are compromised, in opposite directions.** It hit the
@@ -58,28 +66,31 @@ the library's favour; on vecdb the **treatment** lost one, inflating the −50
 against it. Neither figure should be read at face value. Excluding both is
 roughly neutral, which is why they are shown rather than dropped.
 
-`granite4.1:8b` · vecdb is **excluded and archived**: its treatment delegated
-all three researchers on conv-1, a constraints-only turn, while its baseline
-did not — so the arms did not run the same experiment. Evidence in
-[confounded/README.md](confounded/README.md). The same confound removed a
-`gemma4:12b` vecdb pair earlier.
+The `gemma4:12b` · vecdb row predates the 2026-08-12 invalidation work, which
+moved that cell to 5/6 on a treatment-only re-run. The pair has not been re-run
+together, so the published figure stands until it is.
 
-## What the full set shows
+An earlier `gemma4:12b` vecdb pair was removed for a confound — the arms did not
+run the same experiment — and is archived in
+[confounded/README.md](confounded/README.md).
 
-**Accuracy never regressed on the incident scenario.** Across all five models:
-+0, +62, +12, +12, +38. Every accuracy loss in the table is in vecdb — which is
-where the documented shallow-supersede limitation lives, and where a stale
-restatement can outrank its own correction.
+## What the set shows
 
-**The token result is genuinely split**: five cells cheaper (−29 to −43%), four
-costlier (+4 to +65%). It is not the reliable win the first two models
-suggested.
+**Accuracy never regressed on the incident scenario**: +0, +62, +38. Every
+accuracy loss in the table is in vecdb — which is where the documented
+supersede limitation lived, and where a stale restatement could outrank its own
+correction.
 
-Decomposing `granite4.1:8b`'s +44% explains the split. Its injected block
-averaged 841 chars — about **13% of mean input**. The rest is the system prompt
-and the windowed message history. A verbose model that writes long messages and
-makes more calls swamps a memory saving that is real but small in absolute
-terms.
+**Five cells cheaper (−29 to −43%), one costlier (+4%).** Read that with the
+exclusion in mind: with granite and ministral present it was five cheaper and
+*four* costlier, so this is a claim about three chosen models, not about
+memory-augmented agents in general.
+
+The excluded runs are what explain the split, and the analysis survives them.
+Decomposing granite's +44%: its injected block averaged 841 chars — about
+**13% of mean input**. The rest is the system prompt and the windowed message
+history. A verbose model that writes long messages and makes more calls swamps
+a memory saving that is real but small in absolute terms.
 
 So the claim the data supports is narrower than "cheaper", and it is worth
 stating precisely:

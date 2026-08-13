@@ -10,8 +10,14 @@ from demo.resilient import CHAT_TIMEOUT_S, ensure_healthy
 
 # gemma4:12b is the default because qwen3 was retired from the benchmark on
 # 2026-08-12 and its weights removed. The benchmark set is now gemma4:12b,
-# qwen3.5:9b, granite4.1:8b, ministral-3:14b and lfm2.5:8b — every model on
-# Ollama that advertises tool calling and fits 16GB, spanning five vendors.
+# qwen3.5:9b and lfm2.5:8b.
+#
+# granite4.1:8b and ministral-3:14b were dropped the same day. Ministral
+# delegated two of three researchers in every cell and its baseline never called
+# search_memory, so that arm had no retrieval to compare; granite's vecdb pair is
+# confounded, which would leave it represented by one scenario. Both were dropped
+# after their results were known, and that moved the headline both ways —
+# recorded with the numbers in results/excluded/.
 #
 # Kept from the qwen3 era because it still applies: a reasoning model with
 # thinking left ON writes chain-of-thought into its answers. qwen3:4b produced

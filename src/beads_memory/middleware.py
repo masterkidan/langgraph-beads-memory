@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 
 from langchain.agents.middleware import AgentMiddleware
@@ -11,7 +12,14 @@ from .embeddings import Embedder
 from .ids import content_key, derive_fact_id, short_id
 from .segment import DIRECTIVE, classify_fragment, is_substantive, split_into_facts
 from .store import BeadsStore, Namespace
-from .tools import make_recall_from_subagents, make_remember_fact
+from .tools import make_recall_from_subagents, make_remember_fact, make_search_memory
+
+# Ceiling on how much of one tool result becomes memory. Message content is
+# bounded by what a person or model typed; tool output is not — this benchmark
+# reads ~1.3 KB corpus files, but the playground calls web search, and an
+# uncapped path would put whole pages into a store whose premise is that a claim
+# is not a document.
+TOOL_RESULT_CAPTURE_LIMIT = int(os.environ.get("BEADS_TOOL_RESULT_LIMIT", "4000"))
 
 
 class BeadsMemoryMiddleware(AgentMiddleware):
@@ -28,7 +36,26 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         capture_final: bool = True,
         extra_tools: list | None = None,
         recorder: list | None = None,
+        inject: bool = True,
+        search_tool: bool = False,
+        capture_tool_results: bool = False,
     ):
+        """`inject=False` with `search_tool=True` swaps automatic recall for an
+        agent-invoked `search_memory`, matching the baseline's interface exactly
+        so that ranking is the only variable left between the arms. Capture is
+        unaffected either way — what gets written does not depend on how it is
+        read back.
+
+        `capture_tool_results` defaults OFF, and the measurement is why. Turning
+        it on recovered a metric nothing else could: `buried_metric_recalled`
+        went 0/3 to 3/3 (incident, gemma4:12b, N=3), because a sub-agent had
+        read a figure and dropped it when summarising, so no ranking change
+        could ever reach it. But it doubled the store — 94 facts to 179, 8.7k
+        chars to 16k — and that extra selection pressure cost `breadth_complete`
+        1/3 to 0/3, while input tokens went from 35% below baseline to 13%
+        below. It buys a capability the flat store cannot match, at a price that
+        is most of this library's token advantage, so it is a deliberate
+        per-deployment choice rather than a default."""
         super().__init__()
         self.store = store
         self.namespace = namespace
@@ -38,6 +65,8 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         self.window = window
         self.k = k
         self.capture_final = capture_final
+        self.inject = inject
+        self.capture_tool_results = capture_tool_results
         # Optional append-only log of what was actually injected, and why.
         # Without it, "what did the agent see?" can only be reconstructed by
         # re-running the query later against a store that has since changed —
@@ -55,6 +84,8 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 acting_on_behalf_of=acting_on_behalf_of,
             )
         ] + (extra_tools or [])
+        if search_tool:
+            self.tools.append(make_search_memory(store, namespace, embedder))
         if capture_final:
             # Orchestrator-only. Demoted descendant search is similarity-driven
             # and may or may not surface a child's finding; this lets an agent
@@ -63,6 +94,15 @@ class BeadsMemoryMiddleware(AgentMiddleware):
             # flag that distinguishes a root agent from a forked sub-agent —
             # so sub-agents cannot use it to reach across at their siblings.
             self.tools.append(make_recall_from_subagents(store, namespace))
+
+        # Every memory tool this middleware binds — remember_fact, conclude_task
+        # (arriving via extra_tools), search_memory, recall_from_subagents.
+        # DERIVED, not a hardcoded name list: capturing a memory tool's output
+        # is a feedback loop, since retrieved facts would be written back as new
+        # facts, retrieved again, and written again. Deriving it means a memory
+        # tool added later is excluded automatically rather than silently
+        # starting to feed itself.
+        self._memory_tool_names = {t.name for t in self.tools}
 
     # -- write path 1: passive user-input capture ---------------------------
     def before_model(self, state, runtime):
@@ -112,7 +152,14 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         stay distinct under the content-derived id scheme, and a replay of the
         same message still collapses onto the same ids.
         """
-        for source_key, body in self._user_fact_specs(msg):
+        specs = self._user_fact_specs(msg)
+        # ONE embed call for the whole message, reused by every claim in it —
+        # so a message splitting into six facts costs seven embeds, not twelve.
+        # Skipped when the message produced a single fact covering all of it,
+        # where the context vector would just duplicate the claim's own.
+        whole = str(msg.content)
+        ctx = self.embedder.embed(whole) if len(specs) > 1 else None
+        for source_key, body in specs:
             # Questions, instructions and stated goals are kept — they are the
             # provenance of every downstream choice — but marked so retrieval
             # does not spend a top-K slot re-injecting the current query.
@@ -126,9 +173,72 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 agent_id=self.agent_id,
                 acting_on_behalf_of=self.acting_on_behalf_of,
                 embedding=self.embedder.embed(body),
+                context_embedding=ctx,
             )
 
-    # -- write path 4: passive final-answer capture (root only) -------------
+    # -- write path 4: passive tool-result capture --------------------------
+    def wrap_tool_call(self, request, handler):
+        """Capture what a tool returned, into the namespace of the agent that
+        called it.
+
+        Motivating failure: `buried_metric_recalled` scored 0/3 in EVERY arm,
+        both code versions, across the whole benchmark — the only metric no
+        ranking change could move. The number it asks for (a TLS handshake p99
+        of 41ms) is in `demo/corpus_incident/network.md`; the network
+        researcher read that file and dropped the figure when summarising. The
+        fact was never written, so no retrieval could find it. Capturing tool
+        results fixes that at the source rather than at the ranking layer.
+
+        Scoped to `self.namespace`, which is the CALLING agent's — so a
+        sub-agent's raw reads land in the sub-agent's namespace, demoted for the
+        parent and reachable through `recall_from_subagents`, rather than
+        growing the root namespace. That matters: the root already fits 94 facts
+        into 8 slots with a rank-8/rank-9 margin of 0.00126, and adding
+        candidates there would make selection measurably more fragile.
+        """
+        result = handler(request)
+        if not self.capture_tool_results:
+            return result
+        try:
+            name = (request.tool_call or {}).get("name")
+            if name and name not in self._memory_tool_names:
+                content = getattr(result, "content", None)
+                if isinstance(content, str) and content.strip():
+                    self._capture_tool_result(name, content)
+        except Exception:  # noqa: BLE001
+            # Capture must never break the tool call it observed. A memory
+            # write failing is a lost fact; an exception here would instead
+            # take out the researcher whose finding we were trying to keep.
+            pass
+        return result
+
+    def _capture_tool_result(self, tool_name: str, content: str) -> None:
+        # Ceiling, because tool output is unbounded in a way message content is
+        # not. The benchmark's corpus is ~1.3 KB per read, but the playground
+        # calls web search, and an un-capped path would put whole pages into a
+        # store whose entire premise is that a claim is not a document.
+        text = content[:TOOL_RESULT_CAPTURE_LIMIT]
+        bodies = [b for b in split_into_facts(text) if is_substantive(b)]
+        if not bodies:
+            return
+        ctx = self.embedder.embed(text) if len(bodies) > 1 else None
+        for i, body in enumerate(bodies):
+            self.store.write_fact(
+                self.namespace,
+                kind="conclusion",
+                body=body,
+                source="tool_result",
+                # Content-derived and tool-scoped: re-reading the same document
+                # collapses onto the same ids rather than accumulating copies,
+                # the same property `after_model` relies on.
+                source_key=f"tool:{tool_name}:{content_key(text)}#{i}",
+                agent_id=self.agent_id,
+                acting_on_behalf_of=self.acting_on_behalf_of,
+                embedding=self.embedder.embed(body),
+                context_embedding=ctx,
+            )
+
+    # -- write path 5: passive final-answer capture (root only) -------------
     def after_model(self, state, runtime):
         """Capture the agent's answer the same way a user message is captured.
 
@@ -161,9 +271,14 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         if not (isinstance(last, AIMessage) and not last.tool_calls and str(last.content).strip()):
             return None
         whole = str(last.content)
-        for body in split_into_facts(whole):
-            if not is_substantive(body):
-                continue
+        bodies = [b for b in split_into_facts(whole) if is_substantive(b)]
+        # The answer this claim came from, embedded once. This is the capture
+        # that most needs it: an agent's synthesis states its root cause in one
+        # sentence and its reasoning in the surrounding ten, and that one
+        # sentence alone was measured at rank 30 of ~90 against the very
+        # question it answered.
+        ctx = self.embedder.embed(whole) if len(bodies) > 1 else None
+        for body in bodies:
             fact = self.store.write_fact(
                 self.namespace,
                 kind="conclusion",
@@ -176,6 +291,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
                 agent_id=self.agent_id,
                 acting_on_behalf_of=self.acting_on_behalf_of,
                 embedding=self.embedder.embed(body),
+                context_embedding=ctx,
             )
             self._record_provenance(fact.id)
         return None
@@ -234,6 +350,11 @@ class BeadsMemoryMiddleware(AgentMiddleware):
             None,
         ) or next((str(m.content) for m in reversed(msgs) if str(m.content).strip()), None)
         facts, scored = [], []
+        if not self.inject:
+            # Recall is the agent's job this run (see `search_tool`). Capture
+            # and the window trim below still apply — only automatic injection
+            # is off, so the arms differ in interface alone.
+            query_text = None
         if query_text:
             scored = self.store.search(
                 self.namespace.id,

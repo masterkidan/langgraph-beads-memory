@@ -174,6 +174,13 @@ def make_conclude_task(
         # granularity at which invalidation can be right about a fact that mixes
         # a stale premise with live findings; the fix belongs here, at capture.
         fragments = [f for f in split_into_facts(summary) if is_substantive(f)] or [summary]
+        # The whole rollup, embedded once and shared by its fragments. This is
+        # the path where splitting cost the most: a researcher's summary names
+        # its subsystem in one sentence and its verdict in another, so neither
+        # fragment alone matches "what did we rule out, and what survived" as
+        # well as the summary did. Measured — the fraud-scoring root cause was
+        # stored nine times over and never once reached a top-8 injection.
+        ctx = embedder.embed(summary) if len(fragments) > 1 else None
         facts = [
             store.write_fact(
                 parent_namespace,
@@ -190,6 +197,7 @@ def make_conclude_task(
                 agent_id=agent_id,
                 acting_on_behalf_of=acting_on_behalf_of,
                 embedding=embedder.embed(body),
+                context_embedding=ctx,
             )
             for i, body in enumerate(fragments)
         ]
@@ -213,6 +221,133 @@ def make_conclude_task(
         return f"Task concluded [{short_id(fact.id)}]"
 
     return conclude_task
+
+
+def make_search_memory(store: BeadsStore, namespace: Namespace, embedder: Embedder):
+    """`search_memory`, byte-identical in name and description to langmem's.
+
+    This exists to remove a confound, not to add a feature. The two arms of the
+    benchmark differed in TWO ways at once: the baseline recalls through an
+    agent-authored `search_memory` call, while the treatment injects
+    automatically using the raw user message as its query. So a difference in
+    outcome could be attributed to the ranking OR to the interface, and the
+    measured trace says the interface mattered — on the incident scenario the
+    baseline's agent wrote itself "incident status investigation progress ruled
+    out facts" while the treatment embedded "New shift taking over. Given
+    everything we've established, what should we try next..." and retrieved six
+    restatements of one constraint.
+
+    Holding the name, description and signature fixed makes the model's
+    behaviour the constant and the ranking the variable. The description is
+    copied verbatim from `langmem.create_search_memory_tool` — if that string
+    drifts upstream, this comparison quietly stops being controlled, which is
+    why it is pinned here in one place rather than paraphrased.
+
+    The RESPONSE, unlike the signature, is deliberately not flat. Each hit is
+    rendered with its distance-1 neighbours, labelled by relation — which is
+    the one thing a document store structurally cannot answer. A flat list of
+    claims is thin by construction: splitting a message per claim is what makes
+    `supersedes` surgical, and it is also what strips each claim of the context
+    it was carved from. The edges put that context back at read time instead of
+    duplicating it at write time.
+
+    What this buys, stated honestly: measured offline on both scenarios,
+    one-hop expansion did NOT improve aspect coverage (incident 89%, vecdb 88%,
+    unchanged). Its value is legibility — `supersedes` renders as "replaces",
+    so a corrected budget arrives with the correction attached rather than as
+    two numbers with nothing marking which is current. That is a claim about
+    what the model can reason with, and it is not yet measured; it should be
+    treated as untested until an end-to-end run says otherwise.
+
+    Superseded neighbours are shown on purpose. They are labelled, never listed
+    as current, and "this replaced $100k" is the most useful thing that can be
+    said about a $50k fact.
+    """
+    # Read as a verb phrase from the seed: "[seed] --replaces--> [neighbour]".
+    _OUT = {"supersedes": "replaces", "contradicts": "contradicts",
+            "relates_to": "relates to", "derived_from": "derived from",
+            "rollup_of": "summarises"}
+    _IN = {"supersedes": "was replaced by", "contradicts": "contradicted by",
+           "relates_to": "relates to", "derived_from": "supports",
+           "rollup_of": "summarised in"}
+
+    # Which edges are worth characters, in order. `derived_from` is EXCLUDED,
+    # not merely ranked last, and that is the difference between this response
+    # being an advantage and being a regression.
+    #
+    # Measured: `derived_from` is emitted on every capture — 303 edges in one
+    # run against 75 `rollup_of` and 6 `supersedes` — so it dominates any hit's
+    # neighbourhood while carrying the least. Including it rendered fragments
+    # like "Specifically, it measured" and "We have a production incident" as
+    # context, and pushed a k=8 response to 2,662 characters against the flat
+    # baseline's 2,051 — spending the payload advantage this library exists to
+    # provide, on provenance the model cannot use. It stays queryable through
+    # the store; it just does not buy a slot here.
+    #
+    # `relates_to` is excluded on the same principle, one step further in. It
+    # is the catch-all the model reaches for when it wants to link two facts
+    # and has no claim about HOW they relate — the tool description offers it
+    # as the fallback after `supersedes` and `contradicts`. An edge that means
+    # "these are somehow associated" cannot be rendered as anything a reader
+    # can act on, so it would spend characters restating the similarity that
+    # ranked the hit in the first place.
+    #
+    # What remains is exactly the set a document store cannot express, and each
+    # renders as a claim rather than an association: what replaced what, what
+    # contradicts what, and which raw findings a summary stands for.
+    _EXPAND = {"supersedes": 0, "contradicts": 1, "rollup_of": 2}
+
+    # Strength is a property of the NEIGHBOUR too, not only of the edge. A link
+    # is worth characters when it lands on something someone actually asserted
+    # — a claim the user stated, a conclusion the agent reached, or a
+    # sub-agent's rollup of the same. `directive` neighbours are excluded for
+    # the reason `search` already holds directives out of retrieval: a question
+    # resembles the query by construction, so expanding onto one spends a slot
+    # echoing what was just asked.
+    _EXPAND_KINDS = ("user_input", "conclusion", "summary")
+    MAX_NEIGHBOURS = 2
+
+    @tool
+    def search_memory(query: str, limit: int = 10) -> str:
+        """Search your long-term memories for information relevant to your current context."""
+        k = max(1, min(limit, 25))
+        scored = store.search(namespace.id, embedder.embed(query), k=k, with_scores=True)
+        if not scored:
+            return "No memories found."
+        facts = [f for f, _d, _dem in scored]
+        readable = store.ancestor_chain(namespace.id) + store.descendant_scope(namespace.id)
+        nbrs = store.neighbours([f.id for f in facts], readable)
+
+        lines = []
+        # Seeded with every hit, and carried ACROSS hits: a fact already shown
+        # — as a result or as some earlier hit's neighbour — is not worth its
+        # characters twice, and dense stores link the same few summaries from
+        # everywhere.
+        seen = {f.id for f in facts}
+        for fact in facts:
+            lines.append(f"- [{short_id(fact.id)}] {fact.body}")
+            edges = sorted(
+                (e for e in nbrs.get(fact.id, [])
+                 if e[1] in _EXPAND and e[0].kind in _EXPAND_KINDS),
+                key=lambda e: (_EXPAND[e[1]], len(e[0].body)),
+            )
+            shown = 0
+            for nb, relation, direction in edges:
+                if shown >= MAX_NEIGHBOURS:
+                    break
+                if nb.id in seen:
+                    continue
+                seen.add(nb.id)
+                shown += 1
+                label = (_OUT if direction == "out" else _IN).get(relation, relation)
+                # Neighbours are context, not answers: truncated so one densely
+                # linked hit cannot crowd out the other k-1 results.
+                body = nb.body if len(nb.body) <= 120 else nb.body[:117] + "..."
+                stale = " (superseded)" if nb.status != "active" else ""
+                lines.append(f"    └─ {label}{stale}: [{short_id(nb.id)}] {body}")
+        return "\n".join(lines)
+
+    return search_memory
 
 
 def make_recall_from_subagents(store: BeadsStore, namespace: Namespace):

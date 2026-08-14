@@ -27,6 +27,28 @@ SUPERSEDE_MIN_SIMILARITY = float(os.environ.get("BEADS_SUPERSEDE_MIN_SIMILARITY"
 # that memory optimization?") still reaches a strongly-matching child fact.
 DESCENDANT_RANK_PENALTY = float(os.environ.get("BEADS_DESCENDANT_PENALTY", "0.15"))
 
+# Weight on the CLAIM's own embedding when ranking; the remainder goes to the
+# embedding of the text it was carved from (`context_embedding`). 1.0 is the
+# claim-only behaviour this library shipped with.
+#
+# Why it is not 1.0. Splitting a message into one fact per claim is what makes
+# `supersedes` surgical, but it also shrinks what each embedding has to match
+# on. Measured on the incident scenario at N=3: the root cause was captured
+# nine times over, every copy active, and ranked 30th of ~90 — outside the
+# top-8 injection in all three runs, while the baseline's un-split document
+# ranked 7th of 10 and got used. Retrieval, not generation, was the whole gap.
+#
+# 0.5 rather than 0.0 deliberately. Pure context ranking makes every claim from
+# one capture score identically, which destroys the ordering WITHIN a capture
+# and is why `CONTEXT_MAX_PER_SOURCE` exists alongside it.
+CLAIM_WEIGHT = float(os.environ.get("BEADS_CLAIM_WEIGHT", "0.5"))
+
+# Ceiling on how many claims from a single capture may occupy the top-k. Blended
+# ranking pulls a whole capture's claims up together — that is the point — but
+# without a ceiling one verbose answer takes every slot, which is the failure
+# the blend was introduced to fix, reintroduced from the other direction.
+CONTEXT_MAX_PER_SOURCE = int(os.environ.get("BEADS_CONTEXT_MAX_PER_SOURCE", "3"))
+
 # Cosine-similarity floor for cascading a supersede to EARLIER restatements of
 # the fact being retired. Paired with a created_at ordering constraint — see
 # BeadsStore._cascade_supersede — because similarity alone cannot tell "$100k"
@@ -129,10 +151,25 @@ def _cap_per_descendant_agent(rows: list, k: int) -> list:
 
     Rows arrive in rank order, so this preserves ranking within the constraint:
     a capped agent's surplus is dropped and the next-best row moves up.
+
+    Two ceilings apply, and they ration different things. The per-agent cap
+    rations VOICES, so three researchers each get a hearing. The per-source cap
+    rations one CAPTURE, because blended ranking deliberately pulls a whole
+    capture's claims up together and an eight-claim answer would otherwise take
+    every slot.
     """
-    kept, per_agent = [], {}
+    kept, per_agent, per_source = [], {}, {}
     for row in rows:
         source, agent_id, demoted = row[6], row[7], row[10]
+        # Keyed on the context vector: every claim from one capture shares it,
+        # and it is null for facts with no wider context — which must NOT all
+        # collide into a single group, so those bypass the cap entirely.
+        ctx = row[11]
+        if ctx is not None:
+            seen_src = per_source.get(ctx, 0)
+            if seen_src >= CONTEXT_MAX_PER_SOURCE:
+                continue
+            per_source[ctx] = seen_src + 1
         # Keyed on agent_id, and namespace is NOT usable here. `conclude_task`
         # writes a sub-agent's summary into the PARENT namespace tagged with the
         # child's agent_id, so a summary is not a descendant row at all — a
@@ -308,13 +345,22 @@ class BeadsStore:
         agent_id: str,
         acting_on_behalf_of: str,
         embedding: list[float] | None = None,
+        context_embedding: list[float] | None = None,
     ) -> Fact:
+        """Write one claim.
+
+        `context_embedding` is the embedding of the wider text this claim came
+        from — the whole user message, the whole answer, the whole tool body —
+        and is shared by every claim from that capture. Callers embed it once
+        per capture, not once per claim; see middleware, where a message
+        splitting into six facts costs two embed calls rather than seven.
+        """
         fid = derive_fact_id(namespace.session_id, namespace.id, source, source_key, body)
         self._conn.execute(
             """
             INSERT INTO facts (id, namespace_id, session_id, kind, body, embedding,
-                               source, agent_id, acting_on_behalf_of)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                               context_embedding, source, agent_id, acting_on_behalf_of)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING
             """,
             (
@@ -324,6 +370,7 @@ class BeadsStore:
                 kind,
                 body,
                 embedding,
+                context_embedding,
                 source,
                 agent_id,
                 acting_on_behalf_of,
@@ -510,14 +557,20 @@ class BeadsStore:
             SELECT id, namespace_id, session_id, kind, body, status, source,
                    agent_id, acting_on_behalf_of,
                    (embedding <=> %s::vector) AS distance,
-                   (namespace_id = ANY(%s)) AS demoted
+                   (namespace_id = ANY(%s)) AS demoted,
+                   context_embedding::text
             FROM facts
             WHERE namespace_id = ANY(%s)
               AND status = 'active'
               AND (%s OR kind <> 'directive')
               AND embedding IS NOT NULL
               AND NOT (id = ANY(%s))
-            ORDER BY (embedding <=> %s::vector)
+            -- Blended: the claim's own distance, plus the distance of the text
+            -- it was carved from. COALESCE, not a join — a fact with no wider
+            -- context (or written before the column existed) ranks on its own
+            -- embedding exactly as before, so this cannot regress an old store.
+            ORDER BY %s * (embedding <=> %s::vector)
+                     + (1 - %s) * (COALESCE(context_embedding, embedding) <=> %s::vector)
                      + CASE WHEN namespace_id = ANY(%s) THEN %s ELSE 0 END
             LIMIT %s
             """,
@@ -527,6 +580,9 @@ class BeadsStore:
                 chain + descendants,
                 include_directives,
                 exclude_ids or [],
+                CLAIM_WEIGHT,
+                query_embedding,
+                CLAIM_WEIGHT,
                 query_embedding,
                 descendants,
                 DESCENDANT_RANK_PENALTY,
@@ -544,6 +600,49 @@ class BeadsStore:
             # reported a rank that did not exist.
             return [(Fact(*r[:9]), float(r[9]), bool(r[10])) for r in rows]
         return [Fact(*r[:9]) for r in rows]
+
+    def neighbours(
+        self, fact_ids: list[uuid.UUID], readable_ns_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[tuple[Fact, str, str]]]:
+        """Distance-1 graph neighbours of each fact, as {id: [(fact, relation, direction)]}.
+
+        Edges are followed in BOTH directions and the direction is returned, not
+        discarded: `supersedes` reads in exactly opposite senses depending on
+        which end you are standing at, and a renderer that collapsed the two
+        would show a retired value as though it were the correction.
+
+        Scoped to namespaces the caller can already read, so expansion cannot
+        become a way around the sibling isolation that `search` enforces —
+        otherwise one hit on a shared ancestor would pull a sibling's private
+        exploration in behind it.
+
+        Superseded and archived facts are included, unlike in `search`. Here
+        that is the point: "this replaced the $100k figure" is the most useful
+        thing to say about a $50k fact, and the retired value is labelled by its
+        relation rather than presented as current.
+        """
+        if not fact_ids:
+            return {}
+        rows = self._conn.execute(
+            """
+            SELECT e.from_fact_id, e.to_fact_id, e.relation,
+                   f.id, f.namespace_id, f.session_id, f.kind, f.body, f.status,
+                   f.source, f.agent_id, f.acting_on_behalf_of,
+                   (e.from_fact_id = ANY(%s)) AS seed_is_source
+            FROM fact_edges e
+            JOIN facts f ON f.id = CASE WHEN e.from_fact_id = ANY(%s)
+                                        THEN e.to_fact_id ELSE e.from_fact_id END
+            WHERE (e.from_fact_id = ANY(%s) OR e.to_fact_id = ANY(%s))
+              AND f.namespace_id = ANY(%s)
+            """,
+            (fact_ids, fact_ids, fact_ids, fact_ids, readable_ns_ids),
+        ).fetchall()
+        out: dict[uuid.UUID, list[tuple[Fact, str, str]]] = {}
+        for r in rows:
+            seed = r[0] if r[12] else r[1]
+            fact = Fact(r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11])
+            out.setdefault(seed, []).append((fact, r[2], "out" if r[12] else "in"))
+        return out
 
     def resolve_short_id(self, prefix: str, readable_ns_ids: list[uuid.UUID]) -> Fact:
         """Resolve 'fact-a3f8b2c1' within readable scope; raise on miss/ambiguity."""

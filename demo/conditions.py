@@ -358,6 +358,7 @@ def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: A
             parent_namespace=root_ns,
             embedder=embedder,
             build_agent=build_agent,
+            capture_tool_results=arm.tool_capture,
         )
 
     def invoke(
@@ -376,6 +377,12 @@ def build_treatment(session_id: str, run_schema: str, scenario: Scenario, arm: A
             # baseline's equivalent is already visible: its recall is a
             # search_memory tool call whose result sits in the transcript.
             recorder=recorder,
+            # Interface parity arm: recall becomes an agent-invoked
+            # `search_memory` instead of automatic injection, so the arms differ
+            # in ranking alone. Capture is untouched.
+            inject=not arm.search_tool,
+            search_tool=arm.search_tool,
+            capture_tool_results=arm.tool_capture,
         )
         agent = create_agent(
             model=make_llm(),

@@ -45,6 +45,12 @@ class Arm:
     kind: str  # "baseline" | "treatment"
     retire_superseded: bool = True
     subrecall: bool = False
+    # Swap automatic injection for an agent-invoked `search_memory` whose name
+    # and description are identical to langmem's. See `treatment-searchtool`.
+    search_tool: bool = False
+    # Capture what non-memory tools return. Off by default; see
+    # `treatment-toolcapture` for the measured trade.
+    tool_capture: bool = False
 
 
 ARMS: dict[str, Arm] = {
@@ -52,6 +58,23 @@ ARMS: dict[str, Arm] = {
     "treatment": Arm("treatment", "treatment"),
     "treatment-nosupersede": Arm("treatment-nosupersede", "treatment", retire_superseded=False),
     "treatment-subrecall": Arm("treatment-subrecall", "treatment", subrecall=True),
+    # Interface parity with the baseline: same tool name, same description, same
+    # agent-authored query — our ranking behind it. The two arms previously
+    # differed in interface AND ranking at once, so neither was attributable.
+    # Measured cause for adding it: on incident/conv-3 the baseline's agent
+    # wrote itself "incident status investigation progress ruled out facts" and
+    # retrieved the root cause, while the treatment embedded the raw user
+    # message ("New shift taking over...") and filled six of eight slots with
+    # one restated constraint.
+    "treatment-searchtool": Arm("treatment-searchtool", "treatment", search_tool=True),
+    # Capture non-memory tool output into the calling agent's namespace. Kept as
+    # an arm rather than a default because the trade is real in both directions,
+    # measured on incident/gemma4:12b at N=3: `buried_metric_recalled` 0/3 -> 3/3
+    # (the only metric no ranking change could move, and one the flat store
+    # cannot reach at all), against `breadth_complete` 1/3 -> 0/3 and input
+    # tokens falling from 35% below baseline to 13% below, because the store
+    # doubled and selection got harder.
+    "treatment-toolcapture": Arm("treatment-toolcapture", "treatment", tool_capture=True),
 }
 
 

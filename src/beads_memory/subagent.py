@@ -26,6 +26,7 @@ def make_subagent_tool(
     embedder: Embedder,
     build_agent: Callable,  # (middleware, tools) -> Callable[[str], str]
     parent_agent_id: str = "root",
+    capture_tool_results: bool = False,
 ):
     def _run(task: str) -> str:
         child = store.fork_namespace(parent_namespace)
@@ -37,6 +38,12 @@ def make_subagent_tool(
             agent_id=name,
             acting_on_behalf_of=parent_agent_id,
             capture_final=False,  # sub-agents conclude via conclude_task, not passively
+            # Propagated because this is where it actually matters: the
+            # sub-agent is the one reading source documents, and the measured
+            # failure was a researcher reading a figure and dropping it from its
+            # summary. Facts land in the CHILD namespace, so the parent sees
+            # them only demoted or via recall_from_subagents.
+            capture_tool_results=capture_tool_results,
         )
         conclude = make_conclude_task(
             store,

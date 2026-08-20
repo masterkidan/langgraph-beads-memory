@@ -2,15 +2,28 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **implemented and measured.** 254 tests against real Postgres.
-> Retrieval cost is constant in the size of the store, the payload is ~5×
-> smaller than document-based recall, and ranking is typed rather than
-> similarity-only. Best-measured cell, `qwen3.5:9b` · incident at N=3 per arm:
-> **−9.8% input tokens and 6.33 of 8 objective metrics against 3.67**, with
-> neither distribution overlapping.
-> Method and every disclosed correction: [results/README.md](results/README.md).
-> How the benefit differs by model is a separate study:
-> [results/model-study.md](results/model-study.md).
+> Status: **implemented, measured, and the headline claim has changed.**
+> 255 tests against real Postgres.
+>
+> Memory's value is **inversely proportional to how much of the conversation
+> still fits in the window.** At a matched token budget, spending part of it on
+> retrieved facts instead of transcript is worth **+6 of 25** questions when the
+> transcript is badly clipped, **+1** when it mostly fits, and **−2** when it
+> nearly all fits — the facts displace transcript that would have answered the
+> question. Measured on LongMemEval, an external benchmark:
+> [results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
+>
+> So this is not "better recall". It is **bounded, constant-cost recall for the
+> part of a session the model can no longer see** — and injecting it
+> unconditionally is a measurable tax when the model can still see everything.
+>
+> An earlier version of this line led with "−9.8% input tokens and 6.33 of 8
+> objective metrics against 3.67". That figure does not survive: at N=3 across
+> two models and two scenarios the token saving holds in all four cells
+> (−39.6%, −2.9%, −44.2%, −12.9%) and **no accuracy gain is established** — one
+> cell is a clean regression. Separately, every token figure recorded before
+> 2026-08-19 was measured with Ollama silently truncating prompts at 2048
+> tokens. Both are documented rather than quietly re-run.
 
 ## What it gives you
 
@@ -60,45 +73,70 @@ Ranking is not similarity alone. Kind, status and provenance all participate:
 | descendant facts | demoted — a sub-agent's raw exploration stays reachable without displacing the parent's constraints |
 | framing | never stored — "New shift taking over." was once the top-ranked fact for "what should we try next" |
 
+*Caveat on the per-call figures below: they were recorded before the `num_ctx`
+truncation was found, and the largest of them (~2,400 tokens on a single call)
+exceeds the 2,048-token ceiling Ollama was silently applying — so the shape of
+the mechanism is right but the magnitudes need re-measuring.*
+
 ![One turn, call by call. Stock memory returns whole documents as a search_memory tool result that lands in the message history and is re-sent on every later call, so input grows from ~710 to ~2,400 tokens across the turn. The fact graph injects eight ranked claims into the system prompt, which is rewritten each call rather than accumulated, so input stays roughly flat.](docs/assets/token-mechanism.svg)
 
 ### Measured effect
 
-The best-measured cell is the incident scenario on `qwen3.5:9b`, **N=3 per
-arm** — every run, not a mean hiding a range:
+**The result that matters is the shape, not a single cell.** Both arms below get
+an *identical* token budget and differ only in how it is spent — `transcript`
+fills it with recent conversation, `facts + transcript` spends ~950 characters on
+retrieved facts and fills the rest. LongMemEval `knowledge-update`, n=25:
 
-| | stock memory | this library |
-|---|---|---|
-| objective metrics passed | 3, 3, 5 of 8 | **6, 6, 7 of 8** |
-| input tokens | 14,551 · 14,551 · 17,079 | **12,999 · 14,304 · 14,332** |
-| mean input | 15,394 | **13,878** (−9.8%) |
+| context budget | transcript only | facts + transcript | Δ |
+|---|---|---|---|
+| 1,200 tokens | 8/25 (32%) | **14/25 (56%)** | **+6** |
+| 3,000 tokens | 19/25 (76%) | 20/25 (80%) | +1 |
+| 6,000 tokens | **23/25 (92%)** | 21/25 (84%) | **−2** |
 
-Neither distribution overlaps: the most expensive run of this library is
-cheaper than the cheapest stock-memory run, and its worst accuracy beats stock
-memory's best. This cell is worth singling out because it used to be the one
-place the fact graph cost *more* input (+3.6% at N=1) — that figure did not
-survive being measured three times.
+Memory's return **declines monotonically with available context and goes
+negative**: at 6,000 tokens the facts buy less than the transcript they evict.
 
-A single instrumented run on `gemma4:12b` is where the larger token figures
-come from:
+![Both arms get an identical token budget and differ only in whether part of it is spent on retrieved facts. At 1,200 tokens transcript alone scores 8 of 25 and facts plus transcript scores 14; at 3,000 tokens, 19 against 20; at 6,000 tokens, 23 against 21 — memory's return declines with available context and becomes negative.](docs/assets/context-budget.svg)
+That is the argument for injecting *conditionally* rather than always, and it is
+measured rather than reasoned.
 
-| | stock memory | this library |
-|---|---|---|
-| input tokens | 23,561 | 16,745 |
-| output tokens | 1,887 | 1,708 |
-| objective metrics passed | 7 of 8 | 7 of 8 |
-| stored | 1,854 chars | 9,250 chars |
+The mechanism is that an external retriever competes with attention and loses on
+material attention can already reach. `search()` makes one hard top-k commitment
+from a single query vector before the model reasons; attention selects softly,
+per head, per layer, over the whole prompt. Filtering cannot add information — so
+it only pays when the alternative is not having the material at all.
 
-Same accuracy, 29% less input. The store being larger is incidental — it is
-recorded because it shows retrieval cost is decoupled from store size, not
-because storing more is itself useful.
+### At N=3, across the full matrix
 
-**The direction is consistent; the magnitude is not.** Across N=3 rounds the
-figure has been −36%, −45%, −29% and now −9.8%, so treat it as "meaningfully
-cheaper" rather than as a fixed number. Most cells in the model study are still
-N=1, and one N=1 row shrank by half when re-measured — the qwen accuracy win
-read +62 points at N=1 and +33 at N=3, because 8/8 was the top of a range
-rather than its centre.
+Two models × two scenarios × two arms, 24 runs, 0 errors. Every run, not a mean:
+
+| scenario | model | stock memory | this library | Δ input tokens |
+|---|---|---|---|---|
+| incident | gemma4:12b | 7, 7, 7 | 6, 4, 5 | **−39.6%** |
+| incident | qwen3.5:9b | 5, 5, 5 | 6, 5, 6 | −2.9% |
+| vecdb | gemma4:12b | 5, 5, 5 | 5, 5, 6 | **−44.2%** |
+| vecdb | qwen3.5:9b | 5, 5, 5 | 4, 5, 5 | −12.9% |
+
+**The token saving holds in all four cells. No accuracy gain is established** —
+three deltas are under one metric, and the fourth (gemma incident) is a clean
+regression with non-overlapping distributions.
+
+What *is* consistent per-metric, on both models independently:
+`names_surviving_cause` and `proposes_reversible_fix` regress 3/3 → 1/3 and
+3/3 → 0–1/3, both from the same turn. Against that, on `qwen3.5:9b`:
+`uses_corrected_deploy_time` **0/3 → 3/3** (typed invalidation carrying a
+correction the flat store never holds), `buried_metric_recalled` 0/3 → 2/3, and
+`breadth_complete` 0/3 → 2/3.
+
+*Two caveats that bound all of the above.* Every token figure recorded before
+2026-08-19 was measured with Ollama truncating prompts at its default 2,048
+tokens, which fell mainly on the baseline. And at temperature 0 all four
+baseline cells scored identically three times while every treatment cell had
+spread 1–2 — the memory layer is injecting the run-to-run variance, and the fix
+for that is not yet validated.
+
+Full write-up, including five changes that did not work:
+[results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
 
 You can read the ranking off any run rather than taking it on faith:
 
@@ -454,9 +492,12 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] **Pre-registered second scenario** — [predictions committed before the first run](results/2026-08-11-demo2-preregistration.md), including the two metrics the baseline was expected to win
 - [x] **Instrumented N=1 pairs** on `gemma4:12b` and `qwen3.5:9b` — `results/fresh-gemma/`, `results/fresh-qwen35/`
 - [x] **N=3 pair on the one cell that contradicted the cost claim** — `qwen3.5:9b` · incident, [results/n3-qwen-incident/](results/n3-qwen-incident/). +3.6% at N=1 became −9.8%, with no overlap between the arms
-- [ ] **[Model study](results/model-study.md)** — how the benefit differs by model; three models, five of six cells still N=1
-- [ ] N=3 on the remaining five cells — the honest bar for publishing
-- [ ] A scale scenario large enough to find the token crossover
+- [x] **N=3 across the full matrix** — 2 models × 2 scenarios × 2 arms, 24 runs, 0 errors: [results/matrix-tier3/](results/matrix-tier3/), written up in [2026-08-19](results/2026-08-19-context-budget.md)
+- [x] **An external benchmark** — LongMemEval `knowledge-update`, n=78, against LongMemEval's own bm25 reference and a whole-turn document store: `demo/longmemeval.py`
+- [x] **The context-budget curve** — the result that reframes the project; memory's return measured against available context at matched budget
+- [ ] **Pressure-gated injection** — inject nothing while the history fits. The design the curve implies; not built
+- [ ] **Re-measure with `num_ctx` set** — every prior run was truncated at 2048 tokens
+- [ ] **[Model study](results/model-study.md)** — three models, five of six cells still N=1
 - [ ] Publish write-up
 
 Method, every disclosed correction, and the operational notes are in
@@ -480,10 +521,22 @@ On the comparison, the honest summary is:
 - **Whether a run is cheaper overall depends on the model.** Memory injection is
   a small share of total input (~13% in one measured run), so a verbose model's
   own message history can swamp the saving.
-- **Accuracy results are mixed and N is mostly 1.** One cell has been measured
-  at N=3 and it separated cleanly on both axes; the other five are single runs.
-  Re-measuring changed one of them substantially, so the N=1 rows should be read
-  as "what happened once", not as effect sizes.
+- **No accuracy gain is established.** The full matrix is now N=3 — two models,
+  two scenarios, 24 runs — and three of four cells move by less than one metric
+  while the fourth is a clean regression. Earlier N=1 rows read as wins did not
+  survive: vecdb gemma went 6/6 to 5,5,6; a qwen token penalty of +11.6%
+  reversed to −8.9%; an incident breadth score of 1 became 3 on identical code.
+- **The value is conditional on context pressure, and negative without it.** At
+  a matched budget, injected facts are worth +6 of 25 when the transcript is
+  clipped and **−2 of 25** when it nearly all fits. Injecting unconditionally is
+  a tax in the regime most agent turns occupy.
+- **Every token figure before 2026-08-19 was measured under silent truncation.**
+  Ollama's default `num_ctx` is 2,048 and `demo/llm.py` never set one, so any
+  prompt above that was cut before evaluation and reported as 2,051 tokens. It
+  fell hardest on the baseline, whose prompts grow within a turn.
+- **The memory layer injects run-to-run variance.** At temperature 0 all four
+  baseline cells scored identically three times; every treatment cell had spread
+  1–2, with only 4 of 8 injected facts common across three runs of one turn.
 - **The model set was narrowed after results were known.** Two of the original
   five were dropped — one that could not execute the scenario, one whose second
   scenario was confounded — and that removed the two cells where this library
@@ -494,8 +547,10 @@ On the comparison, the honest summary is:
 Method, every disclosed correction, and the operational notes:
 [results/README.md](results/README.md). It is long on purpose — several rounds
 ran with bugs that were later found and fixed, and each is recorded with what it
-changed rather than quietly re-run. How the benefit differs by model is a
-separate study: [results/model-study.md](results/model-study.md).
+changed rather than quietly re-run. The latest round, including five changes
+that measured as no-ops and the external-benchmark numbers, is
+[2026-08-19](results/2026-08-19-context-budget.md). How the benefit differs by
+model is a separate study: [results/model-study.md](results/model-study.md).
 
 ## Docs
 

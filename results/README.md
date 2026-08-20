@@ -136,6 +136,7 @@ separately.
 
 | round | change under test | headline |
 |---|---|---|
+| [2026-08-19](2026-08-19-context-budget.md) | context budget, external benchmark, N=3 matrix | memory's value is **negative** when the transcript fits; `num_ctx` truncation invalidates prior token figures |
 | [2026-08-09](2026-08-09-results.md) | first scored comparison | budget recall 0/3 vs 3/3; `primary_sources` 1/3 |
 | [2026-08-10 postfix](2026-08-10-postfix-results.md) | per-claim splitting + `supersedes` similarity guard | guard eliminated spurious edges; `primary_sources` unmoved at 1/3 |
 | [2026-08-10 directive](2026-08-10-directive-results.md) | `directive` kind held out of retrieval | `primary_sources` 1/3 → 3/3; `buried_detail` fell to 0/3 |

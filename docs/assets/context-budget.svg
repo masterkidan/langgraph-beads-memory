@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 620" width="1180" height="620" role="img" aria-label="What retrieved memory is worth, measured against how much context is available. Both arms get an identical token budget and differ only in how it is spent: one fills it entirely with recent transcript, the other spends about 950 characters on retrieved facts and fills the remainder with transcript. On LongMemEval knowledge-update with 25 questions, at a 1,200 token budget transcript alone scores 8 of 25 and facts plus transcript scores 14 of 25, a gain of 6. At 3,000 tokens they score 19 and 20, a gain of 1. At 6,000 tokens transcript alone scores 23 and facts plus transcript scores 21, a loss of 2, because the facts displace transcript that would have answered the question. Memory's return declines monotonically with available context and becomes negative.">
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .title { font-size: 25px; font-weight: 650; }
+    .sub { font-size: 15px; }
+    .axis { font-size: 13px; }
+    .val { font-size: 15px; font-weight: 650; }
+    .grp { font-size: 15px; font-weight: 620; }
+    .bTail { fill: #f5e3cd; stroke: #b45309; }
+    .bAug  { fill: #d5ebe8; stroke: #0f766e; }
+    .cW { fill: #b45309; }
+    .cR { fill: #0f766e; }
+    .cGone { fill: #b91c1c; }
+    .rule { stroke: #d9d2c6; stroke-width: 1; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; }
+      text { fill: #ece5da; }
+      .muted { fill: #93897b; }
+      .bTail { fill: #3a2c17; stroke: #f59e0b; }
+      .bAug  { fill: #12332f; stroke: #2dd4bf; }
+      .cW { fill: #f59e0b; }
+      .cR { fill: #2dd4bf; }
+      .cGone { fill: #f87171; }
+      .rule { stroke: #3b362e; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="1180" height="620"/>
+
+  <text class="title" x="60" y="58">Memory pays in inverse proportion to the context you already have</text>
+  <text class="sub muted" x="60" y="86">Identical token budget in both arms. The only difference is whether part of it is spent on retrieved facts.</text>
+  <text class="sub muted" x="60" y="108">LongMemEval <tspan class="mono">knowledge-update</tspan>, n=25, gemma4:12b, num_ctx 16384 so nothing is truncated by the window.</text>
+
+  <!-- legend -->
+  <rect class="bTail" x="60" y="132" width="26" height="14" rx="3"/>
+  <text class="axis" x="94" y="144">transcript only</text>
+  <rect class="bAug" x="228" y="132" width="26" height="14" rx="3"/>
+  <text class="axis" x="262" y="144">facts + transcript <tspan class="muted">(~950 chars of facts)</tspan></text>
+
+  <!-- y axis -->
+  <line class="rule" x1="150" y1="500" x2="1120" y2="500"/>
+  <line class="rule" x1="150" y1="200" x2="1120" y2="200" stroke-dasharray="3 5"/>
+  <line class="rule" x1="150" y1="350" x2="1120" y2="350" stroke-dasharray="3 5"/>
+  <text class="axis muted" x="140" y="505" text-anchor="end">0</text>
+  <text class="axis muted" x="140" y="355" text-anchor="end">12</text>
+  <text class="axis muted" x="140" y="205" text-anchor="end">25</text>
+  <text class="axis muted" x="60" y="330" transform="rotate(-90 60 330)" text-anchor="middle">questions correct</text>
+
+  <!-- group 1: budget 1200 -->
+  <rect class="bTail" x="250" y="404" width="86" height="96" rx="4"/>
+  <text class="val" x="293" y="394" text-anchor="middle">8</text>
+  <rect class="bAug" x="346" y="332" width="86" height="168" rx="4"/>
+  <text class="val" x="389" y="322" text-anchor="middle">14</text>
+  <text class="grp" x="341" y="528" text-anchor="middle">1,200 tokens</text>
+  <text class="axis muted" x="341" y="548" text-anchor="middle">transcript badly clipped</text>
+  <text class="val cR" x="341" y="292" text-anchor="middle">+6</text>
+
+  <!-- group 2: budget 3000 -->
+  <rect class="bTail" x="540" y="272" width="86" height="228" rx="4"/>
+  <text class="val" x="583" y="262" text-anchor="middle">19</text>
+  <rect class="bAug" x="636" y="260" width="86" height="240" rx="4"/>
+  <text class="val" x="679" y="250" text-anchor="middle">20</text>
+  <text class="grp" x="631" y="528" text-anchor="middle">3,000 tokens</text>
+  <text class="axis muted" x="631" y="548" text-anchor="middle">mostly fits</text>
+  <text class="val cR" x="631" y="222" text-anchor="middle">+1</text>
+
+  <!-- group 3: budget 6000 -->
+  <rect class="bTail" x="830" y="224" width="86" height="276" rx="4"/>
+  <text class="val" x="873" y="214" text-anchor="middle">23</text>
+  <rect class="bAug" x="926" y="248" width="86" height="252" rx="4"/>
+  <text class="val" x="969" y="238" text-anchor="middle">21</text>
+  <text class="grp" x="921" y="528" text-anchor="middle">6,000 tokens</text>
+  <text class="axis muted" x="921" y="548" text-anchor="middle">nearly all fits</text>
+  <text class="val cGone" x="921" y="186" text-anchor="middle">&#8722;2</text>
+
+  <!-- takeaway -->
+  <rect class="panelbox" x="60" y="566" width="1060" height="38" rx="6"/>
+  <text class="sub" x="80" y="591">At 6,000 tokens the facts buy <tspan class="cGone" font-weight="650">less than the transcript they evict</tspan> — so injecting unconditionally is a tax whenever the conversation still fits. Inject on context pressure, not on every turn.</text>
+</svg>

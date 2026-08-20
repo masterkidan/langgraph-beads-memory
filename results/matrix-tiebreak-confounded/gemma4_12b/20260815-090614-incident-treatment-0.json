@@ -1,0 +1,1952 @@
+{
+  "condition": "treatment",
+  "scenario": "incident",
+  "model": "gemma4:12b",
+  "run": 0,
+  "session_id": "treatment-run0-2da89d",
+  "transcript": [
+    {
+      "conversation": "conv-1",
+      "user": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on the response: whatever we try must be reversible within 30 minutes, and we are not taking a full outage to fix this.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on the response: whatever we try must be reversible within 30 minutes, and we are not taking a full outage to fix this.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "c3e4e4bc-0bc5-4706-9d77-801acc9b6b43"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-15T16:40:51.009962Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 18383536125,
+              "load_duration": 341692500,
+              "prompt_eval_count": 769,
+              "prompt_eval_duration": 5286196000,
+              "eval_count": 159,
+              "eval_duration": 2069386768000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a0062c-84a6-7552-a506-3ae0f6b3ec49-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+                },
+                "id": "4a3276de-88fc-493c-a074-70e3ca773149",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Error rate for checkout increased from 0.3% to 7% starting at 14:05 UTC."
+                },
+                "id": "f79cf625-1f78-49b6-b778-6ecda2d6a32e",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Release 2.14 was deployed at 13:50 UTC."
+                },
+                "id": "9407c4b1-6c72-42ee-9dbc-a5204cef73b9",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Constraint: Actions must be reversible within 30 minutes."
+                },
+                "id": "7e9f4ece-be00-4465-bc99-b5cdbd2d7d03",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Constraint: No full outage is permitted for the fix."
+                },
+                "id": "03b1cbc1-d1e2-4bd6-baad-0ea94c21392c",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 769,
+              "output_tokens": 159,
+              "total_tokens": 928
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-c9b12a34]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "0f60416f-2e56-4814-a143-98331636f60d",
+            "tool_call_id": "4a3276de-88fc-493c-a074-70e3ca773149",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-dad8fffa]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "d56f0f8c-7abc-4107-b412-01d6047db389",
+            "tool_call_id": "f79cf625-1f78-49b6-b778-6ecda2d6a32e",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-e455b910]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "cc67bdfd-8eca-40a9-91f6-58a457ecabce",
+            "tool_call_id": "9407c4b1-6c72-42ee-9dbc-a5204cef73b9",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-f7bc2a38]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "170b7b53-a92c-4c44-a0e2-f76b47131893",
+            "tool_call_id": "7e9f4ece-be00-4465-bc99-b5cdbd2d7d03",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-8b5bd0ef]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "3c9b6e34-a7dd-4f20-b719-7d848c4f38bc",
+            "tool_call_id": "03b1cbc1-d1e2-4bd6-baad-0ea94c21392c",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC.\n- Error rate for checkout increased from 0.3% to 7% at 14:05 UTC.\n- Release 2.14 was deployed at 13:50 UTC.\n- Constraints: Actions must be reversible within 30 minutes, and no full outage is permitted.\n\nPlease let me know how you would like to proceed with the investigation.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-15T16:59:50.788671Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 52517123500,
+              "load_duration": 290465500,
+              "prompt_eval_count": 1249,
+              "prompt_eval_duration": 104703417000,
+              "eval_count": 125,
+              "eval_duration": 1033763286000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a0064c-313a-7fe3-9768-cb09d0cd0fd7-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1249,
+              "output_tokens": 125,
+              "total_tokens": 1374
+            }
+          }
+        }
+      ],
+      "final": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC.\n- Error rate for checkout increased from 0.3% to 7% at 14:05 UTC.\n- Release 2.14 was deployed at 13:50 UTC.\n- Constraints: Actions must be reversible within 30 minutes, and no full outage is permitted.\n\nPlease let me know how you would like to proceed with the investigation.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on th",
+          "k": 8,
+          "excluded": 6,
+          "injected": []
+        },
+        {
+          "agent_id": "root",
+          "query": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on th",
+          "k": 8,
+          "excluded": 6,
+          "injected": [
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.1369,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-dad8fffa",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2682,
+              "demoted": false,
+              "body": "Error rate for checkout increased from 0.3% to 7% starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-e455b910",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3575,
+              "demoted": false,
+              "body": "Release 2.14 was deployed at 13:50 UTC."
+            },
+            {
+              "id": "fact-8b5bd0ef",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4036,
+              "demoted": false,
+              "body": "Constraint: No full outage is permitted for the fix."
+            },
+            {
+              "id": "fact-f7bc2a38",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4443,
+              "demoted": false,
+              "body": "Constraint: Actions must be reversible within 30 minutes."
+            }
+          ]
+        }
+      ],
+      "seconds": 73.6
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "f55ce376-470f-4eb3-a1e6-d4b90d29b0ce"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-15T17:13:06.912071Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 49120938875,
+              "load_duration": 280472000,
+              "prompt_eval_count": 994,
+              "prompt_eval_duration": 6815406000,
+              "eval_count": 158,
+              "eval_duration": 788094802000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a0065d-9515-7082-8169-4e20a5560636-0",
+            "tool_calls": [
+              {
+                "name": "researcher_db",
+                "args": {
+                  "task": "Investigate database performance and errors following release 2.14 at 13:50 UTC. Check for slow queries or connection issues that could cause the p99 latency spike to 4.2s."
+                },
+                "id": "b20b2c32-0765-4530-a8e7-db9b076de316",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_network",
+                "args": {
+                  "task": "Investigate network layer for any anomalies, packet loss, or routing issues starting around 14:05 UTC following release 2.14."
+                },
+                "id": "4eb7a828-1c1d-44ea-bf4b-d5fbc1f16fb8",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_apptier",
+                "args": {
+                  "task": "Investigate the application tier for errors introduced in release 2.14, specifically looking for why the error rate jumped to 7% and check if any specific services are bottlenecking."
+                },
+                "id": "0a6a3353-0429-4f2f-9621-4921cdeaaee8",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 994,
+              "output_tokens": 158,
+              "total_tokens": 1152
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "The investigation into the database layer is complete.\n\n**Findings:**\n- **Connection Pool:** Ruled out as a cause. Peak utilization was only 34% of the 200 available connections, with no wait events recorded.\n- **Query Performance:** Stable throughout the incident. Read path p99 remained at 8ms and write path p99 at 11ms; no new slow queries were logged.\n- **Replication:** Lag peaked at 0.4s, well below the 5s alert threshold.\n- **Autovacuum:** An autovacuum started at 14:10 UTC, but since this was after the 14:05 UTC spike began, it is considered a consequence of increased retries rather than a cause.\n\n**Conclusion:**\nThe database layer is ruled out as the source of the p99 latency spike. The system was healthy and responding normally to an abnormal workload, suggesting the bottleneck lies in the application or network layers.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_db",
+            "id": "bd687680-fffb-4df9-b79f-426013ae15fa",
+            "tool_call_id": "b20b2c32-0765-4530-a8e7-db9b076de316",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC following release 2.14.\n\nKey findings include:\n- **Load Balancer:** No internal errors; all reported errors were passed through from the origin service.\n- **Packet Loss & Retransmits:** Packet loss was 0.00%, and TCP retransmits remained at a stable 0.02%.\n- **DNS & TLS:** DNS resolution p99 (3.1ms) and TLS handshake p99 (41ms) were consistent with historical baselines.\n- **Inter-AZ Paths:** Cross-AZ round-trip latency remained steady at 1.2ms.\n\nThe network layer is ruled out as a cause for the checkout latency increase, as all transport metrics remained healthy.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_network",
+            "id": "2dc064d0-9334-4327-b611-905251dfcdc7",
+            "tool_call_id": "4eb7a828-1c1d-44ea-bf4b-d5fbc1f16fb8",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "The investigation into the application tier confirms that the jump in error rate (from 0.3% to 7%) and the p99 latency spike (from 180ms to 4.2s) starting at 14:05 UTC are caused by the synchronous call to the fraud-scoring service introduced in release 2.14 (feature flag `checkout.fraud_scoring_v2`).\n\n**Key Findings:**\n*   **Root Cause:** The `checkout.fraud_scoring_v2` feature flag introduced a synchronous call to the fraud-scoring service without a circuit breaker or fallback mechanism.\n*   **Bottleneck:** The fraud-scoring service has a p99 of 3.9s. Because it is in the hot path, it causes all 64 worker threads in the checkout service to block for up to 5 seconds during peak volume.\n*   **Impact:** This exhaustion of worker threads leads to requests queuing at the acceptor and timing out, resulting in the observed 7% error rate.\n*   **Mitigation:** The issue can be resolved immediately by disabling the `checkout.fraud_scoring_v2` feature flag via the flag service (no deployment required).",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_apptier",
+            "id": "9d5197ff-047e-4ee1-aa23-d4133fc37b48",
+            "tool_call_id": "0a6a3353-0429-4f2f-9621-4921cdeaaee8",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T01:14:42.673743Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 72374182875,
+              "load_duration": 328600083,
+              "prompt_eval_count": 1855,
+              "prompt_eval_duration": 311399650000,
+              "eval_count": 267,
+              "eval_duration": 3642877434000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a007e6-4595-7e60-8030-af6915614812-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "The database was healthy and performing normally; the issue likely resides in the application or network layers.",
+                  "relates_to": "fact-1b41a565"
+                },
+                "id": "333680b6-8131-4278-afda-85426ba2b771",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC.",
+                  "relates_to": "fact-3b65e8f1"
+                },
+                "id": "667bfbba-834a-4c6d-bd83-00177896d5b1",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "The investigation into the application tier confirms that the jump in error rate (from 0.3% to 7%) and the p99 latency spike are caused by a synchronous call to the fraud-scoring service without a circuit breaker or fallback mechanism, causing worker threads to block during peak volume.",
+                  "relates_to": "fact-e8fdf421"
+                },
+                "id": "e8335623-8ed1-4c39-a1ae-b98d3accca45",
+                "type": "tool_call"
+              },
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Because the implementation lacks a circuit breaker or fallback mechanism, it causes all 64 worker threads in the checkout service to block for up to 5 seconds during peak volume.",
+                  "relates_to": "fact-aa8d8973"
+                },
+                "id": "8e140eae-929a-4f0d-9d16-9a3b2f97d7f7",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1855,
+              "output_tokens": 267,
+              "total_tokens": 2122
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Error: relation must be one of ('supersedes', 'contradicts', 'relates_to')",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "9c7ea10d-d250-49da-9c87-3e2ae37193f3",
+            "tool_call_id": "333680b6-8131-4278-afda-85426ba2b771",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Error: relation must be one of ('supersedes', 'contradicts', 'relates_to')",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "2b3092ac-dba7-4746-80be-a332c2c12ff3",
+            "tool_call_id": "667bfbba-834a-4c6d-bd83-00177896d5b1",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Error: relation must be one of ('supersedes', 'contradicts', 'relates_to')",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "ae8b660b-f9f5-4615-860a-4a4cff77a7f7",
+            "tool_call_id": "e8335623-8ed1-4c39-a1ae-b98d3accca45",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Error: relation must be one of ('supersedes', 'contradicts', 'relates_to')",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "33a5cef4-9dc3-4662-91dc-89a318de59e5",
+            "tool_call_id": "8e140eae-929a-4f0d-9d16-9a3b2f97d7f7",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "I have completed the investigation into the production incident. Here is the synthesis of the findings:\n\n### **Executive Summary**\nThe root cause of the p99 latency spike (from 180ms to 4.2s) and the jump in error rates (from 0.3% to 7%) starting at 14:05 UTC has been identified as a software configuration issue introduced in release 2.14.\n\n### **Subsystem Analysis**\n*   **Database:** Ruled out. Investigation confirmed that connection pool utilization was low (34%), query performance remained stable, and no replication lag issues were observed. The database is healthy.\n*   **Network:** Ruled out. Load balancers, packet loss, DNS resolution, and TLS handshakes all performed within normal parameters during the incident window.\n*   **Application Tier:** **Identified as the source.** The issue stems from the `checkout.fraud_scoring_v2` feature flag. This flag introduced a synchronous call to an external fraud-scoring service that lacks a circuit breaker or fallback mechanism.\n\n### **Technical Root Cause**\nBecause the fraud-scoring service has a high p99 latency (3.9s), it causes all 64 worker threads in the checkout service to block for up to 5 seconds during peak traffic. This exhaustion of available threads leads to request queuing and subsequent timeouts, manifesting as the observed spike in errors and latency.\n\n### **Recommended Action**\nThe issue can be resolved immediately by **disabling the `checkout.fraud_scoring_v2` feature flag**. This action is reversible and does not require a full redeployment of the service.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T02:16:09.225659Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 101644744583,
+              "load_duration": 377658667,
+              "prompt_eval_count": 2245,
+              "prompt_eval_duration": 19141758000,
+              "eval_count": 353,
+              "eval_duration": 3666379943000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a00822-a4c5-7cb1-9b3a-49048a8fad0d-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 2245,
+              "output_tokens": 353,
+              "total_tokens": 2598
+            }
+          }
+        }
+      ],
+      "final": "I have completed the investigation into the production incident. Here is the synthesis of the findings:\n\n### **Executive Summary**\nThe root cause of the p99 latency spike (from 180ms to 4.2s) and the jump in error rates (from 0.3% to 7%) starting at 14:05 UTC has been identified as a software configuration issue introduced in release 2.14.\n\n### **Subsystem Analysis**\n*   **Database:** Ruled out. Investigation confirmed that connection pool utilization was low (34%), query performance remained stable, and no replication lag issues were observed. The database is healthy.\n*   **Network:** Ruled out. Load balancers, packet loss, DNS resolution, and TLS handshakes all performed within normal parameters during the incident window.\n*   **Application Tier:** **Identified as the source.** The issue stems from the `checkout.fraud_scoring_v2` feature flag. This flag introduced a synchronous call to an external fraud-scoring service that lacks a circuit breaker or fallback mechanism.\n\n### **Technical Root Cause**\nBecause the fraud-scoring service has a high p99 latency (3.9s), it causes all 64 worker threads in the checkout service to block for up to 5 seconds during peak traffic. This exhaustion of available threads leads to request queuing and subsequent timeouts, manifesting as the observed spike in errors and latency.\n\n### **Recommended Action**\nThe issue can be resolved immediately by **disabling the `checkout.fraud_scoring_v2` feature flag**. This action is reversible and does not require a full redeployment of the service.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-77531633",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5065,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-e4527bba",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5174,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-f7bc2a38",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.525,
+              "demoted": false,
+              "body": "Constraint: Actions must be reversible within 30 minutes."
+            },
+            {
+              "id": "fact-8b5bd0ef",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.5359,
+              "demoted": false,
+              "body": "Constraint: No full outage is permitted for the fix."
+            },
+            {
+              "id": "fact-8288e109",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5585,
+              "demoted": false,
+              "body": "we are not taking a full outage to fix this."
+            },
+            {
+              "id": "fact-c9745463",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5797,
+              "demoted": false,
+              "body": "We deployed release 2.14 at 13:50 UTC."
+            },
+            {
+              "id": "fact-97111550",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5834,
+              "demoted": false,
+              "body": "the error rate went from 0.3% to 7%."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.6078,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-1b41a565",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4129,
+              "demoted": false,
+              "body": "The database was healthy and performing normally; the issue likely resides in the application or network layers."
+            },
+            {
+              "id": "fact-80570403",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4794,
+              "demoted": false,
+              "body": "Investigation of the 'db' logs confirms that connection pool utilization remained low (34%)"
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4856,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-aa8d8973",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_apptier",
+              "distance": 0.5245,
+              "demoted": false,
+              "body": "Because the implementation lacks a circuit breaker or fallback mechanism, it causes all 64 worker threads in the checkout service to block for up to 5 seconds d"
+            },
+            {
+              "id": "fact-e8fdf421",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_apptier",
+              "distance": 0.5271,
+              "demoted": false,
+              "body": "The investigation into the application tier confirms that the jump in error rate (from 0.3% to 7%)"
+            },
+            {
+              "id": "fact-77531633",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5065,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-e4527bba",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5174,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-f7bc2a38",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.525,
+              "demoted": false,
+              "body": "Constraint: Actions must be reversible within 30 minutes."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-1b41a565",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4129,
+              "demoted": false,
+              "body": "The database was healthy and performing normally; the issue likely resides in the application or network layers."
+            },
+            {
+              "id": "fact-80570403",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4794,
+              "demoted": false,
+              "body": "Investigation of the 'db' logs confirms that connection pool utilization remained low (34%)"
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4856,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-aa8d8973",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_apptier",
+              "distance": 0.5245,
+              "demoted": false,
+              "body": "Because the implementation lacks a circuit breaker or fallback mechanism, it causes all 64 worker threads in the checkout service to block for up to 5 seconds d"
+            },
+            {
+              "id": "fact-e8fdf421",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_apptier",
+              "distance": 0.5271,
+              "demoted": false,
+              "body": "The investigation into the application tier confirms that the jump in error rate (from 0.3% to 7%)"
+            },
+            {
+              "id": "fact-77531633",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5065,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-e4527bba",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5174,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-f7bc2a38",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.525,
+              "demoted": false,
+              "body": "Constraint: Actions must be reversible within 30 minutes."
+            }
+          ]
+        }
+      ],
+      "seconds": 771.2
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "2b7db6c4-50fa-4433-ae9e-a710bc26255a"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T02:31:29.164092Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 35486670625,
+              "load_duration": 490527958,
+              "prompt_eval_count": 1094,
+              "prompt_eval_duration": 891202402000,
+              "eval_count": 69,
+              "eval_duration": 25277770000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a0085a-eb7f-7701-9ed9-eed5398d810c-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion).",
+                  "relates_to": "fact-e455b910",
+                  "relation": "supersedes"
+                },
+                "id": "55dbb0de-6c90-4f1f-9ad0-ce842cca765f",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1094,
+              "output_tokens": 69,
+              "total_tokens": 1163
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-bd7f2c0f]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "38e245a5-b7fb-4e51-8e2c-9f9398cc1865",
+            "tool_call_id": "55dbb0de-6c90-4f1f-9ad0-ce842cca765f",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "I have updated the timeline in my records. Release 2.14 was deployed at 13:20 UTC, with 13:50 UTC marking the canary promotion to 100% of traffic.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T03:16:32.281675Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 13423575125,
+              "load_duration": 594916292,
+              "prompt_eval_count": 1199,
+              "prompt_eval_duration": 1025679619000,
+              "eval_count": 52,
+              "eval_duration": 599139990000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a00868-eeb2-7060-86a6-e8e42d613f02-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1199,
+              "output_tokens": 52,
+              "total_tokens": 1251
+            }
+          }
+        }
+      ],
+      "final": "I have updated the timeline in my records. Release 2.14 was deployed at 13:20 UTC, with 13:50 UTC marking the canary promotion to 100% of traffic.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-e455b910",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2884,
+              "demoted": false,
+              "body": "Release 2.14 was deployed at 13:50 UTC."
+            },
+            {
+              "id": "fact-c9745463",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3235,
+              "demoted": false,
+              "body": "We deployed release 2.14 at 13:50 UTC."
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.363,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-dad8fffa",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3569,
+              "demoted": false,
+              "body": "Error rate for checkout increased from 0.3% to 7% starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-1a88da37",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4044,
+              "demoted": false,
+              "body": "the observed latency is attributed to the application service's response time rather than transport or infrastructure issues."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3962,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3905,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-468d386b",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.3919,
+              "demoted": false,
+              "body": "The database layer is ruled out as the cause of the p99 latency spike (from 180ms to 4.2s) starting at 14:05 UTC."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-bd7f2c0f",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.1784,
+              "demoted": false,
+              "body": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion)."
+            },
+            {
+              "id": "fact-8c3b5a8b",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3351,
+              "demoted": false,
+              "body": "- Error rate for checkout increased from 0.3% to 7% at 14:05 UTC."
+            },
+            {
+              "id": "fact-d3c2f01f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3441,
+              "demoted": false,
+              "body": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC."
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.363,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-dad8fffa",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3569,
+              "demoted": false,
+              "body": "Error rate for checkout increased from 0.3% to 7% starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-1a88da37",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4044,
+              "demoted": false,
+              "body": "the observed latency is attributed to the application service's response time rather than transport or infrastructure issues."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3962,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.3905,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            }
+          ]
+        }
+      ],
+      "seconds": 50.2
+    },
+    {
+      "conversation": "conv-3",
+      "user": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "366483b5-fa1a-4dfa-8983-d011a8820ce0"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Based on the current situation report and the investigation progress to date, here is the status of our efforts:\n\n### **What has been ruled out:**\n*   **Network Layer:** The network layer has been investigated and ruled out as a cause for the checkout latency increase (no anomalies detected during the 14:05 UTC window).\n*   **Full Outage:** We have established that we cannot take the system down entirely to perform fixes.\n*   **High-Frequency Sync Design:** It has been noted that the current architecture was not designed for high-frequency synchronous requests, which points toward a bottleneck in how the application handles these specific calls.\n\n### **Current Constraints:**\n*   **Reversibility:** Any action we take must be reversible within 30 minutes.\n*   **Uptime:** No full outage is permitted.\n\n### **Recommended Next Step:**\nWe should focus on the **Application Tier (apptier)**. Since the network layer is clear and the system's inability to handle high-frequency synchronous requests suggests a software/logic bottleneck, we need to investigate how the application handles these specific request flows.\n\n**Why?** \nThe evidence points toward an internal processing bottleneck rather than an infrastructure failure. Investigating the `apptier` will help us identify if we can implement a non-disruptive fix (like a configuration change or a targeted hotfix) that addresses the synchronous request handling without violating our \"no full outage\" and \"30-minute reversibility\" constraints.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T04:18:17.620484Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 78098835333,
+              "load_duration": 280997167,
+              "prompt_eval_count": 989,
+              "prompt_eval_duration": 962318130000,
+              "eval_count": 314,
+              "eval_duration": 2741858351000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a00892-2dd2-7040-894f-23254e70f268-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 989,
+              "output_tokens": 314,
+              "total_tokens": 1303
+            }
+          }
+        }
+      ],
+      "final": "Based on the current situation report and the investigation progress to date, here is the status of our efforts:\n\n### **What has been ruled out:**\n*   **Network Layer:** The network layer has been investigated and ruled out as a cause for the checkout latency increase (no anomalies detected during the 14:05 UTC window).\n*   **Full Outage:** We have established that we cannot take the system down entirely to perform fixes.\n*   **High-Frequency Sync Design:** It has been noted that the current architecture was not designed for high-frequency synchronous requests, which points toward a bottleneck in how the application handles these specific calls.\n\n### **Current Constraints:**\n*   **Reversibility:** Any action we take must be reversible within 30 minutes.\n*   **Uptime:** No full outage is permitted.\n\n### **Recommended Next Step:**\nWe should focus on the **Application Tier (apptier)**. Since the network layer is clear and the system's inability to handle high-frequency synchronous requests suggests a software/logic bottleneck, we need to investigate how the application handles these specific request flows.\n\n**Why?** \nThe evidence points toward an internal processing bottleneck rather than an infrastructure failure. Investigating the `apptier` will help us identify if we can implement a non-disruptive fix (like a configuration change or a targeted hotfix) that addresses the synchronous request handling without violating our \"no full outage\" and \"30-minute reversibility\" constraints.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-e4527bba",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4642,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-f7bc2a38",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.5111,
+              "demoted": false,
+              "body": "Constraint: Actions must be reversible within 30 minutes."
+            },
+            {
+              "id": "fact-8288e109",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4767,
+              "demoted": false,
+              "body": "we are not taking a full outage to fix this."
+            },
+            {
+              "id": "fact-77531633",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4896,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.5387,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-8b5bd0ef",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.5575,
+              "demoted": false,
+              "body": "Constraint: No full outage is permitted for the fix."
+            },
+            {
+              "id": "fact-27a4feb9",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_apptier",
+              "distance": 0.5495,
+              "demoted": false,
+              "body": "was not designed for high-frequency synchronous requests."
+            },
+            {
+              "id": "fact-eb23b2c9",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.5703,
+              "demoted": false,
+              "body": "The network layer is ruled out as a cause for the checkout latency increase"
+            }
+          ]
+        }
+      ],
+      "seconds": 79.6
+    },
+    {
+      "conversation": "conv-4",
+      "user": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "0b6b4fe9-441b-4731-bccb-f18d88b1711e"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T04:46:12.241797Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 28335998875,
+              "load_duration": 417937250,
+              "prompt_eval_count": 1092,
+              "prompt_eval_duration": 25392654000,
+              "eval_count": 23,
+              "eval_duration": 879308462000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a008d6-7206-7e53-8058-433ec1ceb8ae-0",
+            "tool_calls": [
+              {
+                "name": "recall_from_subagents",
+                "args": {
+                  "agent_id": "researcher_network"
+                },
+                "id": "e51468b0-d776-41d2-8acf-77c15ba41274",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1092,
+              "output_tokens": 23,
+              "total_tokens": 1115
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Sub-agent findings:\n- [fact-d5189c41] (researcher_network) Network infrastructure (Load Balancer, DNS, TLS, and Inter-AZ paths) showed no anomalies during the incident window starting at 14:05 UTC. Specifically, packet loss was 0.00%, TCP retransmits were normal, and DNS/TLS latencies remained within baseline. The network layer is ruled out as a cause for the checkout latency increase.\n- [fact-5fbff142] (researcher_network) Investigate network layer for any anomalies, packet loss, or routing issues starting around 14:05 UTC following release 2.14.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "recall_from_subagents",
+            "id": "60785d21-6d3e-4e0d-b978-3b0e0f2b9f0c",
+            "tool_call_id": "e51468b0-d776-41d2-8acf-77c15ba41274",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "The network investigation measured the TLS handshake p99 and confirmed that it remained stable and within baseline levels during the incident window starting at 14:05 UTC. Specifically, the investigation looked at the Load Balancer, DNS, TLS, and Inter-AZ paths, finding no anomalies in packet loss or TCP retransmits.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T04:46:38.606086Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 25791953584,
+              "load_duration": 483553500,
+              "prompt_eval_count": 1272,
+              "prompt_eval_duration": 1633203000,
+              "eval_count": 72,
+              "eval_duration": 23640732000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a008e4-4545-7de2-8355-2d7fa7d716d2-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1272,
+              "output_tokens": 72,
+              "total_tokens": 1344
+            }
+          }
+        }
+      ],
+      "final": "The network investigation measured the TLS handshake p99 and confirmed that it remained stable and within baseline levels during the incident window starting at 14:05 UTC. Specifically, the investigation looked at the Load Balancer, DNS, TLS, and Inter-AZ paths, finding no anomalies in packet loss or TCP retransmits.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-0c529513",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3624,
+              "demoted": false,
+              "body": "Here is the synthesis of the findings:\n\n### **Executive Summary**\nThe root cause of the p99 latency spike (from 180ms to 4.2s)"
+            },
+            {
+              "id": "fact-d3c2f01f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3653,
+              "demoted": false,
+              "body": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC."
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4026,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-468d386b",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.3892,
+              "demoted": false,
+              "body": "The database layer is ruled out as the cause of the p99 latency spike (from 180ms to 4.2s) starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-71f74fbd",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4436,
+              "demoted": false,
+              "body": "TLS latencies were stable."
+            },
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4077,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4064,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-80570403",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4304,
+              "demoted": false,
+              "body": "Investigation of the 'db' logs confirms that connection pool utilization remained low (34%)"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-0c529513",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3624,
+              "demoted": false,
+              "body": "Here is the synthesis of the findings:\n\n### **Executive Summary**\nThe root cause of the p99 latency spike (from 180ms to 4.2s)"
+            },
+            {
+              "id": "fact-d3c2f01f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3653,
+              "demoted": false,
+              "body": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC."
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4026,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-468d386b",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.3892,
+              "demoted": false,
+              "body": "The database layer is ruled out as the cause of the p99 latency spike (from 180ms to 4.2s) starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-71f74fbd",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4436,
+              "demoted": false,
+              "body": "TLS latencies were stable."
+            },
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4077,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4064,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-80570403",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4304,
+              "demoted": false,
+              "body": "Investigation of the 'db' logs confirms that connection pool utilization remained low (34%)"
+            }
+          ]
+        }
+      ],
+      "seconds": 55.2
+    },
+    {
+      "conversation": "conv-4",
+      "user": "And list everything we investigated and ruled out, with the measurement behind each one.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "And list everything we investigated and ruled out, with the measurement behind each one.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "db1a6a0e-402c-4dba-b844-db64c47d5248"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Based on our investigation to date, here is the status of the subsystems analyzed and the evidence gathered:\n\n### **Ruled Out / Investigated**\n\n*   **Network Layer:** Ruled out as the primary cause. \n    *   *Measurement:* The investigation measured the TLS handshake p99; no anomalies were detected during the incident window starting at 14:05 UTC.\n*   **Database:** Ruled out.\n    *   *Note:* Investigation confirmed the database layer is stable and not contributing to the current issue.\n\n### **Current Constraints & Status**\n*   **Full Outage:** We have established that we cannot take the system down entirely to perform fixes.\n*   **Reversibility:** Any action taken must be reversible within 30 minutes.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T05:19:17.890892Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 65815871583,
+              "load_duration": 586972667,
+              "prompt_eval_count": 1015,
+              "prompt_eval_duration": 1040814470000,
+              "eval_count": 165,
+              "eval_duration": 916411367000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a008e4-ac7f-7bc0-af27-46bc7341449d-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1015,
+              "output_tokens": 165,
+              "total_tokens": 1180
+            }
+          }
+        }
+      ],
+      "final": "Based on our investigation to date, here is the status of the subsystems analyzed and the evidence gathered:\n\n### **Ruled Out / Investigated**\n\n*   **Network Layer:** Ruled out as the primary cause. \n    *   *Measurement:* The investigation measured the TLS handshake p99; no anomalies were detected during the incident window starting at 14:05 UTC.\n*   **Database:** Ruled out.\n    *   *Note:* Investigation confirmed the database layer is stable and not contributing to the current issue.\n\n### **Current Constraints & Status**\n*   **Full Outage:** We have established that we cannot take the system down entirely to perform fixes.\n*   **Reversibility:** Any action taken must be reversible within 30 minutes.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "And list everything we investigated and ruled out, with the measurement behind each one.",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-98dc89be",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3299,
+              "demoted": false,
+              "body": "here is the status of our efforts:\n\n### **What has been ruled out:**\n*   **Network Layer:** The network layer has been investigated"
+            },
+            {
+              "id": "fact-3873c5bb",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3809,
+              "demoted": false,
+              "body": "### **Subsystem Analysis**\n*   **Database:** Ruled out."
+            },
+            {
+              "id": "fact-af5370f0",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4063,
+              "demoted": false,
+              "body": "### **Current Constraints:**\n*   **Reversibility:** Any action we take must be reversible within 30 minutes."
+            },
+            {
+              "id": "fact-b9cb6455",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4266,
+              "demoted": false,
+              "body": "I have completed the investigation into the production incident."
+            },
+            {
+              "id": "fact-89d8032a",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4498,
+              "demoted": false,
+              "body": "*   **Full Outage:** We have established that we cannot take the system down entirely to perform fixes."
+            },
+            {
+              "id": "fact-3a654f3f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4517,
+              "demoted": false,
+              "body": "The network investigation measured the TLS handshake p99"
+            },
+            {
+              "id": "fact-3b65e8f1",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_network",
+              "distance": 0.4329,
+              "demoted": false,
+              "body": "The investigation into the network layer confirms that no anomalies were detected during the incident window starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-e4527bba",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.429,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            }
+          ]
+        }
+      ],
+      "seconds": 66.7
+    },
+    {
+      "conversation": "conv-4",
+      "user": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "998375ca-ea6b-48c5-938c-b3c905ac2d92"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T05:36:04.047905Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 48788873542,
+              "load_duration": 577461333,
+              "prompt_eval_count": 1112,
+              "prompt_eval_duration": 39818962000,
+              "eval_count": 68,
+              "eval_duration": 302716956000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a00902-9298-7442-b8b4-10d52b7b21b3-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion).",
+                  "relates_to": "fact-ec68680f",
+                  "relation": "supersedes"
+                },
+                "id": "1f5138f9-5427-422f-96a8-753160854f8f",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1112,
+              "output_tokens": 68,
+              "total_tokens": 1180
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-bd7f2c0f]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "3862d27e-eab0-48fc-afc5-acc1a16dd5b1",
+            "tool_call_id": "1f5138f9-5427-422f-96a8-753160854f8f",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion).",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "gemma4:12b",
+              "created_at": "2026-08-16T05:45:28.57165Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 43778844375,
+              "load_duration": 297850000,
+              "prompt_eval_count": 1211,
+              "prompt_eval_duration": 560769442000,
+              "eval_count": 35,
+              "eval_duration": 2738464000,
+              "logprobs": null,
+              "model_name": "gemma4:12b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a00911-eb78-7be1-b7ea-0d9d0a821c3f-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1211,
+              "output_tokens": 35,
+              "total_tokens": 1246
+            }
+          }
+        }
+      ],
+      "final": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion).",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-bd7f2c0f",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2938,
+              "demoted": false,
+              "body": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion)."
+            },
+            {
+              "id": "fact-ec68680f",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.431,
+              "demoted": false,
+              "body": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50."
+            },
+            {
+              "id": "fact-d3c2f01f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4643,
+              "demoted": false,
+              "body": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC."
+            },
+            {
+              "id": "fact-8c3b5a8b",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4743,
+              "demoted": false,
+              "body": "- Error rate for checkout increased from 0.3% to 7% at 14:05 UTC."
+            },
+            {
+              "id": "fact-85c93c94",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4248,
+              "demoted": false,
+              "body": "the jump in error rates (from 0.3% to 7%) starting at 14:05 UTC has been identified as a software configuration issue introduced in release 2.14."
+            },
+            {
+              "id": "fact-67c13e9e",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4572,
+              "demoted": false,
+              "body": "ruled out as a cause for the checkout latency increase (no anomalies detected during the 14:05 UTC window)."
+            },
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4803,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4902,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-bd7f2c0f",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.2938,
+              "demoted": false,
+              "body": "Release 2.14 was deployed at 13:20 UTC (the 13:50 timestamp was for canary promotion)."
+            },
+            {
+              "id": "fact-d3c2f01f",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4643,
+              "demoted": false,
+              "body": "I have recorded the following details regarding the incident:\n- Checkout p99 latency increased from 180ms to 4.2s at 14:05 UTC."
+            },
+            {
+              "id": "fact-8c3b5a8b",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4743,
+              "demoted": false,
+              "body": "- Error rate for checkout increased from 0.3% to 7% at 14:05 UTC."
+            },
+            {
+              "id": "fact-85c93c94",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4248,
+              "demoted": false,
+              "body": "the jump in error rates (from 0.3% to 7%) starting at 14:05 UTC has been identified as a software configuration issue introduced in release 2.14."
+            },
+            {
+              "id": "fact-67c13e9e",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4572,
+              "demoted": false,
+              "body": "ruled out as a cause for the checkout latency increase (no anomalies detected during the 14:05 UTC window)."
+            },
+            {
+              "id": "fact-c9b12a34",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4803,
+              "demoted": false,
+              "body": "Checkout p99 latency increased from 180ms to 4.2s starting at 14:05 UTC."
+            },
+            {
+              "id": "fact-62135795",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4902,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-468d386b",
+              "kind": "summary",
+              "source": "conclude_task",
+              "agent_id": "researcher_db",
+              "distance": 0.4775,
+              "demoted": false,
+              "body": "The database layer is ruled out as the cause of the p99 latency spike (from 180ms to 4.2s) starting at 14:05 UTC."
+            }
+          ]
+        }
+      ],
+      "seconds": 93.3
+    }
+  ],
+  "errors": [],
+  "tokens": {
+    "input_tokens": 16096,
+    "output_tokens": 1860
+  },
+  "constraint_carry": {
+    "avoids_reproposing_ruled_out": true,
+    "names_surviving_cause": false,
+    "proposes_reversible_fix": false,
+    "uses_corrected_deploy_time": true,
+    "avoids_stale_deploy_time": true,
+    "buried_metric_recalled": false,
+    "breadth_subsystems_named": 2,
+    "breadth_complete": false,
+    "numerically_grounded": true,
+    "_reproposed": [],
+    "_unsupported_numbers": []
+  },
+  "memory": {
+    "arm": "treatment",
+    "facts": [
+      {
+        "kind": "user_input",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 5,
+        "chars": 261
+      },
+      {
+        "kind": "conclusion",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 42,
+        "chars": 3825
+      },
+      {
+        "kind": "directive",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 12,
+        "chars": 981
+      },
+      {
+        "kind": "user_input",
+        "source": "passive_capture",
+        "status": "superseded",
+        "n": 3,
+        "chars": 188
+      },
+      {
+        "kind": "conclusion",
+        "source": "remember_tool",
+        "status": "active",
+        "n": 11,
+        "chars": 1523
+      },
+      {
+        "kind": "conclusion",
+        "source": "remember_tool",
+        "status": "superseded",
+        "n": 1,
+        "chars": 39
+      },
+      {
+        "kind": "summary",
+        "source": "conclude_task",
+        "status": "active",
+        "n": 18,
+        "chars": 1686
+      },
+      {
+        "kind": "conclusion",
+        "source": "passive_capture",
+        "status": "superseded",
+        "n": 1,
+        "chars": 41
+      }
+    ],
+    "total_facts": 93,
+    "total_chars": 8544
+  },
+  "seconds": 1190.1
+}

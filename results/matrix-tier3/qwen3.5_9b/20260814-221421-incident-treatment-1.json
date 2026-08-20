@@ -1,0 +1,1274 @@
+{
+  "condition": "treatment",
+  "scenario": "incident",
+  "model": "qwen3.5:9b",
+  "run": 1,
+  "session_id": "treatment-run1-2de61d",
+  "transcript": [
+    {
+      "conversation": "conv-1",
+      "user": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on the response: whatever we try must be reversible within 30 minutes, and we are not taking a full outage to fix this.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on the response: whatever we try must be reversible within 30 minutes, and we are not taking a full outage to fix this.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "c03240a7-7309-4900-8845-db640b83ae0b"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC, and error rate rose from 0.3% to 7%.\n- **Deployment context**: Release 2.14 was deployed at 13:50 UTC (approximately 15 minutes before the incident started).\n- **Constraints**: Any fix must be reversible within 30 minutes; a full outage is not acceptable.\n\nI am ready to investigate further if you would like me to delegate this investigation now, or please let me know any additional details that might help narrow down the root cause (e.g., which services are most affected, recent configuration changes besides the release).",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:14:33.899396Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 11192658625,
+              "load_duration": 211171959,
+              "prompt_eval_count": 1026,
+              "prompt_eval_duration": 4070182000,
+              "eval_count": 166,
+              "eval_duration": 6858744000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003d7-b270-7bd2-815d-321c050f9110-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1026,
+              "output_tokens": 166,
+              "total_tokens": 1192
+            }
+          }
+        }
+      ],
+      "final": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC, and error rate rose from 0.3% to 7%.\n- **Deployment context**: Release 2.14 was deployed at 13:50 UTC (approximately 15 minutes before the incident started).\n- **Constraints**: Any fix must be reversible within 30 minutes; a full outage is not acceptable.\n\nI am ready to investigate further if you would like me to delegate this investigation now, or please let me know any additional details that might help narrow down the root cause (e.g., which services are most affected, recent configuration changes besides the release).",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "We have a production incident. Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC, and the error rate went from 0.3% to 7%. We deployed release 2.14 at 13:50 UTC. Two constraints on th",
+          "k": 8,
+          "excluded": 6,
+          "injected": []
+        }
+      ],
+      "seconds": 12.7
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "99e7613a-bf42-4e0c-981b-c5d1665c622f"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:14:50.53393Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 16196377708,
+              "load_duration": 200329541,
+              "prompt_eval_count": 1273,
+              "prompt_eval_duration": 3071115000,
+              "eval_count": 308,
+              "eval_duration": 12917162000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003d7-dfe0-7562-b15e-1592853e2f88-0",
+            "tool_calls": [
+              {
+                "name": "researcher_db",
+                "args": {
+                  "task": "Investigate database performance issues related to increased latency starting at 14:05 UTC after Release 2.14 deployment at 13:50 UTC, focusing on query execution times, connection pool exhaustion, and any recent schema changes or configuration updates that could impact p99 latency from 180ms to 4.2s"
+                },
+                "id": "9cdc0296-72eb-4fc8-90bf-873a3281e693",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_network",
+                "args": {
+                  "task": "Investigate network performance issues related to increased latency starting at 14:05 UTC after Release 2.14 deployment at 13:50 UTC, focusing on packet loss, bandwidth saturation, DNS resolution delays, and any recent routing or load balancer configuration changes that could impact p99 latency from 180ms to 4.2s"
+                },
+                "id": "1bbfc95d-f94d-4b70-a1f2-eae8b4ca615b",
+                "type": "tool_call"
+              },
+              {
+                "name": "researcher_apptier",
+                "args": {
+                  "task": "Investigate application tier performance issues related to increased latency starting at 14:05 UTC after Release 2.14 deployment at 13:50 UTC, focusing on JVM heap usage, garbage collection pauses, thread pool exhaustion, and any recent code changes or configuration updates that could impact p99 latency from 180ms to 4.2s"
+                },
+                "id": "e440b1e4-2a11-446f-bd29-372956f5b3d7",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1273,
+              "output_tokens": 308,
+              "total_tokens": 1581
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Sub-agent 'researcher_db' did not complete: Recursion limit of 40 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_db",
+            "id": "13705f2a-d945-472b-a37d-527c2a52e5b9",
+            "tool_call_id": "9cdc0296-72eb-4fc8-90bf-873a3281e693",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "I have read the `network` document and found that:\n\n- **Packet loss**: 0.00% across all paths (normal).\n- **TCP retransmits**: 0.02%, identical to baseline.\n- **DNS resolution p99**: 3.1ms, unchanged from baseline; no timeouts or NXDOMAIN spikes.\n- **TLS handshake p99**: 41ms, in line with baseline.\n- **Inter-AZ latency**: Held at 1.2ms, no AZ degraded.\n\nThe document concludes that the network layer was healthy and that the observed high latency is due to the checkout service's own response time (origin errors), not transport delay or network issues like packet loss, bandwidth saturation, DNS delays, routing changes, etc.\n\nI will now record these findings as facts and then conclude the task with a summary for the incident commander.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_network",
+            "id": "f7b53b83-ccbc-46c8-83b1-351b9cf7f6dc",
+            "tool_call_id": "1bbfc95d-f94d-4b70-a1f2-eae8b4ca615b",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Sub-agent 'researcher_apptier' did not complete: Recursion limit of 40 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "researcher_apptier",
+            "id": "13b7a052-61cf-49ce-ac68-8a47520fea24",
+            "tool_call_id": "e440b1e4-2a11-446f-bd29-372956f5b3d7",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "I've attempted to delegate investigation across all three subsystems (db, network, and apptier). Here's what happened:\n\n**Network Investigation**: The researcher successfully read the `network` document. Key findings:\n- Packet loss: 0.00% (normal)\n- TCP retransmits: 0.02%, identical to baseline  \n- DNS resolution p99: 3.1ms, unchanged from baseline\n- TLS handshake p99: 41ms, in line with baseline\n- Inter-AZ latency: Held at 1.2ms, no AZ degraded\n\n**Conclusion**: The network layer is healthy - the high latency (p99 increased from 180ms to 4.2s) is due to the checkout service's own response time (origin errors), not transport delays or network issues.\n\n**Database & Apptier Investigations**: Both sub-agents hit recursion limits and failed to complete their investigations. This appears to be a technical limitation with these specific researchers rather than an inability to investigate those subsystems.\n\nGiven that the network investigation is complete and shows no issues, I should focus on recording this finding as fact (which has already been recorded in my memory context) and provide you with a synthesis of what we know so far:\n\n**Current Status**:\n- Network layer: Healthy - not contributing to latency spike\n- Database & Apptier investigations: Incomplete due to technical limitations, but the network findings suggest this is an application-level issue (checkout service response time), which would point toward database or apptier issues rather than network problems.\n\nWould you like me to try a different approach for investigating db and apptier, or should we focus on other aspects of the incident?",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:19:06.682666Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 21837930667,
+              "load_duration": 206690334,
+              "prompt_eval_count": 2225,
+              "prompt_eval_duration": 5855919000,
+              "eval_count": 363,
+              "eval_duration": 15717174000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003db-b26b-72d2-9a24-682b8fc99f1d-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 2225,
+              "output_tokens": 363,
+              "total_tokens": 2588
+            }
+          }
+        }
+      ],
+      "final": "I've attempted to delegate investigation across all three subsystems (db, network, and apptier). Here's what happened:\n\n**Network Investigation**: The researcher successfully read the `network` document. Key findings:\n- Packet loss: 0.00% (normal)\n- TCP retransmits: 0.02%, identical to baseline  \n- DNS resolution p99: 3.1ms, unchanged from baseline\n- TLS handshake p99: 41ms, in line with baseline\n- Inter-AZ latency: Held at 1.2ms, no AZ degraded\n\n**Conclusion**: The network layer is healthy - the high latency (p99 increased from 180ms to 4.2s) is due to the checkout service's own response time (origin errors), not transport delays or network issues.\n\n**Database & Apptier Investigations**: Both sub-agents hit recursion limits and failed to complete their investigations. This appears to be a technical limitation with these specific researchers rather than an inability to investigate those subsystems.\n\nGiven that the network investigation is complete and shows no issues, I should focus on recording this finding as fact (which has already been recorded in my memory context) and provide you with a synthesis of what we know so far:\n\n**Current Status**:\n- Network layer: Healthy - not contributing to latency spike\n- Database & Apptier investigations: Incomplete due to technical limitations, but the network findings suggest this is an application-level issue (checkout service response time), which would point toward database or apptier issues rather than network problems.\n\nWould you like me to try a different approach for investigating db and apptier, or should we focus on other aspects of the incident?",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-9e89b48e",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5152,
+              "demoted": false,
+              "body": "- **Deployment context**: Release 2.14 was deployed at 13:50 UTC (approximately 15 minutes before the incident started)."
+            },
+            {
+              "id": "fact-13ca7b61",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.524,
+              "demoted": false,
+              "body": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-b471e3d2",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5258,
+              "demoted": false,
+              "body": "which services are most affected, recent configuration changes besides the release)."
+            },
+            {
+              "id": "fact-a7578c82",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5065,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-34013b52",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5174,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-fe50c5ee",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5526,
+              "demoted": false,
+              "body": "Any fix must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-ac98f114",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5598,
+              "demoted": false,
+              "body": "a full outage is not acceptable."
+            },
+            {
+              "id": "fact-1a334809",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5729,
+              "demoted": false,
+              "body": "error rate rose from 0.3% to 7%."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Please investigate this properly. Delegate the db, network, and apptier subsystems to your investigators, then give me your synthesis.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-ecbe6f16",
+              "kind": "summary",
+              "source": "fallback_conclude",
+              "agent_id": "researcher_db",
+              "distance": 0.461,
+              "demoted": false,
+              "body": "Task did not complete: sub-agent 'researcher_db' failed with: Recursion limit of 40 reached without hitting a stop condition. You can increase the limit by sett"
+            },
+            {
+              "id": "fact-3c198e52",
+              "kind": "summary",
+              "source": "fallback_conclude",
+              "agent_id": "researcher_apptier",
+              "distance": 0.4665,
+              "demoted": false,
+              "body": "Task did not complete: sub-agent 'researcher_apptier' failed with: Recursion limit of 40 reached without hitting a stop condition. You can increase the limit by"
+            },
+            {
+              "id": "fact-dad96103",
+              "kind": "summary",
+              "source": "fallback_conclude",
+              "agent_id": "researcher_network",
+              "distance": 0.4787,
+              "demoted": false,
+              "body": "(auto-summary, agent did not conclude) I have read the `network` document and found that:\n\n- **Packet loss**: 0.00% across all paths (normal).\n- **TCP retransmi"
+            },
+            {
+              "id": "fact-9e89b48e",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5152,
+              "demoted": false,
+              "body": "- **Deployment context**: Release 2.14 was deployed at 13:50 UTC (approximately 15 minutes before the incident started)."
+            },
+            {
+              "id": "fact-13ca7b61",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.524,
+              "demoted": false,
+              "body": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-b471e3d2",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5258,
+              "demoted": false,
+              "body": "which services are most affected, recent configuration changes besides the release)."
+            },
+            {
+              "id": "fact-a7578c82",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5065,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-34013b52",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5174,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            }
+          ]
+        }
+      ],
+      "seconds": 272.9
+    },
+    {
+      "conversation": "conv-2",
+      "user": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "6e429e73-427c-4299-a822-ff71fa9702e6"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:19:17.117905Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 9870998708,
+              "load_duration": 206767583,
+              "prompt_eval_count": 1509,
+              "prompt_eval_duration": 4057616000,
+              "eval_count": 132,
+              "eval_duration": 5542956000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003dc-09ed-7401-a58b-74c13cb9cbfa-0",
+            "tool_calls": [
+              {
+                "name": "remember_fact",
+                "args": {
+                  "body": "The deployment went out at 13:20 UTC, with the canary promotion to 100% traffic occurring at 13:50 UTC. The earlier fact (fact-9e89b48e) stating a deploy time of 13:50 is superseded by this corrected timeline.",
+                  "relates_to": "fact-9e89b48e",
+                  "relation": "supersedes"
+                },
+                "id": "fe0d9e23-93ec-41b5-862b-ddfee855d1ae",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1509,
+              "output_tokens": 132,
+              "total_tokens": 1641
+            }
+          }
+        },
+        {
+          "type": "tool",
+          "data": {
+            "content": "Remembered [fact-1c79100e]",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "tool",
+            "name": "remember_fact",
+            "id": "c59052a0-6db5-4f20-89a9-db5ff501692b",
+            "tool_call_id": "fe0d9e23-93ec-41b5-862b-ddfee855d1ae",
+            "artifact": null,
+            "status": "success"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Understood. I've recorded the corrected timeline: deployment at 13:20 UTC, canary promotion to full traffic at 13:50 UTC. This supersedes any earlier fact stating a deploy time of 13:50. \n\nIs there anything else you'd like me to investigate or clarify?",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:19:25.342111Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 7935441542,
+              "load_duration": 219912209,
+              "prompt_eval_count": 1700,
+              "prompt_eval_duration": 4797659000,
+              "eval_count": 69,
+              "eval_duration": 2908030000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003dc-319c-7e11-8f2b-827fa1023790-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1700,
+              "output_tokens": 69,
+              "total_tokens": 1769
+            }
+          }
+        }
+      ],
+      "final": "Understood. I've recorded the corrected timeline: deployment at 13:20 UTC, canary promotion to full traffic at 13:50 UTC. This supersedes any earlier fact stating a deploy time of 13:50. \n\nIs there anything else you'd like me to investigate or clarify?",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-9e89b48e",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.2237,
+              "demoted": false,
+              "body": "- **Deployment context**: Release 2.14 was deployed at 13:50 UTC (approximately 15 minutes before the incident started)."
+            },
+            {
+              "id": "fact-7277755d",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3235,
+              "demoted": false,
+              "body": "We deployed release 2.14 at 13:50 UTC."
+            },
+            {
+              "id": "fact-4b456799",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3962,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-13ca7b61",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4024,
+              "demoted": false,
+              "body": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-dad96103",
+              "kind": "summary",
+              "source": "fallback_conclude",
+              "agent_id": "researcher_network",
+              "distance": 0.3924,
+              "demoted": false,
+              "body": "(auto-summary, agent did not conclude) I have read the `network` document and found that:\n\n- **Packet loss**: 0.00% across all paths (normal).\n- **TCP retransmi"
+            },
+            {
+              "id": "fact-1a334809",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4545,
+              "demoted": false,
+              "body": "error rate rose from 0.3% to 7%."
+            },
+            {
+              "id": "fact-633f30c6",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4576,
+              "demoted": false,
+              "body": "the error rate went from 0.3% to 7%."
+            },
+            {
+              "id": "fact-e55550ec",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.461,
+              "demoted": false,
+              "body": "we are not taking a full outage to fix this."
+            }
+          ]
+        },
+        {
+          "agent_id": "root",
+          "query": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50. The 13:50 timestamp was the canary being promoted to 100% of traffic.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-1c79100e",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.0583,
+              "demoted": false,
+              "body": "The deployment went out at 13:20 UTC, with the canary promotion to 100% traffic occurring at 13:50 UTC. The earlier fact (fact-9e89b48e) stating a deploy time o"
+            },
+            {
+              "id": "fact-4b456799",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3962,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-13ca7b61",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4024,
+              "demoted": false,
+              "body": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-dad96103",
+              "kind": "summary",
+              "source": "fallback_conclude",
+              "agent_id": "researcher_network",
+              "distance": 0.3924,
+              "demoted": false,
+              "body": "(auto-summary, agent did not conclude) I have read the `network` document and found that:\n\n- **Packet loss**: 0.00% across all paths (normal).\n- **TCP retransmi"
+            },
+            {
+              "id": "fact-1a334809",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4545,
+              "demoted": false,
+              "body": "error rate rose from 0.3% to 7%."
+            },
+            {
+              "id": "fact-633f30c6",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4576,
+              "demoted": false,
+              "body": "the error rate went from 0.3% to 7%."
+            },
+            {
+              "id": "fact-e55550ec",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.461,
+              "demoted": false,
+              "body": "we are not taking a full outage to fix this."
+            },
+            {
+              "id": "fact-b471e3d2",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4589,
+              "demoted": false,
+              "body": "which services are most affected, recent configuration changes besides the release)."
+            }
+          ]
+        }
+      ],
+      "seconds": 18.4
+    },
+    {
+      "conversation": "conv-3",
+      "user": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "eb8a5bf5-e316-4483-a80c-b78955ac02c4"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Based on the facts recorded in our memory context, here is a summary of what we have established:\n\n**Current Constraints & Goals:**\n*   We are dealing with a **production incident**.\n*   The fix must be **reversible within 30 minutes**.\n*   A **full outage is not acceptable**; we need to maintain service availability.\n*   We want to focus on the services most affected and recent configuration changes (besides any release).\n\n**What has been ruled out / established:**\n*   The incident involves a production environment where downtime must be minimized or avoided entirely during the fix attempt.\n*   Any proposed solution cannot take longer than 30 minutes to roll back if it fails.\n\nHowever, I do not have specific details in my memory about:\n1.  **Which services are currently failing** (e.g., database connectivity issues vs. network latency).\n2.  **What recent changes were made** (specifically configuration changes or releases) that might be the root cause.\n3.  **Specific error messages or symptoms** reported by users so far.\n\nTo determine what to try next, I need more specific information about:\n*   The current state of the most affected services.\n*   Any recent deployments or config updates in the last few hours/days.\n*   Specific errors being observed (e.g., timeouts, connection refused, 503s).\n\n**Recommendation:**\nSince I cannot see specific findings from sub-agents yet and don't have details on which subsystem is failing, **I need to delegate an investigation**. Please ask me to:\n1.  Investigate the database (`researcher_db`) for recent connection issues or schema changes.\n2.  Investigate the network (`researcher_network`) for latency spikes or routing failures.\n3.  Or investigate `apptier` if that is a relevant component in your stack.\n\nWould you like me to delegate an investigation into one of these areas now?",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:19:46.240123Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 20553125417,
+              "load_duration": 204571500,
+              "prompt_eval_count": 1224,
+              "prompt_eval_duration": 2933584000,
+              "eval_count": 414,
+              "eval_duration": 17407262000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003dc-51f5-7082-970f-f15fa48a2fd2-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1224,
+              "output_tokens": 414,
+              "total_tokens": 1638
+            }
+          }
+        }
+      ],
+      "final": "Based on the facts recorded in our memory context, here is a summary of what we have established:\n\n**Current Constraints & Goals:**\n*   We are dealing with a **production incident**.\n*   The fix must be **reversible within 30 minutes**.\n*   A **full outage is not acceptable**; we need to maintain service availability.\n*   We want to focus on the services most affected and recent configuration changes (besides any release).\n\n**What has been ruled out / established:**\n*   The incident involves a production environment where downtime must be minimized or avoided entirely during the fix attempt.\n*   Any proposed solution cannot take longer than 30 minutes to roll back if it fails.\n\nHowever, I do not have specific details in my memory about:\n1.  **Which services are currently failing** (e.g., database connectivity issues vs. network latency).\n2.  **What recent changes were made** (specifically configuration changes or releases) that might be the root cause.\n3.  **Specific error messages or symptoms** reported by users so far.\n\nTo determine what to try next, I need more specific information about:\n*   The current state of the most affected services.\n*   Any recent deployments or config updates in the last few hours/days.\n*   Specific errors being observed (e.g., timeouts, connection refused, 503s).\n\n**Recommendation:**\nSince I cannot see specific findings from sub-agents yet and don't have details on which subsystem is failing, **I need to delegate an investigation**. Please ask me to:\n1.  Investigate the database (`researcher_db`) for recent connection issues or schema changes.\n2.  Investigate the network (`researcher_network`) for latency spikes or routing failures.\n3.  Or investigate `apptier` if that is a relevant component in your stack.\n\nWould you like me to delegate an investigation into one of these areas now?",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "New shift taking over. Given everything we've established, what should we try next, and why? Be specific about what we already ruled out so I don't repeat work.",
+          "k": 8,
+          "excluded": 2,
+          "injected": [
+            {
+              "id": "fact-fa0f2de8",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4256,
+              "demoted": false,
+              "body": "Is there anything else you'd like me to investigate or clarify?"
+            },
+            {
+              "id": "fact-c84d634e",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4315,
+              "demoted": false,
+              "body": "or should we focus on other aspects of the incident?"
+            },
+            {
+              "id": "fact-34013b52",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4642,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-e55550ec",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4767,
+              "demoted": false,
+              "body": "we are not taking a full outage to fix this."
+            },
+            {
+              "id": "fact-a7578c82",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4896,
+              "demoted": false,
+              "body": "We have a production incident."
+            },
+            {
+              "id": "fact-b471e3d2",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4931,
+              "demoted": false,
+              "body": "which services are most affected, recent configuration changes besides the release)."
+            },
+            {
+              "id": "fact-fe50c5ee",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5552,
+              "demoted": false,
+              "body": "Any fix must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-ac98f114",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5594,
+              "demoted": false,
+              "body": "a full outage is not acceptable."
+            }
+          ]
+        }
+      ],
+      "seconds": 21.7
+    },
+    {
+      "conversation": "conv-4",
+      "user": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "3b12a828-3a87-4e5b-ac1b-4b90d83da306"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "The network investigation measured **TLS handshake p99 at 41ms**, which was noted as being in line with baseline values, indicating no degradation or issues there.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:19:52.149657Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 4869239917,
+              "load_duration": 211606708,
+              "prompt_eval_count": 1509,
+              "prompt_eval_duration": 3211353000,
+              "eval_count": 35,
+              "eval_duration": 1438364000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003dc-a64f-79b1-b4c3-9fdd809247db-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1509,
+              "output_tokens": 35,
+              "total_tokens": 1544
+            }
+          }
+        }
+      ],
+      "final": "The network investigation measured **TLS handshake p99 at 41ms**, which was noted as being in line with baseline values, indicating no degradation or issues there.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "One more thing for the postmortem \u2014 what exactly did the network investigation measure for TLS handshake p99?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-7a4ad9fc",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3358,
+              "demoted": false,
+              "body": "Given that the network investigation is complete"
+            },
+            {
+              "id": "fact-dad96103",
+              "kind": "summary",
+              "source": "fallback_conclude",
+              "agent_id": "researcher_network",
+              "distance": 0.3516,
+              "demoted": false,
+              "body": "(auto-summary, agent did not conclude) I have read the `network` document and found that:\n\n- **Packet loss**: 0.00% across all paths (normal).\n- **TCP retransmi"
+            },
+            {
+              "id": "fact-4b456799",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4064,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-13ca7b61",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4162,
+              "demoted": false,
+              "body": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-21206c86",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4656,
+              "demoted": false,
+              "body": "*   Specific errors being observed (e.g., timeouts, connection refused, 503s)."
+            },
+            {
+              "id": "fact-b471e3d2",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5461,
+              "demoted": false,
+              "body": "which services are most affected, recent configuration changes besides the release)."
+            },
+            {
+              "id": "fact-1c79100e",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.489,
+              "demoted": false,
+              "body": "The deployment went out at 13:20 UTC, with the canary promotion to 100% traffic occurring at 13:50 UTC. The earlier fact (fact-9e89b48e) stating a deploy time o"
+            },
+            {
+              "id": "fact-ac98f114",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.565,
+              "demoted": false,
+              "body": "a full outage is not acceptable."
+            }
+          ]
+        }
+      ],
+      "seconds": 5.1
+    },
+    {
+      "conversation": "conv-4",
+      "user": "And list everything we investigated and ruled out, with the measurement behind each one.",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "And list everything we investigated and ruled out, with the measurement behind each one.",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "229e1a90-641d-471d-83cc-081490466c2a"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Based on our investigation so far, here is a summary of what has been investigated and ruled out:\n\n| Subsystem | Status / Ruling Out Reasoning | Measurement Behind Decision |\n| :--- | :--- | :--- |\n| **Network** | Healthy - Not contributing to latency spike. TLS handshake times are within normal parameters. | Network investigation measured **TLS handshake p99 at 41ms**. This is in line with baseline values, indicating no degradation or issues there (Fact ID: `fact-7a56f0a8`). |\n\n**Investigations still pending:**\n*   Database (`db`) - Investigation incomplete due to technical limitations.\n*   Apptier layer - Investigation incomplete due to technical limitations.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:20:02.435085Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 10060929625,
+              "load_duration": 228535500,
+              "prompt_eval_count": 1318,
+              "prompt_eval_duration": 3308914000,
+              "eval_count": 156,
+              "eval_duration": 6516831000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003dc-ba34-75c2-8435-951d06fbab0a-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1318,
+              "output_tokens": 156,
+              "total_tokens": 1474
+            }
+          }
+        }
+      ],
+      "final": "Based on our investigation so far, here is a summary of what has been investigated and ruled out:\n\n| Subsystem | Status / Ruling Out Reasoning | Measurement Behind Decision |\n| :--- | :--- | :--- |\n| **Network** | Healthy - Not contributing to latency spike. TLS handshake times are within normal parameters. | Network investigation measured **TLS handshake p99 at 41ms**. This is in line with baseline values, indicating no degradation or issues there (Fact ID: `fact-7a56f0a8`). |\n\n**Investigations still pending:**\n*   Database (`db`) - Investigation incomplete due to technical limitations.\n*   Apptier layer - Investigation incomplete due to technical limitations.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "And list everything we investigated and ruled out, with the measurement behind each one.",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-c8935bc1",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4335,
+              "demoted": false,
+              "body": "which was noted as being in line with baseline values, indicating no degradation or issues there."
+            },
+            {
+              "id": "fact-7a56f0a8",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4522,
+              "demoted": false,
+              "body": "The network investigation measured **TLS handshake p99 at 41ms**"
+            },
+            {
+              "id": "fact-a5a237a6",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.3995,
+              "demoted": false,
+              "body": "here is a summary of what we have established:\n\n**Current Constraints & Goals:**\n*   We are dealing with a **production incident**."
+            },
+            {
+              "id": "fact-a01b4d10",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4139,
+              "demoted": false,
+              "body": "**What has been ruled out / established:**\n*   The incident involves a production environment where downtime must be minimized or avoided entirely during the fi"
+            },
+            {
+              "id": "fact-f9894534",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4268,
+              "demoted": false,
+              "body": "I should focus on recording this finding as fact (which has already been recorded in my memory context), provide you with a synthesis of what we know so far:\n\n*"
+            },
+            {
+              "id": "fact-7a4ad9fc",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4317,
+              "demoted": false,
+              "body": "Given that the network investigation is complete"
+            },
+            {
+              "id": "fact-21206c86",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4202,
+              "demoted": false,
+              "body": "*   Specific errors being observed (e.g., timeouts, connection refused, 503s)."
+            },
+            {
+              "id": "fact-98eeffa3",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4226,
+              "demoted": false,
+              "body": "**\nSince I cannot see specific findings from sub-agents yet"
+            }
+          ]
+        }
+      ],
+      "seconds": 10.4
+    },
+    {
+      "conversation": "conv-4",
+      "user": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+      "messages": [
+        {
+          "type": "human",
+          "data": {
+            "content": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "name": null,
+            "id": "4cddba52-f10d-4436-8e55-75fcef0fd826"
+          }
+        },
+        {
+          "type": "ai",
+          "data": {
+            "content": "Based on my memory, Release 2.14 went out at **13:20 UTC**. The canary promotion to 100% traffic occurred later at 13:50 UTC. This corrected timeline supersedes the earlier fact (fact-9e89b48e) that stated a deploy time of 13:50.",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "model": "qwen3.5:9b",
+              "created_at": "2026-08-15T05:20:08.656791Z",
+              "done": true,
+              "done_reason": "stop",
+              "total_duration": 5855688459,
+              "load_duration": 211989209,
+              "prompt_eval_count": 1365,
+              "prompt_eval_duration": 2355704000,
+              "eval_count": 79,
+              "eval_duration": 3281072000,
+              "logprobs": null,
+              "model_name": "qwen3.5:9b",
+              "model_provider": "ollama"
+            },
+            "type": "ai",
+            "name": null,
+            "id": "lc_run--01a003dc-e2ef-7050-a5d2-2187d1f972df-0",
+            "tool_calls": [],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 1365,
+              "output_tokens": 79,
+              "total_tokens": 1444
+            }
+          }
+        }
+      ],
+      "final": "Based on my memory, Release 2.14 went out at **13:20 UTC**. The canary promotion to 100% traffic occurred later at 13:50 UTC. This corrected timeline supersedes the earlier fact (fact-9e89b48e) that stated a deploy time of 13:50.",
+      "errored": false,
+      "empty_final": false,
+      "injections": [
+        {
+          "agent_id": "root",
+          "query": "Last thing for the postmortem header \u2014 what time did release 2.14 actually go out?",
+          "k": 8,
+          "excluded": 1,
+          "injected": [
+            {
+              "id": "fact-1c79100e",
+              "kind": "conclusion",
+              "source": "remember_tool",
+              "agent_id": "root",
+              "distance": 0.4142,
+              "demoted": false,
+              "body": "The deployment went out at 13:20 UTC, with the canary promotion to 100% traffic occurring at 13:50 UTC. The earlier fact (fact-9e89b48e) stating a deploy time o"
+            },
+            {
+              "id": "fact-8b7b43a8",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.431,
+              "demoted": false,
+              "body": "Correction on the timeline: the deploy actually went out at 13:20 UTC, not 13:50."
+            },
+            {
+              "id": "fact-8d7e55e3",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4681,
+              "demoted": false,
+              "body": "The 13:50 timestamp was the canary being promoted to 100% of traffic."
+            },
+            {
+              "id": "fact-b471e3d2",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4841,
+              "demoted": false,
+              "body": "which services are most affected, recent configuration changes besides the release)."
+            },
+            {
+              "id": "fact-4b456799",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.4902,
+              "demoted": false,
+              "body": "Checkout p99 latency went from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-13ca7b61",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5029,
+              "demoted": false,
+              "body": "I've recorded the following facts about your production incident:\n\n- **Symptoms**: p99 latency increased from 180ms to 4.2s starting at 14:05 UTC"
+            },
+            {
+              "id": "fact-34013b52",
+              "kind": "user_input",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5502,
+              "demoted": false,
+              "body": "Two constraints on the response: whatever we try must be reversible within 30 minutes"
+            },
+            {
+              "id": "fact-1a334809",
+              "kind": "conclusion",
+              "source": "passive_capture",
+              "agent_id": "root",
+              "distance": 0.5722,
+              "demoted": false,
+              "body": "error rate rose from 0.3% to 7%."
+            }
+          ]
+        }
+      ],
+      "seconds": 6.1
+    }
+  ],
+  "errors": [],
+  "tokens": {
+    "input_tokens": 13149,
+    "output_tokens": 1722
+  },
+  "constraint_carry": {
+    "avoids_reproposing_ruled_out": true,
+    "names_surviving_cause": false,
+    "proposes_reversible_fix": false,
+    "uses_corrected_deploy_time": true,
+    "avoids_stale_deploy_time": true,
+    "buried_metric_recalled": true,
+    "breadth_subsystems_named": 3,
+    "breadth_complete": true,
+    "numerically_grounded": false,
+    "_reproposed": [],
+    "_unsupported_numbers": [
+      "503"
+    ]
+  },
+  "memory": {
+    "arm": "treatment",
+    "facts": [
+      {
+        "kind": "user_input",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 7,
+        "chars": 411
+      },
+      {
+        "kind": "summary",
+        "source": "fallback_conclude",
+        "status": "active",
+        "n": 3,
+        "chars": 1390
+      },
+      {
+        "kind": "conclusion",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 44,
+        "chars": 3712
+      },
+      {
+        "kind": "directive",
+        "source": "passive_capture",
+        "status": "active",
+        "n": 10,
+        "chars": 1446
+      },
+      {
+        "kind": "user_input",
+        "source": "passive_capture",
+        "status": "superseded",
+        "n": 1,
+        "chars": 38
+      },
+      {
+        "kind": "conclusion",
+        "source": "remember_tool",
+        "status": "active",
+        "n": 3,
+        "chars": 740
+      },
+      {
+        "kind": "conclusion",
+        "source": "passive_capture",
+        "status": "superseded",
+        "n": 1,
+        "chars": 120
+      }
+    ],
+    "total_facts": 69,
+    "total_chars": 7857
+  },
+  "seconds": 347.4
+}

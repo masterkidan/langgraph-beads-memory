@@ -47,7 +47,18 @@ CLAIM_WEIGHT = float(os.environ.get("BEADS_CLAIM_WEIGHT", "0.5"))
 # ranking pulls a whole capture's claims up together — that is the point — but
 # without a ceiling one verbose answer takes every slot, which is the failure
 # the blend was introduced to fix, reintroduced from the other direction.
-CONTEXT_MAX_PER_SOURCE = int(os.environ.get("BEADS_CONTEXT_MAX_PER_SOURCE", "3"))
+#
+# DEFAULT IS NOW OFF (0), and the reason is measured. This knob was chosen by
+# reasoning and never scored. On 3 fixtures per scenario at k=8, verbatim
+# queries, turning it off moved incident aspect coverage 50% -> 61% and left
+# vecdb bit-identical — it is a loss on one scenario and inert on the other.
+# The failure it was written to prevent is real but is handled better by the
+# derivation filter below, which drops a restatement because it RESTATES
+# something already selected rather than because it shares a context vector.
+#
+# Kept rather than deleted because the failure mode is genuine: set it to a
+# positive value if a deployment sees one capture monopolising the block.
+CONTEXT_MAX_PER_SOURCE = int(os.environ.get("BEADS_CONTEXT_MAX_PER_SOURCE", "0"))
 
 # Cosine-similarity floor for cascading a supersede to EARLIER restatements of
 # the fact being retired. Paired with a created_at ordering constraint — see
@@ -126,6 +137,12 @@ def _is_stale_restatement(
     return derived or similarity >= CASCADE_TOPICAL_SIMILARITY
 
 
+# Cycle guard for the supersedes walk in `search`. The relation is asserted by
+# agents and by the cascade, and nothing forbids A superseding B superseding A;
+# without a bound the recursive resolution would not terminate.
+SUPERSEDE_MAX_DEPTH = int(os.environ.get("BEADS_SUPERSEDE_MAX_DEPTH", "10"))
+
+
 # Most slots any ONE sub-agent may take in its parent's top-k, and how many
 # extra rows to fetch so the cap has something to promote in their place.
 #
@@ -146,26 +163,42 @@ DESCENDANT_MAX_PER_AGENT = int(os.environ.get("BEADS_DESCENDANT_MAX_PER_AGENT", 
 _OVERFETCH = 4
 
 
-def _cap_per_descendant_agent(rows: list, k: int) -> list:
-    """Take the best k rows, letting no single descendant agent exceed the cap.
+def _select_top_k(rows: list, k: int, derived_parents: dict | None = None) -> list:
+    """Take the best k rows, subject to three constraints.
 
-    Rows arrive in rank order, so this preserves ranking within the constraint:
-    a capped agent's surplus is dropped and the next-best row moves up.
+    Rows arrive in rank order, so this preserves ranking within the constraints:
+    a skipped row's slot goes to the next-best row.
 
-    Two ceilings apply, and they ration different things. The per-agent cap
-    rations VOICES, so three researchers each get a hearing. The per-source cap
-    rations one CAPTURE, because blended ranking deliberately pulls a whole
-    capture's claims up together and an eight-claim answer would otherwise take
-    every slot.
+    The three ration different things. The per-agent cap rations VOICES, so
+    three researchers each get a hearing. The per-source cap rations one
+    CAPTURE (off by default — see CONTEXT_MAX_PER_SOURCE). The derivation
+    filter rations RESTATEMENT, and is the only one of the three that reads
+    recorded provenance rather than inferring redundancy from a vector.
     """
-    kept, per_agent, per_source = [], {}, {}
+    derived_parents = derived_parents or {}
+    kept, kept_ids, per_agent, per_source = [], set(), {}, {}
     for row in rows:
-        source, agent_id, demoted = row[6], row[7], row[10]
+        fact_id, source, agent_id, demoted = row[0], row[6], row[7], row[10]
+        # A fact DERIVED FROM something already selected adds nothing: it was
+        # written by a model that had those facts in front of it. Measured on 3
+        # fixtures per scenario — vecdb reached full aspect coverage at 888
+        # chars against the baseline's 1338, and stopped growing past k=8
+        # because the filter runs out of non-redundant candidates.
+        #
+        # ONE DIRECTION ONLY, and the other direction was measured and rejected.
+        # Also skipping a candidate because a SELECTED fact derives from IT
+        # reads as "the conclusion supersedes its premise", and it evicted
+        # "The selected vector database must be self-hostable." — a user
+        # constraint — because the agent's conclusion built on it ranked higher.
+        # Forward is redundancy; backward is a preference for conclusions over
+        # premises wearing a redundancy costume.
+        if derived_parents.get(fact_id, ()) and derived_parents[fact_id] & kept_ids:
+            continue
         # Keyed on the context vector: every claim from one capture shares it,
         # and it is null for facts with no wider context — which must NOT all
         # collide into a single group, so those bypass the cap entirely.
         ctx = row[11]
-        if ctx is not None:
+        if CONTEXT_MAX_PER_SOURCE and ctx is not None:
             seen_src = per_source.get(ctx, 0)
             if seen_src >= CONTEXT_MAX_PER_SOURCE:
                 continue
@@ -186,6 +219,7 @@ def _cap_per_descendant_agent(rows: list, k: int) -> list:
                 continue
             per_agent[agent_id] = seen + 1
         kept.append(row)
+        kept_ids.add(fact_id)
         if len(kept) == k:
             break
     return kept
@@ -329,7 +363,10 @@ class BeadsStore:
             " agent_id, acting_on_behalf_of FROM facts"
             " WHERE namespace_id = ANY(%s) AND status = 'active'"
             "   AND (%s::text IS NULL OR agent_id = %s)"
-            " ORDER BY created_at DESC, id LIMIT %s",
+            # Same reason as `search`: `id` is not a stable tiebreak, because a
+            # sub-agent's namespace id — and therefore every fact id under it —
+            # is reseeded on every run.
+            " ORDER BY created_at DESC, md5(body) LIMIT %s",
             (scope, agent_id, agent_id, limit),
         ).fetchall()
         return [Fact(*r) for r in rows]
@@ -554,44 +591,109 @@ class BeadsStore:
         descendants = self.descendant_scope(namespace_id)
         rows = self._conn.execute(
             """
-            SELECT id, namespace_id, session_id, kind, body, status, source,
-                   agent_id, acting_on_behalf_of,
-                   (embedding <=> %s::vector) AS distance,
-                   (namespace_id = ANY(%s)) AS demoted,
-                   context_embedding::text
-            FROM facts
-            WHERE namespace_id = ANY(%s)
-              AND status = 'active'
-              AND (%s OR kind <> 'directive')
-              AND embedding IS NOT NULL
-              AND NOT (id = ANY(%s))
-            -- Blended: the claim's own distance, plus the distance of the text
-            -- it was carved from. COALESCE, not a join — a fact with no wider
-            -- context (or written before the column existed) ranks on its own
-            -- embedding exactly as before, so this cannot regress an old store.
-            ORDER BY %s * (embedding <=> %s::vector)
-                     + (1 - %s) * (COALESCE(context_embedding, embedding) <=> %s::vector)
-                     + CASE WHEN namespace_id = ANY(%s) THEN %s ELSE 0 END
+            -- Resolve every fact to the HEAD of its supersedes chain.
+            --
+            -- WHY RESOLUTION AND NOT A PENALTY. Demoting superseded facts was
+            -- implemented, measured, and was a literal no-op: on 78 LongMemEval
+            -- knowledge-update questions it produced byte-identical answers to
+            -- excluding them, because a fact that has been corrected sits just
+            -- behind its own correction and any penalty large enough to matter
+            -- is indistinguishable from a filter. Removing a stale value leaves
+            -- the slot EMPTY; the measured failure was answering "you currently
+            -- have three bikes" when the user owns 4, and an empty slot does not
+            -- fix that. Resolution REPLACES the match with the current value, so
+            -- landing on any version of a claim returns the one that is true.
+            --
+            -- Ranking uses the BEST distance across all versions (min below), so
+            -- an old phrasing that happens to match the query well still pulls
+            -- its head in. Versions collapse to one row, which is also why this
+            -- costs nothing in context: k slots hold k SUBJECTS, not k facts.
+            WITH RECURSIVE walk(fact_id, cur_id, depth) AS (
+                SELECT f.id, f.id, 0 FROM facts f
+                UNION ALL
+                SELECT w.fact_id, e.from_fact_id, w.depth + 1
+                FROM walk w
+                JOIN fact_edges e ON e.to_fact_id = w.cur_id
+                                 AND e.relation = 'supersedes'
+                -- Bounded because `supersedes` is asserted by agents and by the
+                -- cascade, and nothing forbids A superseding B superseding A.
+                WHERE w.depth < %s
+            ),
+            -- Deepest wins: the end of the longest correction chain is the
+            -- current value. created_at breaks a DAG merge, where two facts
+            -- independently supersede the same one.
+            head_of AS (
+                SELECT DISTINCT ON (w.fact_id) w.fact_id, w.cur_id AS head_id
+                FROM walk w JOIN facts hf ON hf.id = w.cur_id
+                ORDER BY w.fact_id, w.depth DESC, hf.created_at DESC, md5(hf.body)
+            ),
+            scored AS (
+                SELECT h.head_id,
+                       %s * (f.embedding <=> %s::vector)
+                       + (1 - %s) * (COALESCE(f.context_embedding, f.embedding)
+                                     <=> %s::vector)
+                       + CASE WHEN f.namespace_id = ANY(%s) THEN %s ELSE 0 END
+                       AS s,
+                       (f.embedding <=> %s::vector) AS raw
+                FROM facts f
+                JOIN head_of h ON h.fact_id = f.id
+                WHERE f.namespace_id = ANY(%s)
+                  AND f.status <> 'archived'
+                  AND (%s OR f.kind <> 'directive')
+                  AND f.embedding IS NOT NULL
+                  AND NOT (f.id = ANY(%s))
+            ),
+            best AS (
+                SELECT head_id, min(s) AS s, min(raw) AS raw
+                FROM scored GROUP BY head_id
+            )
+            SELECT hf.id, hf.namespace_id, hf.session_id, hf.kind, hf.body,
+                   hf.status, hf.source, hf.agent_id, hf.acting_on_behalf_of,
+                   b.raw AS distance,
+                   (hf.namespace_id = ANY(%s)) AS demoted,
+                   hf.context_embedding::text
+            FROM best b
+            JOIN facts hf ON hf.id = b.head_id
+            -- The head must itself be readable and live: a chain may end in a
+            -- namespace this caller cannot see, or in an archived fact, and
+            -- neither may be surfaced just because an old version matched.
+            WHERE hf.namespace_id = ANY(%s)
+              AND hf.status <> 'archived'
+              AND NOT (hf.id = ANY(%s))
+            -- Deterministic tiebreak. Without one, near-ties resolved to
+            -- whatever physical order Postgres returned, which follows INSERT
+            -- order — and insert order is not stable across runs, because
+            -- sub-agents race on ToolNode's thread pool and each fork draws a
+            -- random suffix. Measured: at temperature 0 every BASELINE cell
+            -- scored identically three times while every treatment cell had
+            -- spread 1-2, and on one turn only 4 of 8 injected facts were common
+            -- to all three runs. `md5(body)`, NOT `id`, because a fact's id
+            -- derives from its namespace id and sub-agent namespaces are
+            -- reseeded every run.
+            ORDER BY b.s, md5(hf.body)
             LIMIT %s
             """,
             (
-                query_embedding,
-                descendants,
-                chain + descendants,
-                include_directives,
-                exclude_ids or [],
+                SUPERSEDE_MAX_DEPTH,
                 CLAIM_WEIGHT,
                 query_embedding,
                 CLAIM_WEIGHT,
                 query_embedding,
                 descendants,
                 DESCENDANT_RANK_PENALTY,
+                query_embedding,
+                chain + descendants,
+                include_directives,
+                exclude_ids or [],
+                descendants,
+                chain + descendants,
+                exclude_ids or [],
                 # Over-fetch so the per-agent cap below has alternatives to
                 # promote; without spare rows the cap would just shrink k.
                 k * _OVERFETCH,
             ),
         ).fetchall()
-        rows = _cap_per_descendant_agent(rows, k)
+        rows = _select_top_k(rows, k, self._derived_parents([r[0] for r in rows]))
         if with_scores:
             # (fact, raw cosine distance, whether the descendant penalty applied)
             # Returned so a caller can log WHY a fact was chosen. Reconstructing
@@ -600,6 +702,25 @@ class BeadsStore:
             # reported a rank that did not exist.
             return [(Fact(*r[:9]), float(r[9]), bool(r[10])) for r in rows]
         return [Fact(*r[:9]) for r in rows]
+
+    def _derived_parents(self, fact_ids: list[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
+        """{fact_id: facts it was derived from}, restricted to the candidate set.
+
+        Scoped to the candidates rather than fetched per fact: the filter only
+        ever asks "is a parent of this row also in this row's competition?", so
+        edges pointing outside the fetched window cannot change the answer. One
+        query per search, over k*_OVERFETCH ids.
+        """
+        if not fact_ids:
+            return {}
+        out: dict[uuid.UUID, set[uuid.UUID]] = {}
+        for frm, to in self._conn.execute(
+            "SELECT from_fact_id, to_fact_id FROM fact_edges"
+            " WHERE relation = 'derived_from' AND from_fact_id = ANY(%s)",
+            (fact_ids,),
+        ).fetchall():
+            out.setdefault(frm, set()).add(to)
+        return out
 
     def neighbours(
         self, fact_ids: list[uuid.UUID], readable_ns_ids: list[uuid.UUID]

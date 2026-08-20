@@ -7,10 +7,10 @@ Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langg
 >
 > Memory's value is **inversely proportional to how much of the conversation
 > still fits in the window.** At a matched token budget, spending part of it on
-> retrieved facts instead of transcript is worth **+6 of 25** questions when the
-> transcript is badly clipped, **+1** when it mostly fits, and **−2** when it
-> nearly all fits — the facts displace transcript that would have answered the
-> question. Measured on LongMemEval, an external benchmark:
+> retrieved facts instead of transcript is worth **+28 of 78** questions when the
+> transcript is badly clipped (65% against 29%, winning 35 questions to 7), and
+> **−1 of 78** — a tie — when it nearly all fits. Measured on LongMemEval, an
+> external benchmark:
 > [results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
 >
 > On that same benchmark head-to-head, where the whole haystack fits in the
@@ -92,14 +92,22 @@ an *identical* token budget and differ only in how it is spent — `transcript`
 fills it with recent conversation, `facts + transcript` spends ~950 characters on
 retrieved facts and fills the rest. LongMemEval `knowledge-update`, n=25:
 
-| context budget | transcript only | facts + transcript | Δ |
-|---|---|---|---|
-| 1,200 tokens | 8/25 (32%) | **14/25 (56%)** | **+6** |
-| 3,000 tokens | 19/25 (76%) | 20/25 (80%) | +1 |
-| 6,000 tokens | **23/25 (92%)** | 21/25 (84%) | **−2** |
+| context budget | transcript only | facts + transcript | Δ | n |
+|---|---|---|---|---|
+| 1,200 tokens | 23/78 (29%) | **51/78 (65%)** | **+28** | 78 |
+| 3,000 tokens | 19/25 (76%) | 20/25 (80%) | +1 | 25 |
+| 6,000 tokens | 66/78 (84%) | 65/78 (83%) | −1 | 78 |
 
-Memory's return **declines monotonically with available context and goes
-negative**: at 6,000 tokens the facts buy less than the transcript they evict.
+At 1,200 tokens the pairwise split is **35 questions won to 7 lost**. At 6,000
+it is 4 to 5 — a coin flip.
+
+Memory's return **declines to zero as context becomes sufficient.** It is worth
+a third of the benchmark when the transcript is badly clipped and nothing at all
+when it nearly all fits, for a constant ~350 tokens per call.
+
+*An earlier version of this table (n=25) showed −2 at 6,000 and was described
+here as measured interference. At n=78 that is −1 with a 4-to-5 pairwise split,
+i.e. a tie. The claim is "memory stops paying", not "memory costs you".*
 
 ![Both arms get an identical token budget and differ only in whether part of it is spent on retrieved facts. At 1,200 tokens transcript alone scores 8 of 25 and facts plus transcript scores 14; at 3,000 tokens, 19 against 20; at 6,000 tokens, 23 against 21 — memory's return declines with available context and becomes negative.](docs/assets/context-budget.svg)
 That is the argument for injecting *conditionally* rather than always, and it is

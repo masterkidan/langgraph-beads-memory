@@ -149,20 +149,33 @@ on retrieved facts and fills the rest with transcript. Same reader, same
 questions, same total budget, `num_ctx=16384` so nothing is truncated by the
 window — the budget is the only constraint.
 
-| budget | tail (100% transcript) | augment (facts + transcript) | Δ |
-|---|---|---|---|
-| 1,200 tok | 8/25 (32%) | **14/25 (56%)** | **+6** |
-| 3,000 tok | 19/25 (76%) | 20/25 (80%) | +1 |
-| 6,000 tok | **23/25 (92%)** | 21/25 (84%) | **−2** |
+| budget | tail (100% transcript) | augment (facts + transcript) | Δ | n |
+|---|---|---|---|---|
+| 1,200 tok | 23/78 (29%) | **51/78 (65%)** | **+28** | 78 |
+| 3,000 tok | 19/25 (76%) | 20/25 (80%) | +1 | 25 |
+| 6,000 tok | 66/78 (84%) | 65/78 (83%) | −1 | 78 |
 
-Actual tokens: 1,189/1,235 · 2,792/2,837 · 5,380/5,458. The fact block is a
-constant 956 chars in all three; only the transcript it displaces changes.
+Pairwise, at 1,200: augment wins **35** questions tail misses, against **7** the
+other way. At 6,000: 4 against 5 — a coin flip.
 
-**Memory's return declines monotonically with available context and goes
-negative.** At 6,000 tokens the facts buy less than the transcript they evict.
+**Memory's return declines to zero as context becomes sufficient.** It is worth
+a third of the benchmark when the transcript is badly clipped and nothing when
+it nearly all fits, for a constant ~350 tokens per call.
 
-This is measured interference, not inferred: about 2 questions in 25, appearing
-exactly where the theory says it should.
+### CORRECTION, disclosed
+
+The first version of this table was n=25 and showed **−2** at 6,000, described
+here as measured interference "appearing exactly where the theory says it
+should". At n=78 that is **−1 with a 4-to-5 pairwise split**, which is a tie.
+The interference claim does not survive; the correct statement is that memory
+*stops paying*, not that it costs you.
+
+The ends were re-run at n=78 with `--ingest autolink` rather than `replay`, so
+the +28 confounds two changes: the sample (25 → 78) and the ingest mode. The
+`tail` arm is the control — it builds no store, so autolink cannot touch it —
+and it moved 32% → 29%, i.e. flat. That suggests the metric is stable across the
+sample change and most of the gain is autolink, but a `replay`-at-78 run would
+be needed to separate them. The 3,000 midpoint is still n=25 on `replay`.
 
 ### Why this reframes the library
 

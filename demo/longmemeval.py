@@ -358,7 +358,8 @@ def run_memory_arm(rec: dict, llm, k: int, ingest: str = "replay") -> tuple[str,
         conn.close()
 
 
-def run_augment_arm(rec: dict, llm, k: int, budget_tokens: int) -> tuple[str, dict, dict]:
+def run_augment_arm(rec: dict, llm, k: int, budget_tokens: int,
+                    ingest: str = "replay") -> tuple[str, dict, dict]:
     """Transcript AND memory, sized to one budget — the shape actually shipped.
 
     Every other arm here is a SUBSTITUTE: `memory` sees only facts, `fullcontext`
@@ -395,7 +396,12 @@ def run_augment_arm(rec: dict, llm, k: int, budget_tokens: int) -> tuple[str, di
         ns = store.get_or_create_namespace(rec["question_id"])
         mw = BeadsMemoryMiddleware(store=store, namespace=ns, embedder=embedder,
                                    agent_id="root", acting_on_behalf_of="user", k=k)
-        ingest_replay(mw, rec)
+        if ingest in ("agent", "graph", "autolink"):
+            ingest_agent(mw, store, ns, embedder, llm, rec,
+                         GRAPH_PROMPT if ingest in ("graph", "autolink") else None,
+                         auto_link=(ingest == "autolink"))
+        else:
+            ingest_replay(mw, rec)
         facts = store.search(ns.id, embedder.embed(rec["question"]), k=k)
         block = "\n".join(f"- ({f.kind}) {f.body}" for f in facts)
 
@@ -639,7 +645,7 @@ def main() -> None:
             if arm == "fullcontext":
                 pred, usage, extra = run_fullcontext_arm(rec, llm)
             elif arm == "augment":
-                pred, usage, extra = run_augment_arm(rec, llm, args.k, args.budget)
+                pred, usage, extra = run_augment_arm(rec, llm, args.k, args.budget, args.ingest)
             elif arm == "tail":
                 pred, usage, extra = run_tail_arm(rec, llm, args.budget)
             elif arm == "bm25":

@@ -17,6 +17,7 @@ a fragment shredded into meaningless pieces pollutes retrieval permanently.
 
 from __future__ import annotations
 
+import os
 import re
 
 # A fragment must look like a claim to stand alone. Trailing qualifiers such as
@@ -101,6 +102,22 @@ def _looks_like_clause(text: str) -> bool:
 
 _HAS_DIGIT = re.compile(r"\d")
 
+# A fragment that is only a number and punctuation: "4.", "3)", "1 -". These come
+# from LLM numbered lists, which `_SENTENCE_END` splits on the "." after the
+# digit, and they are the single worst thing in the store.
+#
+# MEASURED. On LongMemEval knowledge-update, for four numeric golds the
+# BEST-matching fact in the entire store was one of these markers — '4.', '3.',
+# '5.' — because a bare digit matches every numeric query while carrying no
+# answer, and the sentence that actually stated the value lost its slot to it.
+# Five of ten failures traced here.
+_BARE_ORDINAL = re.compile(r"^\W*\d+\s*[.)\]:;,-]*\W*$")
+
+# At least one real word. A digit-bearing fragment with no word is a measurement
+# with nothing measured — "41ms" alone answers no question, because the subject
+# it belonged to was in the clause the splitter cut it from.
+_REAL_WORD = re.compile(r"[A-Za-z]{3,}")
+
 
 def is_substantive(fragment: str) -> bool:
     """Is this fragment worth storing as a retrievable fact?
@@ -126,7 +143,15 @@ def is_substantive(fragment: str) -> bool:
     discarding pure discourse framing. Directives are exempt: they are held out
     of retrieval already and are kept for provenance.
     """
-    return _looks_like_clause(fragment) or bool(_HAS_DIGIT.search(fragment))
+    stripped = fragment.strip()
+    if _BARE_ORDINAL.match(stripped):
+        return False
+    if _looks_like_clause(stripped):
+        return True
+    # The digit branch keeps measurements ("Checkout p99 latency went from 180ms
+    # to 4.2s") without keeping list scaffolding, by requiring the fragment to
+    # name something as well as count it.
+    return bool(_HAS_DIGIT.search(stripped)) and bool(_REAL_WORD.search(stripped))
 
 
 def _split_enumeration(sentence: str) -> list[str]:
@@ -160,6 +185,27 @@ def _split_enumeration(sentence: str) -> list[str]:
     return merged
 
 
+# Master switch for regex splitting. OFF returns the text whole.
+#
+# MEASURED reason this exists. The splitter was written for human prose and is
+# fed LLM markdown, where `_SENTENCE_END` treats "4." in a numbered list as a
+# sentence and `is_substantive` passes it because _HAS_DIGIT matches any digit.
+# The store fills with punctuation-only facts that match every numeric query. On
+# LongMemEval knowledge-update, for four numeric golds the BEST-matching fact in
+# the whole store was a bare list marker — '4.', '3.', '5.' — while the sentence
+# that stated the answer had not survived as a retrievable unit. Five of ten
+# failures traced to this, and no ranking change can reach any of them.
+#
+# It also destroys co-occurrence: a value split from its subject only matches a
+# query on its own thin surface. Every arm that keeps turns whole (bm25,
+# PostgresStore, full context) beat the fact graph on that benchmark.
+#
+# The counterweight is real and is why this is a knob rather than a deletion:
+# splitting is what cut input tokens ~40%, the one result that has held up
+# across every measurement. Turning it off trades cost for reach.
+SPLIT_ENABLED = os.environ.get("BEADS_SPLIT", "1") not in ("0", "false", "off")
+
+
 def split_into_facts(text: str) -> list[str]:
     """Split `text` into verbatim fragments, each suitable as its own fact.
 
@@ -170,6 +216,8 @@ def split_into_facts(text: str) -> list[str]:
     text = (text or "").strip()
     if not text:
         return []
+    if not SPLIT_ENABLED:
+        return [text]
 
     sentences = [s.strip() for s in _SENTENCE_END.split(text) if s.strip()]
     if not sentences:

@@ -3,9 +3,9 @@
 This round changes the claim this project makes. The short version:
 
 > **Memory's value is inversely proportional to how much of the conversation
-> still fits in the window.** At a tight budget it is worth +6 of 25 questions;
-> at a generous one it is worth **−2**, because the facts displace transcript
-> that would have answered the question.
+> still fits in the window.** At a 1,200-token budget it is worth **+28 of 78**
+> questions — 65% against 29%, winning 35 and losing 7. At 6,000 tokens, where
+> the transcript nearly all fits, it is worth **−1 of 78**: a tie.
 
 Everything below is on `gemma4:12b` unless stated. Every number is per-run or
 per-cell; nothing is pooled across scenarios or models.

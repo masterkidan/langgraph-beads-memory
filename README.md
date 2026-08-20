@@ -13,6 +13,11 @@ Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langg
 > question. Measured on LongMemEval, an external benchmark:
 > [results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
 >
+> On that same benchmark head-to-head, where the whole haystack fits in the
+> window, this library places **third of four on accuracy at a seventh of the
+> context** — 48/78 at 328 tokens, against 64/78 at 6,337 for pasting in the
+> whole transcript. That is the −2 column of the curve, not a separate result.
+>
 > So this is not "better recall". It is **bounded, constant-cost recall for the
 > part of a session the model can no longer see** — and injecting it
 > unconditionally is a measurable tax when the model can still see everything.
@@ -105,6 +110,41 @@ material attention can already reach. `search()` makes one hard top-k commitment
 from a single query vector before the model reasons; attention selects softly,
 per head, per layer, over the whole prompt. Filtering cannot add information — so
 it only pays when the alternative is not having the material at all.
+
+### On an external benchmark
+
+Everything else here is measured on scenarios this project wrote, and
+[results/README.md](results/README.md) is explicit that those are "a designed
+demonstration, not a neutral benchmark". This is not. **LongMemEval**
+`knowledge-update` is MIT-licensed, external, and published on by both
+Zep/Graphiti and Mem0 — n=78, `gemma4:12b`, `num_ctx=16384`:
+
+| arm | correct | mean input tokens |
+|---|---|---|
+| whole transcript in the prompt | **64/78 (82%)** | 6,337 |
+| document store over whole turns | 57/78 (73%) | 2,473 |
+| bm25 — LongMemEval's own reference retriever | 46/78 (59%) | 2,347 |
+| **this library** | 48/78 (62%) | **328** |
+
+**This library places third of four on accuracy, at a seventh of the context.**
+That is the honest number and it is worth reading alongside the curve above
+rather than as a separate verdict: at `num_ctx=16384` the entire haystack is
+~6,900 tokens, so *nothing is scarce* — this is the 6,000-token column of the
+budget table, the regime where retrieved facts are measured at **−2**.
+
+Two things this row is *not*. It is not a comparison against LangGraph: the
+document store here keeps whole turns verbatim, while the real LangMem path has
+the agent decide what to save and stores extracted memories. And it is not a
+measurement of typed invalidation — replaying a transcript emits no `supersedes`
+edges. Making them reachable was tried: the model proposed a link on **9 of 78**
+supersede-shaped questions, while deriving the same links deterministically from
+`contested_values` found **43** and moved the score from 46 to 48.
+
+What it does establish is the mechanism behind the curve. An external retriever
+competes with attention, and attention is the better retriever on material it
+can already reach — `search()` commits to a hard top-k from one query vector
+before the model reasons, while attention selects softly, per head, per layer,
+across the whole prompt.
 
 ### At N=3, across the full matrix
 
@@ -344,6 +384,21 @@ in one direction or the other, so fix the model rather than proceeding.
 Two scenarios. `vecdb` picks a vector database across 3 threads; `incident`
 debugs a production incident across 4. Arms are `baseline` (LangMem +
 PostgresStore), `treatment` (this library), and two ablations.
+
+An **external** benchmark, which the two scenarios above are not:
+
+```bash
+# LongMemEval knowledge-update: this library vs a document store, bm25 and full context
+uv run python -m demo.longmemeval --data longmemeval_oracle.json \
+  --type knowledge-update --arms bm25 baseline memory fullcontext
+
+# the budget pair — identical token budget, differing only in how it is spent
+uv run python -m demo.longmemeval --data longmemeval_oracle.json \
+  --type knowledge-update --arms tail augment --budget 3000
+```
+
+Dataset: `xiaowu0162/longmemeval-cleaned` on HuggingFace (MIT). Always pass
+`--num-ctx` — Ollama defaults to 2,048 and truncates silently.
 
 ```bash
 # one paired run of each scenario

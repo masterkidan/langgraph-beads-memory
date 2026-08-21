@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 640" width="1180" height="640" role="img" aria-label="Accuracy plotted against context spent, on LongMemEval knowledge-update with 78 questions. At roughly 1,200 tokens of context: transcript only scores 29.5 percent using 1,174 tokens, LangGraph's PostgresStore scores 53.8 percent using 981 tokens, and this library's facts plus transcript scores 65.4 percent using 1,209 tokens. At roughly 5,400 tokens the arms converge: transcript only reaches 84.6 percent and facts plus transcript 83.3 percent. The whole transcript pasted in reaches 82.1 percent at 6,337 tokens. The advantage of retrieved facts is large where context is scarce and disappears once the conversation fits.">
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .title { font-size: 25px; font-weight: 650; }
+    .sub { font-size: 15px; }
+    .axis { font-size: 13px; }
+    .lbl { font-size: 14px; font-weight: 620; }
+    .rule { stroke: #d9d2c6; stroke-width: 1; }
+    .band { fill: #0f766e; opacity: 0.06; }
+    .dTail { fill: #f5e3cd; stroke: #b45309; stroke-width: 2; }
+    .dStore { fill: #e5e0d6; stroke: #6b6255; stroke-width: 2; }
+    .dAug { fill: #d5ebe8; stroke: #0f766e; stroke-width: 2.5; }
+    .dFull { fill: #ffffff; stroke: #8a8175; stroke-width: 2; stroke-dasharray: 3 3; }
+    .cR { fill: #0f766e; }
+    .cW { fill: #b45309; }
+    .gap { stroke: #0f766e; stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; } text { fill: #ece5da; } .muted { fill: #93897b; }
+      .rule { stroke: #3b362e; } .band { fill: #2dd4bf; opacity: 0.08; }
+      .dTail { fill: #3a2c17; stroke: #f59e0b; } .dStore { fill: #2a2721; stroke: #9a9081; }
+      .dAug { fill: #12332f; stroke: #2dd4bf; } .dFull { fill: #201d19; stroke: #93897b; }
+      .cR { fill: #2dd4bf; } .cW { fill: #f59e0b; } .gap { stroke: #2dd4bf; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+    }
+  </style>
+  <rect class="bg" x="0" y="0" width="1180" height="640"/>
+
+  <text class="title" x="60" y="56">Accuracy per token of context</text>
+  <text class="sub muted" x="60" y="84">LongMemEval <tspan class="mono">knowledge-update</tspan>, n=78, gemma4:12b. Every point is a full 78-question run.</text>
+
+  <!-- plot frame: x 1000..6500 tok -> 150..1090 ; y 20..90% -> 500..150 -->
+  <line class="rule" x1="150" y1="500" x2="1110" y2="500"/>
+  <line class="rule" x1="150" y1="150" x2="150" y2="500"/>
+  <line class="rule" x1="150" y1="175" x2="1110" y2="175" stroke-dasharray="3 5"/>
+  <line class="rule" x1="150" y1="325" x2="1110" y2="325" stroke-dasharray="3 5"/>
+  <text class="axis muted" x="140" y="505" text-anchor="end">20%</text>
+  <text class="axis muted" x="140" y="330" text-anchor="end">55%</text>
+  <text class="axis muted" x="140" y="180" text-anchor="end">90%</text>
+  <text class="axis muted" x="70" y="325" transform="rotate(-90 70 325)" text-anchor="middle">questions correct</text>
+  <text class="axis muted" x="630" y="536" text-anchor="middle">context spent — mean input tokens per question</text>
+  <text class="axis muted" x="215" y="520" text-anchor="middle">1,000</text>
+  <text class="axis muted" x="560" y="520" text-anchor="middle">3,000</text>
+  <text class="axis muted" x="905" y="520" text-anchor="middle">5,000</text>
+
+  <!-- scarcity band -->
+  <rect class="band" x="150" y="150" width="130" height="350"/>
+  <text class="axis cR" x="215" y="168" text-anchor="middle">context is scarce</text>
+
+  <!-- ~1,200-token cluster.  x=150+(tok-1000)/5500*960 ; y=500-(pct-20)/70*350 -->
+  <!-- tail 1174 tok, 29.5%  -> x=180, y=452 -->
+  <circle class="dTail" cx="180" cy="452" r="9"/>
+  <text class="lbl cW" x="196" y="457">transcript only · 29.5%</text>
+  <!-- store 981 tok, 53.8% -> x=147, y=331 -->
+  <circle class="dStore" cx="153" cy="331" r="9"/>
+  <text class="lbl" x="169" y="336">LangGraph store · 53.8%</text>
+  <!-- augment 1209 tok, 65.4% -> x=186, y=273 -->
+  <circle class="dAug" cx="186" cy="273" r="11"/>
+  <text class="lbl cR" x="203" y="278">this library · 65.4%</text>
+
+  <!-- the gap at matched budget -->
+  <line class="gap" x1="186" y1="286" x2="186" y2="440"/>
+  <text class="lbl cR" x="196" y="372">+28 vs transcript</text>
+  <text class="lbl cR" x="196" y="392">+9 vs the store</text>
+
+  <!-- ~5,400 cluster: tail 5383 tok 84.6% -> x=915, y=177 ; augment 5445 84.4->83.3% y=184 -->
+  <circle class="dTail" cx="915" cy="177" r="9"/>
+  <circle class="dAug" cx="926" cy="184" r="11"/>
+  <text class="lbl" x="836" y="150" text-anchor="middle">84.6% / 83.3%</text>
+  <text class="axis muted" x="836" y="168" text-anchor="middle">they converge</text>
+
+  <!-- fullcontext 6337 tok 82.1% -> x=1082, y=190 -->
+  <circle class="dFull" cx="1082" cy="190" r="9"/>
+  <text class="lbl muted" x="1072" y="214" text-anchor="end">whole transcript · 82.1%</text>
+
+  <!-- legend -->
+  <circle class="dAug" cx="66" cy="576" r="8"/><text class="axis" x="80" y="581">facts + transcript</text>
+  <circle class="dStore" cx="236" cy="576" r="8"/><text class="axis" x="250" y="581">PostgresStore over turns</text>
+  <circle class="dTail" cx="456" cy="576" r="8"/><text class="axis" x="470" y="581">transcript only</text>
+  <circle class="dFull" cx="616" cy="576" r="8"/><text class="axis" x="630" y="581">whole transcript (ceiling)</text>
+
+  <rect class="panelbox" x="60" y="596" width="1060" height="34" rx="6"/>
+  <text class="sub" x="80" y="618">At ~1,200 tokens the three strategies are <tspan class="cR" font-weight="650">36 points apart</tspan>. By ~5,400 they are within 1.3. Retrieval buys accuracy only where context is scarce.</text>
+</svg>

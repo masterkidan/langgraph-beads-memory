@@ -96,6 +96,8 @@ PostgresStore over whole turns   42/78
 this fact graph                  51/78     +9, winning 22 head-to-head, losing 13
 ```
 
+![Question-by-question outcomes over the same 78 questions. Against transcript only at a 1,200 token budget, facts win 35 and lose 7. Against LangGraph's PostgresStore at the same budget, facts win 22 and lose 13 with 29 both correct. Against transcript only at 6,000 tokens it is 4 to 5 — a coin flip.](docs/assets/pairwise-outcomes.svg)
+
 Plus invalidation a flat store cannot express at all: on `qwen3.5:9b`,
 `uses_corrected_deploy_time` goes **0/3 → 3/3**.
 
@@ -137,7 +139,7 @@ when it nearly all fits, for a constant ~350 tokens per call.
 here as measured interference. At n=78 that is −1 with a 4-to-5 pairwise split,
 i.e. a tie. The claim is "memory stops paying", not "memory costs you".*
 
-![Both arms get an identical token budget and differ only in whether part of it is spent on retrieved facts. At 1,200 tokens transcript alone scores 8 of 25 and facts plus transcript scores 14; at 3,000 tokens, 19 against 20; at 6,000 tokens, 23 against 21 — memory's return declines with available context and becomes negative.](docs/assets/context-budget.svg)
+![Both arms get an identical token budget and differ only in whether part of it is spent on retrieved facts. At 1,200 tokens transcript alone scores 23 of 78 and facts plus transcript scores 51; at 3,000 tokens, 19 against 20 on 25 questions; at 6,000 tokens, 66 against 65 — a tie. Memory's return declines to zero as context becomes sufficient.](docs/assets/context-budget.svg)
 That is the argument for injecting *conditionally* rather than always, and it is
 measured rather than reasoned.
 
@@ -164,6 +166,8 @@ with the accuracy ceiling being full context, which sees the entire haystack at
 and 20% with the fact graph on top.** Against the document store it is +9
 questions, winning 22 head-to-head and losing 13 — at 23% more tokens, because
 the document arm fills whole turns and stops short of its allowance.
+
+![Accuracy plotted against context spent. At roughly 1,200 tokens the three strategies are 36 points apart — transcript only 29.5%, LangGraph's PostgresStore 53.8%, facts plus transcript 65.4%. By roughly 5,400 tokens they converge within 1.3 points of each other and of the whole-transcript ceiling.](docs/assets/accuracy-per-token.svg)
 
 That is the claim worth making: **four-fifths of what full attention achieves,
 on a fifth of the context.** Not better than attention — attention wins whenever
@@ -558,7 +562,7 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 255 tests against real Postgres.
 - [x] **Comparison harness** — two scenarios, four arms, objective metrics, blinded LLM judge with a grounding dimension
 - [x] **Instrumentation** — every run records what retrieval injected (with cosine distances) and a snapshot of what it stored, so rankings are read rather than reconstructed: `uv run python -m demo.show_memory <run-dir>`
-- [x] **Diagrams** — [context-budget curve](docs/assets/context-budget.svg), [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg), [write + ranking pipeline](docs/assets/memory-pipeline.svg), [why it costs less context](docs/assets/token-mechanism.svg)
+- [x] **Diagrams** — [context-budget curve](docs/assets/context-budget.svg), [accuracy per token](docs/assets/accuracy-per-token.svg), [pairwise outcomes](docs/assets/pairwise-outcomes.svg), [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg), [write + ranking pipeline](docs/assets/memory-pipeline.svg), [why it costs less context](docs/assets/token-mechanism.svg)
 - [x] **Scenario rounds, N=3, superseded** — four rounds on `qwen3:8b` plus the 24-run two-model matrix. Kept for provenance and for the corrections they document; **not** evidence for any claim above. [results/README.md](results/README.md) opens with what did not survive.
 - [x] **Pre-registered second scenario** — [predictions committed before the first run](results/2026-08-11-demo2-preregistration.md), including the two metrics the baseline was expected to win
 - [x] **An external benchmark** — LongMemEval `knowledge-update`, n=78, against LongMemEval's own bm25 reference and a whole-turn document store: `demo/longmemeval.py`

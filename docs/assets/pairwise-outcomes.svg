@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 560" width="1180" height="560" role="img" aria-label="Question-by-question outcomes on LongMemEval knowledge-update, 78 questions. Against transcript only at a 1,200 token budget, adding retrieved facts wins 35 questions and loses 7, with 16 both correct and 20 neither. Against LangGraph's PostgresStore at the same budget it wins 22 and loses 13, with 29 both and 14 neither. Against transcript only at a 6,000 token budget it wins 4 and loses 5, with 61 both correct — a tie. The advantage is decisive when context is scarce and vanishes when it is not.">
+  <style>
+    .bg { fill: #faf8f4; }
+    text { font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif; fill: #2b2620; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .muted { fill: #8a8175; }
+    .title { font-size: 25px; font-weight: 650; }
+    .sub { font-size: 15px; }
+    .axis { font-size: 13px; }
+    .val { font-size: 15px; font-weight: 650; fill: #ffffff; }
+    .row { font-size: 15px; font-weight: 620; }
+    .sWin  { fill: #0f766e; }
+    .sBoth { fill: #b8c9c5; }
+    .sNone { fill: #ddd6ca; }
+    .sLose { fill: #b45309; }
+    .cR { fill: #0f766e; }
+    .panelbox { fill: #ffffff; stroke: #d9d2c6; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #171512; } text { fill: #ece5da; } .muted { fill: #93897b; }
+      .sWin { fill: #2dd4bf; } .sBoth { fill: #2c4b47; } .sNone { fill: #322e27; }
+      .sLose { fill: #f59e0b; } .cR { fill: #2dd4bf; }
+      .val { fill: #10201e; }
+      .panelbox { fill: #201d19; stroke: #3b362e; }
+    }
+  </style>
+  <rect class="bg" x="0" y="0" width="1180" height="560"/>
+
+  <text class="title" x="60" y="56">Question by question, not just totals</text>
+  <text class="sub muted" x="60" y="84">Each bar is the same 78 questions. LongMemEval <tspan class="mono">knowledge-update</tspan>, gemma4:12b.</text>
+
+  <!-- legend -->
+  <rect class="sWin"  x="60"  y="104" width="22" height="13" rx="2"/><text class="axis" x="90"  y="115">facts win</text>
+  <rect class="sBoth" x="180" y="104" width="22" height="13" rx="2"/><text class="axis" x="210" y="115">both correct</text>
+  <rect class="sNone" x="320" y="104" width="22" height="13" rx="2"/><text class="axis" x="350" y="115">neither</text>
+  <rect class="sLose" x="440" y="104" width="22" height="13" rx="2"/><text class="axis" x="470" y="115">facts lose</text>
+
+  <!-- scale: 78 questions across 900px -> 11.54 px each; x0 = 190 -->
+
+  <!-- row 1: vs transcript @1200  win35 both16 none20 lose7 -->
+  <text class="row" x="175" y="176" text-anchor="end">vs transcript</text>
+  <text class="axis muted" x="175" y="194" text-anchor="end">budget 1,200</text>
+  <rect class="sWin"  x="190"   y="156" width="404" height="44" rx="3"/>
+  <rect class="sBoth" x="594"   y="156" width="185" height="44"/>
+  <rect class="sNone" x="779"   y="156" width="231" height="44"/>
+  <rect class="sLose" x="1010"  y="156" width="81"  height="44" rx="3"/>
+  <text class="val" x="392" y="184" text-anchor="middle">35</text>
+  <text class="val" x="686" y="184" text-anchor="middle">16</text>
+  <text class="val" x="894" y="184" text-anchor="middle">20</text>
+  <text class="val" x="1050" y="184" text-anchor="middle">7</text>
+
+  <!-- row 2: vs store @1200  win22 both29 none14 lose13 -->
+  <text class="row" x="175" y="260" text-anchor="end">vs LangGraph store</text>
+  <text class="axis muted" x="175" y="278" text-anchor="end">budget 1,200</text>
+  <rect class="sWin"  x="190"  y="240" width="254" height="44" rx="3"/>
+  <rect class="sBoth" x="444"  y="240" width="335" height="44"/>
+  <rect class="sNone" x="779"  y="240" width="161" height="44"/>
+  <rect class="sLose" x="940"  y="240" width="150" height="44" rx="3"/>
+  <text class="val" x="317" y="268" text-anchor="middle">22</text>
+  <text class="val" x="611" y="268" text-anchor="middle">29</text>
+  <text class="val" x="859" y="268" text-anchor="middle">14</text>
+  <text class="val" x="1015" y="268" text-anchor="middle">13</text>
+
+  <!-- row 3: vs transcript @6000  win4 both61 none8 lose5 -->
+  <text class="row" x="175" y="344" text-anchor="end">vs transcript</text>
+  <text class="axis muted" x="175" y="362" text-anchor="end">budget 6,000</text>
+  <rect class="sWin"  x="190"  y="324" width="46"  height="44" rx="3"/>
+  <rect class="sBoth" x="236"  y="324" width="704" height="44"/>
+  <rect class="sNone" x="940"  y="324" width="92"  height="44"/>
+  <rect class="sLose" x="1032" y="324" width="58"  height="44" rx="3"/>
+  <text class="val" x="213" y="352" text-anchor="middle">4</text>
+  <text class="val" x="588" y="352" text-anchor="middle">61</text>
+  <text class="val" x="986" y="352" text-anchor="middle">8</text>
+  <text class="val" x="1061" y="352" text-anchor="middle">5</text>
+
+  <text class="sub cR" x="190" y="410">5 questions won for every 1 lost</text>
+  <text class="sub muted" x="190" y="432">at a tight budget — and 4 to 5, a coin flip, once the conversation fits.</text>
+
+  <rect class="panelbox" x="60" y="470" width="1060" height="60" rx="6"/>
+  <text class="sub" x="80" y="496">The middle bar is the comparison that matters for adoption: against LangGraph's own store, at the same token budget,</text>
+  <text class="sub" x="80" y="518">retrieved facts take <tspan class="cR" font-weight="650">22 questions the store misses</tspan> and give back 13. Both arms already share 29.</text>
+</svg>

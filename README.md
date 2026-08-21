@@ -2,35 +2,44 @@
 
 Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langgraph) agents on Postgres — a typed fact/conclusion graph with explicit capture (not blind auto-extraction) and enforced sub-agent memory forking with rollup summaries, instead of an opaque conversation summary.
 
-> Status: **implemented, measured, and the headline claim has changed.**
-> 255 tests against real Postgres.
+**What this is for.** LangGraph's `BaseStore` — `PostgresStore` with pgvector,
+usually with LangMem on top — stores documents and cosine-searches them back. It
+has no vocabulary for three things a long-running agent needs to express:
+
+- *this value replaced that one* — a corrected budget and the stale one sit in
+  the store 0.002 apart, with nothing marking which is current
+- *this claim came from that sub-agent* — parallel researchers land in one flat
+  namespace, and one investigator's exploration crowds out another's conclusion
+- *this is a question, not a fact* — questions rank highly against a query
+  precisely by resembling it
+
+The bet is that those are missing **types**, not retrieval quality to be tuned
+away. This is the implementation, and the measurements testing whether the bet
+pays.
+
+> **What the measurements say.** At a *matched* context budget it beats
+> LangGraph's store: **51/78 to 42/78** on LongMemEval, winning 22 questions and
+> losing 13. Given an *unbounded* window it does not — more context beats less,
+> and the advantage decays to a tie by a 6,000-token budget.
 >
-> Memory's value is **inversely proportional to how much of the conversation
-> still fits in the window.** At a matched token budget, spending part of it on
-> retrieved facts instead of transcript is worth **+28 of 78** questions when the
-> transcript is badly clipped (65% against 29%, winning 35 questions to 7), and
-> **−1 of 78** — a tie — when it nearly all fits. Measured on LongMemEval, an
-> external benchmark:
+> So this is not a better search engine. It is a **gatekeeper**: an external
+> retriever competes with attention and loses on material attention can already
+> reach, so memory earns its place deciding *what enters the window* — and only
+> when the window is too small to hold everything.
+>
+> 255 tests against real Postgres. **Part 1 of a series** — the write-up is
+> [*Building a Fact-Driven Memory Layer for LangGraph*](docs/article/part-1-fact-driven-memory.md);
+> the round is
 > [results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
+> Longer sessions (~115k tokens) and the multi-turn agent scenarios are
+> follow-ups, named as such below.
 >
-> Against LangGraph's own store at the **same** budget it wins — 51/78 to 42/78,
-> taking 22 questions the store misses and losing 13. Given an unbounded window
-> it does not: more context beats less, and that is the point of the curve.
->
-> So this is not "better recall". It is **bounded, constant-cost recall for the
-> part of a session the model can no longer see** — and injecting it
-> unconditionally is a measurable tax when the model can still see everything.
->
-> **Part 1 of a series.** This covers retrieval under a fixed context budget,
-> measured on an external benchmark. Longer sessions (~115k tokens) and the
-> multi-turn agent scenarios are follow-ups, and are named as such below.
->
-> An earlier version of this line led with "−9.8% input tokens and 6.33 of 8
+> *An earlier version of this line led with "−9.8% input tokens and 6.33 of 8
 > objective metrics against 3.67", measured on this project's own scenarios.
-> That figure does not survive and has been retired; every token figure recorded
+> That figure did not survive and has been retired; every token figure recorded
 > before 2026-08-19 was also measured with Ollama silently truncating prompts at
 > 2048 tokens. Both are documented rather than quietly re-run —
-> [results/](results/).
+> [results/](results/).*
 
 ## What it gives you
 
@@ -290,6 +299,26 @@ Namespace ids are *derived* — `uuid5(session_id, extra_path)` — so replaying
 
 A user message is split into **one fact per claim**: *"the budget is $100k per year, it must be self-hostable, and I only trust primary benchmark data"* becomes three facts, not one. Each then gets its own embedding, and a `supersedes` edge can retire one without touching the others.
 
+**This is a trade, not a free win, and both sides are measured.** Stored as one
+row, a multi-topic message gets one embedding averaged across every topic in it
+— a root cause captured that way ranked **30th of ~90** and never reached the
+top-8, while a document store's un-split version ranked 7th of 10 and got used.
+One row also makes invalidation all-or-nothing: a single `supersedes` edge
+retires every constraint sharing it.
+
+Against that, **splitting destroys co-occurrence.** `"25:50"` alone has almost no
+surface for a query to match; `"I got my 5K down to 25:50"` has plenty. A
+document store keeps that adjacency for free. The partial compensation is a
+second vector — every fact stores its own embedding *and* the embedding of the
+text it was carved from, and ranking blends the two, so a thin claim from a
+relevant passage still gets pulled up.
+
+Splitting is heuristic and verbatim: no LLM, no paraphrasing. Passive capture
+runs in the model-call hot path and cannot afford an extraction call, and the
+verbatim-record guarantee has to survive per fragment or the audit trail stops
+being one. The bias is toward under-splitting — a long fragment is harmless, a
+shredded one pollutes retrieval permanently.
+
 `directive` exists because questions rank highly against a query precisely *by resembling it*. Measured: four of eight injected slots were question fragments, displacing the constraint the answer needed. Directives are provenance — they explain why work happened — so they are kept and remain queryable via `search(include_directives=True)`; they just don't compete for the retrieval budget.
 
 ### Status: retirement is not deletion
@@ -362,6 +391,14 @@ That remaining gap is visible in the measured results: with no diversity term,
 an enumeration question ("list everything we ruled out") can spend several of
 eight slots on one subsystem, and a fact ranked 9th to 11th is simply
 unreachable at `k=8` however relevant it is.
+
+**And a better ranker has a ceiling worth knowing about.** Ranking competes with
+attention, which selects softly, per head, per layer, over everything in the
+window — while `search()` commits to a hard top-k from one query vector before
+the model reasons at all. Retrieval is a function of the context, so it cannot
+add information; filtering can only lose. That is why the measured advantage
+decays to zero once the conversation fits, and why the useful lever is deciding
+*what enters the window* rather than ordering what was already going to.
 
 Signals a fuller ranker would likely carry, none of which exist here: recency,
 `kind` weighting (a stated constraint arguably outranking an agent's own

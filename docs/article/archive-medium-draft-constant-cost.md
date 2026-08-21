@@ -1,3 +1,11 @@
+> **SUPERSEDED — do not publish.** This draft leads with "constant-cost memory"
+> and cites figures measured before two problems were found: prompts were being
+> silently truncated at Ollama's default 2,048 tokens, and every arm comparison
+> in it hands the arms different amounts of context, so it measures budgets
+> rather than memory strategies. The current article is
+> [part-1-memory-vs-attention.md](part-1-memory-vs-attention.md). Kept for
+> provenance.
+
 # Constant-cost memory for LangGraph agents
 
 A typed fact graph on Postgres, as agent middleware. Retrieval returns a fixed number of individual claims rather than a growing set of saved documents — which makes recall cost independent of how much the session has accumulated.

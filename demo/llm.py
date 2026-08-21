@@ -37,6 +37,22 @@ MODEL = os.environ.get("BEADS_DEMO_MODEL", "gemma4:12b")
 # a hard per-turn deadline; see demo/harness.py.
 REQUEST_TIMEOUT_S = float(os.environ.get("BEADS_DEMO_TIMEOUT", "300"))
 
+# Context window. UNSET BY DEFAULT, and that default is a known bug kept
+# deliberately.
+#
+# Ollama's default num_ctx is 2048, so every scenario run in results/ was made
+# with prompts silently truncated at that ceiling: a prompt of 5k, 22k or 135k
+# tokens all reported prompt_eval_count=2051, while the same prompt at
+# num_ctx=8192 reported 7025. The model never saw the excess, and the recorded
+# input_tokens measured the ceiling rather than the prompt.
+#
+# It is not fixed by default because doing so would make every future run
+# incomparable with the 24-run N=3 matrix already recorded. Set it explicitly to
+# re-baseline, and say which value in the write-up:
+#
+#     BEADS_NUM_CTX=6000 scripts/run_model_matrix.sh incident 1 "gemma4:12b" "baseline treatment"
+NUM_CTX = os.environ.get("BEADS_NUM_CTX")
+
 
 # Guards client rebuilds. The LLM is shared across ToolNode's worker threads
 # (see make_llm), so a rebuild must not race another thread's rebuild.
@@ -135,14 +151,16 @@ def make_llm(temperature: float = 0.0, reasoning: bool | None = False) -> ChatOl
     Sharing is safe here — `httpx.Client` is documented thread-safe, and
     ToolNode's workers only ever issue requests through it.
     """
-    key = (MODEL, temperature, reasoning)
+    key = (MODEL, temperature, reasoning, NUM_CTX)
     with _CACHE_LOCK:
         llm = _LLM_CACHE.get(key)
         if llm is None:
+            extra = {"num_ctx": int(NUM_CTX)} if NUM_CTX else {}
             llm = ResilientChatOllama(
                 model=MODEL,
                 temperature=temperature,
                 reasoning=reasoning,
+                **extra,
                 # 120s, not 300s: healthy calls are 6-40s, so a longer bound only
                 # delays discovering a wedge. Recovery, not patience, fixes this.
                 client_kwargs={"timeout": CHAT_TIMEOUT_S},

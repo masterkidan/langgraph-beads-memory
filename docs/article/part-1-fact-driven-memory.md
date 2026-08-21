@@ -1,4 +1,4 @@
-# A Memory Layer for LangGraph That Beats the Default Store
+# Building a Fact-Driven Memory Layer for LangGraph
 
 Part 1 in a series. At a matched context budget, a typed fact graph scores 51/78 against LangGraph's `PostgresStore` at 42/78 on LongMemEval — 22 questions won, 13 lost. The advantage decays to zero by a 6,000-token budget, and the reason it decays is the more useful result.
 

@@ -593,7 +593,7 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [ ] **Pressure-gated injection** — inject nothing while the history fits. The design the curve implies; not built
 - [ ] **Re-measure with `num_ctx` set** — every prior run was truncated at 2048 tokens
 - [ ] **[Model study](results/model-study.md)** — three models, five of six cells still N=1
-- [x] **Part 1 published** — [*I built a memory layer for LangGraph, then measured it against doing nothing*](docs/article/part-1-memory-vs-attention.md): retrieval under a fixed context budget, on an external benchmark
+- [x] **Part 1 published** — [*Building a Fact-Driven Memory Layer for LangGraph*](docs/article/part-1-fact-driven-memory.md): retrieval under a fixed context budget, on an external benchmark
 - [ ] Part 2 — longer sessions, and pressure-gated injection
 
 Method, every disclosed correction, and the operational notes are in

@@ -3,7 +3,7 @@
 > silently truncated at Ollama's default 2,048 tokens, and every arm comparison
 > in it hands the arms different amounts of context, so it measures budgets
 > rather than memory strategies. The current article is
-> [part-1-memory-vs-attention.md](part-1-memory-vs-attention.md). Kept for
+> [part-1-fact-driven-memory.md](part-1-fact-driven-memory.md). Kept for
 > provenance.
 
 # Constant-cost memory for LangGraph agents

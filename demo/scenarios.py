@@ -48,16 +48,22 @@ class Arm:
     # Swap automatic injection for an agent-invoked `search_memory` whose name
     # and description are identical to langmem's. See `treatment-searchtool`.
     search_tool: bool = False
-    # Capture what non-memory tools return. Off by default; see
-    # `treatment-toolcapture` for the measured trade.
+    # Capture what non-memory tools return. Set per-arm rather than defaulted,
+    # because the flag is meaningless for `baseline` — that arm never builds a
+    # BeadsMemoryMiddleware, so a default of True would advertise behaviour it
+    # does not have. The library's own default is ON (see middleware.py).
     tool_capture: bool = False
 
 
 ARMS: dict[str, Arm] = {
     "baseline": Arm("baseline", "baseline"),
-    "treatment": Arm("treatment", "treatment"),
-    "treatment-nosupersede": Arm("treatment-nosupersede", "treatment", retire_superseded=False),
-    "treatment-subrecall": Arm("treatment-subrecall", "treatment", subrecall=True),
+    "treatment": Arm("treatment", "treatment", tool_capture=True),
+    "treatment-nosupersede": Arm(
+        "treatment-nosupersede", "treatment", retire_superseded=False, tool_capture=True
+    ),
+    "treatment-subrecall": Arm(
+        "treatment-subrecall", "treatment", subrecall=True, tool_capture=True
+    ),
     # Interface parity with the baseline: same tool name, same description, same
     # agent-authored query — our ranking behind it. The two arms previously
     # differed in interface AND ranking at once, so neither was attributable.
@@ -66,7 +72,9 @@ ARMS: dict[str, Arm] = {
     # retrieved the root cause, while the treatment embedded the raw user
     # message ("New shift taking over...") and filled six of eight slots with
     # one restated constraint.
-    "treatment-searchtool": Arm("treatment-searchtool", "treatment", search_tool=True),
+    "treatment-searchtool": Arm(
+        "treatment-searchtool", "treatment", search_tool=True, tool_capture=True
+    ),
     # Capture non-memory tool output into the calling agent's namespace. Kept as
     # an arm rather than a default because the trade is real in both directions,
     # measured on incident/gemma4:12b at N=3: `buried_metric_recalled` 0/3 -> 3/3
@@ -74,7 +82,10 @@ ARMS: dict[str, Arm] = {
     # cannot reach at all), against `breadth_complete` 1/3 -> 0/3 and input
     # tokens falling from 35% below baseline to 13% below, because the store
     # doubled and selection got harder.
-    "treatment-toolcapture": Arm("treatment-toolcapture", "treatment", tool_capture=True),
+    # The ablation, kept so the trade stays measurable now that capture is the
+    # default. Turning it off costs `buried_metric_recalled`, which passes 9 of
+    # 56 incident runs and is unreachable by any ranking change.
+    "treatment-notoolcapture": Arm("treatment-notoolcapture", "treatment", tool_capture=False),
 }
 
 

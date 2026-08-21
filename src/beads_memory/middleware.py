@@ -38,7 +38,7 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         recorder: list | None = None,
         inject: bool = True,
         search_tool: bool = False,
-        capture_tool_results: bool = False,
+        capture_tool_results: bool = True,
     ):
         """`inject=False` with `search_tool=True` swaps automatic recall for an
         agent-invoked `search_memory`, matching the baseline's interface exactly
@@ -46,16 +46,29 @@ class BeadsMemoryMiddleware(AgentMiddleware):
         unaffected either way — what gets written does not depend on how it is
         read back.
 
-        `capture_tool_results` defaults OFF, and the measurement is why. Turning
-        it on recovered a metric nothing else could: `buried_metric_recalled`
-        went 0/3 to 3/3 (incident, gemma4:12b, N=3), because a sub-agent had
-        read a figure and dropped it when summarising, so no ranking change
-        could ever reach it. But it doubled the store — 94 facts to 179, 8.7k
-        chars to 16k — and that extra selection pressure cost `breadth_complete`
-        1/3 to 0/3, while input tokens went from 35% below baseline to 13%
-        below. It buys a capability the flat store cannot match, at a price that
-        is most of this library's token advantage, so it is a deliberate
-        per-deployment choice rather than a default."""
+        `capture_tool_results` defaults ON as of 2026-08-20, and the reason it
+        used to be off no longer reproduces.
+
+        It buys a capability nothing else reaches: `buried_metric_recalled` goes
+        0/3 to 3/3 (incident, gemma4:12b, N=3), because a sub-agent reads a
+        figure and drops it when summarising — the fact is never written, so no
+        ranking change can touch it. It is the single worst metric in the suite,
+        passing 9 of 56 incident runs.
+
+        The recorded price was `breadth_complete` 1/3 to 0/3 and input tokens
+        going from 35% below baseline to 13% below. Re-measured on 2026-08-16
+        across four cells with the derivation filter in place, the store still
+        roughly doubled (94 -> 182 facts) but tokens moved -4.8%, -4.9%, +5.3%,
+        -17.6% — flat or better. That is consistent with the price having been a
+        crowding artefact of the old ranker rather than a property of capture:
+        the derivation filter drops restatements before they take slots, so
+        extra candidates no longer inflate the block.
+
+        Captured into the CALLING agent's namespace, which is what makes the
+        volume affordable: a sub-agent's raw reads land in its own namespace,
+        demoted for the parent and reachable through `recall_from_subagents`. A
+        root-initiated read still lands in root, because that is where it
+        originated — verified in a real run at 44 child facts to 27 root."""
         super().__init__()
         self.store = store
         self.namespace = namespace

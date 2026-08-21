@@ -219,7 +219,7 @@ Both lanes run the **same scenario**, step for step. The structural differences 
 | capture | agent must call `manage_memory` — if it doesn't, nothing persists | user input + final answers captured automatically, verbatim |
 | granularity | one memory per saved document | one fact per claim, each separately embedded and supersedable |
 | across threads | new `thread_id` resets history; agent must decide to search the store | one `session_id` spans threads; relevant facts injected automatically |
-| revising a fact | old and new documents coexist; nothing marks which is current | typed `supersedes` edge retires the stale fact, keeps it for audit |
+| revising a fact | old and new documents coexist; nothing marks which is current | typed `supersedes` edge — a hit on the stale value resolves to the current one, and the old value stays queryable |
 | questions vs claims | undifferentiated | `directive` kind kept for provenance but held out of retrieval |
 | sub-agents | results return as messages; no link back to what produced them | own namespace, enforced `conclude_task`, `rollup_of` audit edges |
 | a sub-agent's raw findings | mixed into one flat store | demoted in the orchestrator's retrieval, and directly readable via `recall_from_subagents` |
@@ -238,7 +238,7 @@ One session (`session_id: vecdb-research`) spanning three conversations. Facts a
 1. **Capture** — every user message is written verbatim onto the session string, no extraction LLM involved. The turn's final answer is captured as a conclusion automatically, so durable memory never depends on the model remembering a tool call.
 2. **Fork** — delegating research gives each sub-agent its own child namespace. It reads upward (its ancestors) and never sideways (a sibling). The orchestrator reads downward too, demoted — see [Ranking](#ranking).
 3. **Enforced rollup** — each sub-agent must call `conclude_task`. One summary lands on the parent, linked by `rollup_of` edges back to its raw exploration. A crashed sub-agent leaves a "did not complete" fact rather than vanishing.
-4. **Supersede** — when the user revises a constraint, the new fact supersedes the old one. The stale value is retired from retrieval but kept for audit.
+4. **Supersede** — when the user revises a constraint, the new fact supersedes the old one. Retrieval then resolves any version of that claim to the current value, rather than hiding the stale one and leaving the slot empty.
 5. **Recall** — a brand-new thread starts warm, and only *active* facts can reach the model. This is exactly where thread-scoped memory starts cold, and where extraction stores surface both the old and new value with nothing marking which is current.
 
 ## Where memory is written, and how it is ranked
@@ -297,10 +297,16 @@ A user message is split into **one fact per claim**: *"the budget is $100k per y
 | status | meaning |
 |---|---|
 | `active` | retrievable |
-| `superseded` | replaced by a newer fact — out of retrieval, **kept for audit** |
+| `superseded` | replaced by a newer fact — still **retrievable**, but a hit on it resolves to the fact that replaced it |
 | `archived` | compacted — out of retrieval, kept for audit |
 
-**Nothing is ever deleted.** A superseded fact stays queryable, so "what did we believe before, and what replaced it?" is always answerable.
+**Nothing is ever deleted, and since 2026-08-20 nothing is hidden either.** A
+superseded fact used to be excluded from retrieval. It is now resolved: match
+any version of a claim and you get the current one. That matters because
+excluding the stale value leaves the slot *empty*, which does not help an agent
+that was about to answer with it — the measured failure was answering "you
+currently have three bikes" when the user owns four. Only `archived` is out of
+retrieval, because compaction asserts the content is represented elsewhere.
 
 ### Source: which path wrote it
 
@@ -308,6 +314,7 @@ A user message is split into **one fact per claim**: *"the budget is $100k per y
 |---|---|
 | `passive_capture` | user messages and final answers — automatic, no tool call, no LLM |
 | `remember_tool` | the agent deliberately called `remember_fact` |
+| `tool_result` | what a non-memory tool returned, captured into the **calling** agent's namespace — so a sub-agent's raw reads stay in its own namespace rather than crowding the root. On by default since 2026-08-20; it is the only path that reaches a figure the sub-agent read and dropped when summarising |
 | `conclude_task` | a sub-agent's enforced rollup |
 | `fallback_conclude` | the sub-agent crashed or forgot; the wrapper synthesised one |
 | `compaction` | produced by compaction (designed; not exercised in the demo) |
@@ -330,27 +337,31 @@ The retrieval score is deliberately simple, and worth stating plainly rather
 than leaving implied by the machinery around it:
 
 ```
-score = cosine_distance(fact.embedding, query)
-      + 0.15   if the fact lives in a descendant namespace
+resolve   every candidate to the head of its `supersedes` chain, then dedupe
+score     claim_weight · cosine(fact, query)
+        + (1 − claim_weight) · cosine(the text it was carved from, query)
+        + 0.15  if the fact lives in a descendant namespace
+drop      a candidate whose `derived_from` parent is already selected
+tiebreak  md5(body), so near-ties do not resolve by insert order
 take top 8
 ```
 
-Everything else is a **filter**, not a ranking signal: `status = 'active'`,
-`kind <> 'directive'`, has an embedding, not already visible in the raw message
-window, namespace in scope.
+The rest are **filters**: `status <> 'archived'`, `kind <> 'directive'`, has an
+embedding, not already visible in the raw message window, namespace in scope,
+and a per-agent cap so one sub-agent cannot take every delegated slot.
 
-**The typed graph barely participates.** `kind` and `status` are consulted only
-as binary excludes, and `fact_edges` is not consulted at all — a `supersedes`
-edge influences retrieval solely by flipping a status, while `rollup_of` and
-`relates_to` have no effect on what gets injected. This is a typed store with a
-largely type-blind ranker.
+**Two parts of the graph now participate in ranking, and the rest still does
+not.** `supersedes` decides *which version* you get, and `derived_from` drops a
+restatement when the fact it was derived from is already in the block — the only
+signal here that reads recorded provenance rather than inferring redundancy from
+a vector. `rollup_of` and `relates_to` still have no effect on what is injected,
+`kind` is a binary exclude, and there is no recency, frequency or diversity
+term.
 
-That gap is visible in the measured results. The revised budget survives partly
-because it gets *restated* repeatedly, and the ranker has no frequency or
-reinforcement term to make that deliberate. Directives had to be excluded
-outright rather than down-weighted, because there was no weighting lever. And
-with no diversity term, near-duplicate facts can occupy several of the eight
-slots.
+That remaining gap is visible in the measured results: with no diversity term,
+an enumeration question ("list everything we ruled out") can spend several of
+eight slots on one subsystem, and a fact ranked 9th to 11th is simply
+unreachable at `k=8` however relevant it is.
 
 Signals a fuller ranker would likely carry, none of which exist here: recency,
 `kind` weighting (a stated constraint arguably outranking an agent's own
@@ -535,9 +546,18 @@ does not filter, which is how you audit what was superseded and by what.
 It's an **agent middleware** (LangGraph's `create_agent` pre/post-model hook API) — not a `BaseStore` implementation and not a checkpointer replacement. Thread-level state/replay stays with LangGraph's own `PostgresSaver`; this owns a separate schema for durable, structured memory and wires in purely through hooks, so there are no explicit store calls to write in the common path.
 
 Per turn, the middleware:
-1. Passively captures new user messages as facts (no LLM call).
-2. Keeps a sliding window of the last ~10 raw messages in context; older messages get distilled into facts as they roll off.
-3. Runs semantic search over the current namespace, its ancestors, and (for a parent) its demoted descendants, then injects the top-K relevant facts.
+1. Passively captures new user messages as facts (no LLM call), and the turn's final answer the same way.
+2. Captures what non-memory tools return, into the namespace of the agent that called them.
+3. Trims the context to a sliding window of the last ~10 raw messages.
+4. Runs semantic search over the current namespace, its ancestors, and (for a parent) its demoted descendants, resolves each hit to the current version of its claim, and injects the top-K.
+
+*Known gap between design and code.* This README used to say older messages "get
+distilled into facts as they roll off". They are not — capture fires eagerly on
+every message, whether or not it has left the window, which is why an agent's
+own answers accumulate in the store while still visible on screen. Capturing at
+the points where context is actually destroyed — window eviction, sub-agent fork
+and merge, end of thread — is designed and unbuilt; see
+[open questions](docs/open-questions.md).
 
 Full schema, hook lifecycle, idempotency guarantees, and error handling are in the design spec (linked below).
 

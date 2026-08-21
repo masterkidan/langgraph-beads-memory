@@ -162,6 +162,36 @@ other way. At 6,000: 4 against 5 — a coin flip.
 a third of the benchmark when the transcript is badly clipped and nothing when
 it nearly all fits, for a constant ~350 tokens per call.
 
+### Against the alternatives, at the same budget
+
+The table above is memory against raw transcript. This is memory against what
+you would otherwise use, all at 1,200 tokens, n=78. The ceiling is full context:
+64/78 at 6,337 tokens.
+
+| at 1,200 tokens | correct | mean tok | % of ceiling | % of context |
+|---|---|---|---|---|
+| transcript only | 23/78 | 1,174 | 36% | 19% |
+| document store | 42/78 | 981 | 66% | 15% |
+| **facts + transcript** | **51/78** | 1,209 | **80%** | 19% |
+| ~~bm25~~ | ~~46/78~~ | ~~2,348~~ | — | **not budget-capped** |
+
+Pairwise, augment against the document store: **22 wins, 13 losses**.
+
+**Cutting the window to a fifth costs 64% of the ceiling with raw transcript and
+20% with the fact graph.** Four-fifths of what full attention achieves, on a
+fifth of the context.
+
+Two qualifications. The budgets are close but not identical — augment used 1,209
+tokens against the document store's 981, because the document arm adds turns
+whole and stops before exceeding, under-spending by ~19%. And `bm25` was not
+budget-capped (only `run_baseline_arm` was patched), so it ran at roughly double
+the context and its row is excluded rather than quoted.
+
+**This is the regime the library is for, and it is narrow.** By 6,000 tokens the
+advantage is gone entirely. Establishing where the boundary really sits needs
+longer sessions than the oracle set provides — LongMemEval_S is ~115k tokens
+across 40 sessions, where full context is not an option at all.
+
 ### CORRECTION, disclosed
 
 The first version of this table was n=25 and showed **−2** at 6,000, described

@@ -119,6 +119,33 @@ from a single query vector before the model reasons; attention selects softly,
 per head, per layer, over the whole prompt. Filtering cannot add information — so
 it only pays when the alternative is not having the material at all.
 
+### Under scarcity, against the alternatives
+
+The curve above is memory against *raw transcript*. This is memory against the
+things you would actually reach for, all at the same 1,200-token budget, n=78 —
+with the accuracy ceiling being full context, which sees the entire haystack at
+6,337 tokens and scores 64/78:
+
+| at a 1,200-token budget | correct | % of the ceiling | % of the context |
+|---|---|---|---|
+| transcript only | 23/78 | 36% | 19% |
+| document store (`PostgresStore` over whole turns) | 42/78 | 66% | 15% |
+| **this library — facts + transcript** | **51/78** | **80%** | 19% |
+
+**Cutting the window to a fifth costs 64% of the ceiling with raw transcript,
+and 20% with the fact graph on top.** Against the document store it is +9
+questions, winning 22 head-to-head and losing 13 — at 23% more tokens, because
+the document arm fills whole turns and stops short of its allowance.
+
+That is the claim worth making: **four-fifths of what full attention achieves,
+on a fifth of the context.** Not better than attention — attention wins whenever
+the material fits — but close enough that the trade is worth making the moment
+it does not.
+
+*The `bm25` arm is omitted here deliberately: a bug meant it was not
+budget-capped and ran at roughly double everyone else's context, so its score is
+not comparable. It is in the results file, marked.*
+
 ### On an external benchmark
 
 Everything else here is measured on scenarios this project wrote, and

@@ -539,7 +539,8 @@ def _baseline_store():
     return _BASELINE_STORE
 
 
-def run_baseline_arm(rec: dict, llm, k: int) -> tuple[str, dict, dict]:
+def run_baseline_arm(rec: dict, llm, k: int,
+                     budget_tokens: int | None = None) -> tuple[str, dict, dict]:
     """Stock memory: whole turns stored as documents, retrieved by vector search.
 
     Ingestion is deliberately non-agentic, matching how the treatment is
@@ -565,8 +566,25 @@ def run_baseline_arm(rec: dict, llm, k: int) -> tuple[str, dict, dict]:
                 continue
             store.put(ns, f"s{si}t{ti}", {"content": f"{turn.get('role', '?')}: {content}"})
             n += 1
-    hits = store.search(ns, query=rec["question"], limit=k)
-    block = "\n".join((h.value or {}).get("content", "") for h in hits)
+    # With a budget, take documents until it is exhausted rather than a fixed
+    # count. A whole turn averages ~1.5k chars here, so `limit=10` and a 1,200
+    # token budget are wildly different asks — comparing them would measure who
+    # was handed more room rather than how the room was spent. Over-fetch, then
+    # fill: documents are added whole, because truncating one mid-sentence
+    # destroys exactly the co-occurrence that makes a document arm worth testing.
+    limit = k if budget_tokens is None else max(k, 40)
+    hits = store.search(ns, query=rec["question"], limit=limit)
+    contents = [(h.value or {}).get("content", "") for h in hits]
+    if budget_tokens is None:
+        block = "\n".join(contents)
+    else:
+        budget_chars, kept, used = budget_tokens * 4, [], 0
+        for c in contents:
+            if used + len(c) > budget_chars:
+                break
+            kept.append(c)
+            used += len(c) + 1
+        block = "\n".join(kept)
     pred, usage = ask(llm, rec["question"], block, rec.get("question_date", "unknown"))
     return pred, usage, {"docs": n, "retrieved": len(hits)}
 
@@ -593,6 +611,8 @@ def main() -> None:
     # a differently-truncated memory arm, and the comparison would flatter this
     # library by crippling the thing it is measured against.
     ap.add_argument("--num-ctx", type=int, default=16384)
+    ap.add_argument("--budget-all", action="store_true",
+                    help="apply --budget to the bm25/baseline arms too, not just tail/augment")
     ap.add_argument("--budget", type=int, default=1200,
                     help="tokens of context the augment/tail arms may use, total")
     ap.add_argument("--ingest", choices=["replay", "agent", "graph", "autolink"], default="replay",
@@ -651,7 +671,8 @@ def main() -> None:
             elif arm == "bm25":
                 pred, usage, extra = run_bm25_arm(rec, llm, args.kb)
             elif arm == "baseline":
-                pred, usage, extra = run_baseline_arm(rec, llm, args.kb)
+                pred, usage, extra = run_baseline_arm(rec, llm, args.kb,
+                                                     args.budget if args.budget_all else None)
             else:
                 pred, usage, extra = run_memory_arm(rec, llm, args.k, args.ingest)
             ok = judge(llm, rec["question"], rec["answer"], pred)

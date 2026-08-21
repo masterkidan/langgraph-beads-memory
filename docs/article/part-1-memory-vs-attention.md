@@ -2,13 +2,13 @@
 
 Part 1 in a series. At a matched context budget, a typed fact graph scores 51/78 against LangGraph's `PostgresStore` at 42/78 on LongMemEval — 22 questions won, 13 lost. The advantage decays to zero by a 6,000-token budget, and the reason it decays is the more useful result.
 
-LangGraph ships `PostgresStore` with pgvector, and LangMem on top of it: save a memory, cosine-search it back. For short sessions that is sufficient. The system measured here is a typed fact/conclusion graph on Postgres — per-claim capture, `supersedes` edges, forked sub-agent namespaces — and most of the effort went into determining whether it was actually better, which turned out to be harder than building it.
+LangGraph ships `PostgresStore` with pgvector, and LangMem on top of it: save a memory, cosine-search it back. For short sessions that is sufficient. The system measured here is a typed fact/conclusion graph on Postgres — per-claim capture, `supersedes` edges, forked sub-agent namespaces.
 
 Code and every run: [github.com/masterkidan/langgraph-beads-memory](https://github.com/masterkidan/langgraph-beads-memory).
 
 ## The benchmark mistake
 
-A first comparison. LongMemEval `knowledge-update`, 78 questions, gemma4:12b, external and MIT-licensed:
+LongMemEval `knowledge-update`, 78 questions, gemma4:12b, external and MIT-licensed. Each arm retrieving what it would naturally retrieve:
 
 | arm | correct | mean input tokens |
 |---|---|---|
@@ -16,11 +16,11 @@ A first comparison. LongMemEval `knowledge-update`, 78 questions, gemma4:12b, ex
 | LangGraph `PostgresStore` over turns | 57/78 (73%) | 2,473 |
 | fact graph | 48/78 (62%) | 328 |
 
-Third of four — until the third column. The store took **7.5× more context**. That table does not compare memory strategies, it compares budgets. An arm handed 2,473 tokens beats an arm handed 328 whatever fills them.
+The fact graph places third of four — and takes **7.5× less context** than the store it lost to. That table does not compare memory strategies, it compares budgets. An arm handed 2,473 tokens beats an arm handed 328 whatever fills them.
 
 This is the default shape of most memory benchmarks. Each system retrieves "its natural amount," whichever retrieves more wins on accuracy, and the cost difference lands in a separate table or none at all. The comparison reads as fair because both sides are doing retrieval.
 
-The corrected harness holds total context constant and varies only how it is spent:
+A harness that answers the intended question holds total context constant and varies only how it is spent:
 
 - **transcript only** — fill the budget with the most recent conversation
 - **facts + transcript** — spend ~950 characters on retrieved facts, fill the remainder with transcript
@@ -63,7 +63,7 @@ Totals hide whether two arms solve the *same* questions:
 
 Five questions won for every one lost at a tight budget. At 6,000 tokens the split is 4 to 5 — a coin flip — with 61 of 78 already shared.
 
-One correction, recorded because it changed a conclusion: at n=25 the 6,000 point measured −2 and an earlier draft described it as interference, facts displacing transcript that held the answer. At n=78 it is −1 with a 4-to-5 split. That is a tie. Memory stops paying; it does not cost accuracy.
+Sample size matters at this end of the curve. At n=25 the 6,000 point measures −2, which looks like interference — facts displacing transcript that held the answer. At n=78 it is −1 with a 4-to-5 split, which is a tie. Memory stops paying; it does not cost accuracy.
 
 ## Why the decay happens
 
@@ -81,21 +81,21 @@ That predicts something testable. A correctly built memory layer should be **inv
 
 **Deriving `supersedes` links rather than requesting them.** The agent had `remember_fact`, the held facts with their short ids in the prompt, and an explicit instruction to link contradictions. It proposed a link on **9 of 78** questions that were *all* about a value changing. Deriving the same links from a normalised value comparison found **43**. The model was not refusing — retrieval had never shown it the fact to supersede, which sat at rank 21 of ~180 while the top 8 were captured assistant prose.
 
-**Resolution instead of retirement.** A superseded fact used to be excluded from retrieval. Excluding the stale value leaves the slot empty, which does not help an agent about to answer with it. A hit on any version of a claim now resolves to the current one. The failure this fixes: answering "you currently have three bikes" when the user owns four.
+**Resolution instead of retirement.** Excluding a superseded fact leaves the slot empty, which does not help an agent about to answer with the stale value. A hit on any version of a claim now resolves to the current one. The failure this fixes: answering "you currently have three bikes" when the user owns four.
 
 **A `derived_from` filter.** Every captured conclusion links to the facts that were in context when it was written, so a restatement is dropped when the fact it came from is already in the block. Recorded provenance, not redundancy inferred from a vector.
 
 **Tool results captured into the calling agent's namespace.** A sub-agent reads a TLS handshake p99 of 41ms and drops it when summarising. That figure passes 9 of 56 runs on the incident scenario, and no ranking change reaches it, because it was never written. Scoping capture to the caller keeps raw sub-agent reads out of the root's ranking — 44 child facts to 27 root in a live run.
 
-## Lessons
+## Practical notes
 
-- Match context budgets across arms, or the benchmark measures budgets
-- Report cost and accuracy in the same row, or a cheaper-and-slightly-worse arm reads as a loss
-- Report pairwise win/lose alongside totals — two arms can tie while solving different questions
-- Build the offline gate first. Scoring "does the gold answer reach the injected block" runs in minutes with no generation, and killed four designs that would each have cost 40+ minutes of GPU
-- Set `num_ctx` explicitly. Ollama defaults to 2048 and truncates silently — prompts of 5k, 22k and 135k tokens all report `prompt_eval_count=2051`, which invalidates token accounting without any error
-- Derive graph structure from values and provenance rather than asking the model to maintain it
-- Measure structural changes that look obviously correct. A supersedes-demotion rule shipped on reasoning alone produced byte-identical answers across all 78 questions
+- Context budgets have to match across arms, or the benchmark measures budgets
+- Cost and accuracy belong in the same row; separated, a cheaper-and-slightly-worse arm reads as a loss
+- Pairwise win/lose belongs alongside totals — two arms can tie while solving different questions
+- A retrieval-only gate is worth having. Scoring "does the gold answer reach the injected block" needs no generation and runs in minutes, so ranking changes are evaluable without a full run
+- `num_ctx` has to be set explicitly. Ollama defaults to 2048 and truncates silently: prompts of 5k, 22k and 135k tokens all report `prompt_eval_count=2051`, so token accounting goes wrong with no error
+- Graph structure is better derived from values and provenance than requested from the model
+- Structural changes that look obviously correct still need measuring. A supersedes-demotion rule produced byte-identical answers across all 78 questions
 
 ## What's next
 

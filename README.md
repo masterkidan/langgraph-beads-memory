@@ -34,8 +34,14 @@ Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langg
 
 ## What it gives you
 
-Three properties. Each is a consequence of storing memory as a typed graph of
-individual claims rather than as saved documents, and each is measured.
+Three properties, each a consequence of storing memory as a graph of individual
+claims rather than as saved documents.
+
+*Two different evidence bases, and it matters which is which.* §1 and §2 are
+**mechanism** measurements — how large the injected block is as the store grows
+— taken from this project's own scenario runs, where that is exactly what a
+designed scenario is good for. §3 is an **accuracy** claim and is measured on an
+external benchmark, because a designed scenario is not good for that.
 
 ### 1 · Retrieval cost is constant
 
@@ -549,19 +555,12 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] Architecture design ([spec](docs/superpowers/specs/2026-07-31-beads-memory-design.md))
 - [x] Competitive landscape research ([brief](docs/superpowers/specs/2026-07-31-beads-memory-competitive-brief.md))
 - [x] Demo/benchmark design ([spec](docs/superpowers/specs/2026-08-08-beads-memory-demo-design.md))
-- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 254 tests against real Postgres.
+- [x] **`langgraph-beads-memory` package** — store, middleware, tools, sub-agent fork/rollup. 255 tests against real Postgres.
 - [x] **Comparison harness** — two scenarios, four arms, objective metrics, blinded LLM judge with a grounding dimension
 - [x] **Instrumentation** — every run records what retrieval injected (with cosine distances) and a snapshot of what it stored, so rankings are read rather than reconstructed: `uv run python -m demo.show_memory <run-dir>`
-- [x] **Diagrams** — [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg), [write + ranking pipeline](docs/assets/memory-pipeline.svg), [why it costs less context](docs/assets/token-mechanism.svg)
-- [x] **Scored results, four N=3 rounds on `qwen3:8b`** (newest first):
-  - [2026-08-11 · demoted descendant recall](results/2026-08-11-descendant-results.md) — read its attribution section first
-  - [2026-08-10 · directive fix](results/2026-08-10-directive-results.md)
-  - [2026-08-10 · granularity + supersede guard](results/2026-08-10-postfix-results.md)
-  - [2026-08-09 · first scored run](results/2026-08-09-results.md)
+- [x] **Diagrams** — [context-budget curve](docs/assets/context-budget.svg), [comparison](docs/assets/comparison.svg), [mechanism](docs/assets/mechanism-full.svg), [write + ranking pipeline](docs/assets/memory-pipeline.svg), [why it costs less context](docs/assets/token-mechanism.svg)
+- [x] **Scenario rounds, N=3, superseded** — four rounds on `qwen3:8b` plus the 24-run two-model matrix. Kept for provenance and for the corrections they document; **not** evidence for any claim above. [results/README.md](results/README.md) opens with what did not survive.
 - [x] **Pre-registered second scenario** — [predictions committed before the first run](results/2026-08-11-demo2-preregistration.md), including the two metrics the baseline was expected to win
-- [x] **Instrumented N=1 pairs** on `gemma4:12b` and `qwen3.5:9b` — `results/fresh-gemma/`, `results/fresh-qwen35/`
-- [x] **N=3 pair on the one cell that contradicted the cost claim** — `qwen3.5:9b` · incident, [results/n3-qwen-incident/](results/n3-qwen-incident/). +3.6% at N=1 became −9.8%, with no overlap between the arms
-- [x] **N=3 across the full matrix** — 2 models × 2 scenarios × 2 arms, 24 runs, 0 errors: [results/matrix-tier3/](results/matrix-tier3/), written up in [2026-08-19](results/2026-08-19-context-budget.md)
 - [x] **An external benchmark** — LongMemEval `knowledge-update`, n=78, against LongMemEval's own bm25 reference and a whole-turn document store: `demo/longmemeval.py`
 - [x] **The context-budget curve** — the result that reframes the project; memory's return measured against available context at matched budget
 - [ ] **Longer sessions — the next thing to publish.** Everything measured so far runs on a ~6,900-token haystack, so scarcity had to be *manufactured* by shrinking the budget. LongMemEval_S is ~115k tokens across 40 sessions, where full context is not an option at all and ~95% of the haystack is distractors.
@@ -570,7 +569,8 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [ ] **Pressure-gated injection** — inject nothing while the history fits. The design the curve implies; not built
 - [ ] **Re-measure with `num_ctx` set** — every prior run was truncated at 2048 tokens
 - [ ] **[Model study](results/model-study.md)** — three models, five of six cells still N=1
-- [ ] Publish write-up
+- [x] **Part 1 published** — retrieval under a fixed context budget, on an external benchmark
+- [ ] Part 2 — longer sessions, and pressure-gated injection
 
 Method, every disclosed correction, and the operational notes are in
 [results/README.md](results/README.md). It is long on purpose: several rounds
@@ -591,13 +591,20 @@ On the comparison, the honest summary is:
 - **Retrieval cost being constant and small is architectural**, and holds in every
   run: injection is *k* claims per call and does not track the store.
 - **Whether a run is cheaper overall depends on the model.** Memory injection is
-  a small share of total input (~13% in one measured run), so a verbose model's
-  own message history can swamp the saving.
-- **No accuracy gain is established.** The full matrix is now N=3 — two models,
-  two scenarios, 24 runs — and three of four cells move by less than one metric
-  while the fourth is a clean regression. Earlier N=1 rows read as wins did not
-  survive: vecdb gemma went 6/6 to 5,5,6; a qwen token penalty of +11.6%
-  reversed to −8.9%; an incident breadth score of 1 became 3 on identical code.
+  a small share of an agent turn's total input, so a verbose model's own message
+  history can swamp the saving. The per-run share was measured before the
+  `num_ctx` truncation was found and has not been re-measured.
+- **The accuracy claim is conditional, and the condition is the whole point.**
+  At a *matched* context budget it wins: 51/78 against the stock store's 42/78
+  at 1,200 tokens. Given an *unbounded* window it does not — more context beats
+  less, and the curve goes to zero by 6,000 tokens. Both are stated above; they
+  are not in tension, they are two ends of one measurement.
+- **On this project's own two scenarios, no accuracy gain is established.** N=3,
+  two models, 24 runs: three of four cells move by less than one metric and the
+  fourth is a regression. Those scenarios are follow-up work, not evidence for
+  anything claimed here. Earlier N=1 rows read as wins did not survive — vecdb
+  gemma went 6/6 to 5,5,6, a qwen token penalty of +11.6% reversed to −8.9%, and
+  an incident breadth score of 1 became 3 on identical code.
 - **The value is conditional on context pressure, and negative without it.** At
   a matched budget, injected facts are worth +6 of 25 when the transcript is
   clipped and **−2 of 25** when it nearly all fits. Injecting unconditionally is

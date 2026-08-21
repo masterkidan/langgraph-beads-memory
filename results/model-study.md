@@ -15,10 +15,10 @@ re-measured at N=3.*
 
 A separate question from "does structured memory help", and it deserves its own
 treatment. The library's properties — constant retrieval cost and small
-payload — are architectural and hold regardless of model. "Typed relevance" was
-listed here as a third and should not have been: measured against a plain
-document store it retrieves *worse*, and earns its place on cost and currency
-instead. What
+payload — are architectural and hold regardless of model. "Typed relevance" was listed here as a
+third; the accurate form is narrower — at a matched context budget the fact
+graph beats a `PostgresStore` over whole turns 51/78 to 42/78, but given an
+unbounded window the store wins by simply taking more context. What
 *varies by model* is which of them you actually cash in.
 
 ## The question

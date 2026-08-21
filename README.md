@@ -67,7 +67,7 @@ message history**, so it is re-sent on every later call in the turn — input
 climbs ~710 → ~1,600 → ~2,400 tokens across three calls. Here recall lives in
 the **system prompt**, rewritten each call, so it is paid once and replaced.
 
-### 3 · What comes back is *current*, not necessarily more relevant
+### 3 · At the same context budget, it beats the stock store
 
 This is the property most easily overstated, so it is worth stating narrowly.
 Kind, status and provenance participate in retrieval:
@@ -80,16 +80,23 @@ Kind, status and provenance participate in retrieval:
 | descendant facts | demoted — a sub-agent's raw exploration stays reachable without displacing the parent's constraints |
 | framing | never stored — "New shift taking over." was once the top-ranked fact for "what should we try next" |
 
-**What this does not buy is better relevance.** Measured on an external
-benchmark with the whole conversation available, a plain document store over
-untouched turns beats this **57/78 to 48/78**. Splitting into claims costs
-retrieval reach; what it buys is the bound in §1, the payload in §2, and
-invalidation that a flat store cannot express at all — on `qwen3.5:9b`,
+**Measured against LangGraph's own store, at the same context budget, this
+wins.** On LongMemEval `knowledge-update`, n=78, both arms held to 1,200 tokens:
+
+```
+PostgresStore over whole turns   42/78
+this fact graph                  51/78     +9, winning 22 head-to-head, losing 13
+```
+
+Plus invalidation a flat store cannot express at all: on `qwen3.5:9b`,
 `uses_corrected_deploy_time` goes **0/3 → 3/3**.
 
-So the typed graph earns its place on **cost and currency**, not on ranking
-quality. The [Ranking](#ranking) section below is blunt about how little of the
-graph the ranker actually consults.
+*The comparison has to be budget-matched to mean anything.* Given an unbounded
+window the store can simply take 7.5× more context and will win on accuracy
+alone (57/78 at 2,473 tokens against 48/78 at 328) — that measures budgets, not
+memory strategies. The [Ranking](#ranking) section below is also blunt about how
+little of the graph the ranker consults today; the win here is real but there is
+headroom in it.
 
 *Caveat on the per-call figures below: they were recorded before the `num_ctx`
 truncation was found, and the largest of them (~2,400 tokens on a single call)

@@ -2,7 +2,9 @@
 
 Part 1 in a series. At a matched context budget, a typed fact graph scores 51/78 against LangGraph's `PostgresStore` at 42/78 on LongMemEval — 22 questions won, 13 lost. The advantage decays to zero by a 6,000-token budget, and the reason it decays is the more useful result.
 
-LangGraph ships `PostgresStore` with pgvector, and LangMem on top of it: save a memory, cosine-search it back. For short sessions that is sufficient. The system measured here is a typed fact/conclusion graph on Postgres — per-claim capture, `supersedes` edges, forked sub-agent namespaces.
+LangGraph ships `PostgresStore` with pgvector, and LangMem on top of it: save a memory, cosine-search it back. For short sessions that is fine. It seemed to me that cosine similarity over saved documents was leaving something on the table — a store has no way to say *this value replaced that one*, or *this claim came from that sub-agent* — so I built the alternative to find out: a typed fact graph on Postgres, per-claim capture, `supersedes` edges, forked sub-agent namespaces.
+
+Getting it working was the easy part. Working out whether it was actually better took considerably longer, and the answer is more conditional than I expected.
 
 Code and every run: [github.com/masterkidan/langgraph-beads-memory](https://github.com/masterkidan/langgraph-beads-memory).
 
@@ -18,7 +20,7 @@ LongMemEval `knowledge-update`, 78 questions, gemma4:12b, external and MIT-licen
 
 The fact graph places third of four — and takes **7.5× less context** than the store it lost to. That table does not compare memory strategies, it compares budgets. An arm handed 2,473 tokens beats an arm handed 328 whatever fills them.
 
-This is the default shape of most memory benchmarks. Each system retrieves "its natural amount," whichever retrieves more wins on accuracy, and the cost difference lands in a separate table or none at all. The comparison reads as fair because both sides are doing retrieval.
+I nearly published that table. It is also the default shape of most memory benchmarks: each system retrieves "its natural amount," whichever retrieves more wins on accuracy, and the cost difference lands in a separate table or none at all. It reads as fair because both sides are doing retrieval.
 
 A harness that answers the intended question holds total context constant and varies only how it is spent:
 
@@ -63,7 +65,7 @@ Totals hide whether two arms solve the *same* questions:
 
 Five questions won for every one lost at a tight budget. At 6,000 tokens the split is 4 to 5 — a coin flip — with 61 of 78 already shared.
 
-Sample size matters at this end of the curve. At n=25 the 6,000 point measures −2, which looks like interference — facts displacing transcript that held the answer. At n=78 it is −1 with a 4-to-5 split, which is a tie. Memory stops paying; it does not cost accuracy.
+Sample size matters at this end of the curve, and I got this wrong once. At n=25 the 6,000 point measures −2, which looks like interference — facts displacing transcript that held the answer. At n=78 it is −1 with a 4-to-5 split, which is a tie. Memory stops paying; it does not cost accuracy.
 
 ## Why the decay happens
 
@@ -89,6 +91,8 @@ That predicts something testable. A correctly built memory layer should be **inv
 
 ## Practical notes
 
+Mostly things I would want to know before building another one.
+
 - Context budgets have to match across arms, or the benchmark measures budgets
 - Cost and accuracy belong in the same row; separated, a cheaper-and-slightly-worse arm reads as a loss
 - Pairwise win/lose belongs alongside totals — two arms can tie while solving different questions
@@ -105,4 +109,4 @@ Part 2 runs LongMemEval_S — ~115k tokens across 40 sessions, where full contex
 
 A stronger possibility is worth separating. On a haystack that is mostly noise, filtering could beat full context outright by removing distractors that steal attention mass, rather than merely surviving truncation. No measurement here supports that, and none has tested it.
 
-Part 3 covers pressure-gated injection: inject nothing while the conversation fits, inject as it stops fitting. That is what Fig 3 implies, and what the implementation does not yet do.
+Part 3 covers pressure-gated injection: inject nothing while the conversation fits, inject as it stops fitting. That is what Fig 3 implies, and what the implementation does not yet do — which is the honest state of a side project that set out to build a better store and ended up mostly learning when a store is worth having at all.

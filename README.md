@@ -67,16 +67,29 @@ message history**, so it is re-sent on every later call in the turn — input
 climbs ~710 → ~1,600 → ~2,400 tokens across three calls. Here recall lives in
 the **system prompt**, rewritten each call, so it is paid once and replaced.
 
-### 3 · What comes back is relevant, because the graph is typed
+### 3 · What comes back is *current*, not necessarily more relevant
 
-Ranking is not similarity alone. Kind, status and provenance all participate:
+This is the property most easily overstated, so it is worth stating narrowly.
+Kind, status and provenance participate in retrieval:
 
 | | effect |
 |---|---|
 | `directive` facts | held out of retrieval — see [Kinds](#kinds-what-a-memory-is) |
-| `superseded` facts | retired from retrieval, kept for audit — a corrected value cannot resurface |
+| `supersedes` chains | a hit on **any** version resolves to the current one, so matching the old value returns the new |
+| `derived_from` | a restatement is dropped when the fact it was derived from is already selected |
 | descendant facts | demoted — a sub-agent's raw exploration stays reachable without displacing the parent's constraints |
 | framing | never stored — "New shift taking over." was once the top-ranked fact for "what should we try next" |
+
+**What this does not buy is better relevance.** Measured on an external
+benchmark with the whole conversation available, a plain document store over
+untouched turns beats this **57/78 to 48/78**. Splitting into claims costs
+retrieval reach; what it buys is the bound in §1, the payload in §2, and
+invalidation that a flat store cannot express at all — on `qwen3.5:9b`,
+`uses_corrected_deploy_time` goes **0/3 → 3/3**.
+
+So the typed graph earns its place on **cost and currency**, not on ranking
+quality. The [Ranking](#ranking) section below is blunt about how little of the
+graph the ranker actually consults.
 
 *Caveat on the per-call figures below: they were recorded before the `num_ctx`
 truncation was found, and the largest of them (~2,400 tokens on a single call)
@@ -585,6 +598,9 @@ Full writeup, positioning, and strategic analysis in the competitive brief (link
 - [x] **N=3 across the full matrix** — 2 models × 2 scenarios × 2 arms, 24 runs, 0 errors: [results/matrix-tier3/](results/matrix-tier3/), written up in [2026-08-19](results/2026-08-19-context-budget.md)
 - [x] **An external benchmark** — LongMemEval `knowledge-update`, n=78, against LongMemEval's own bm25 reference and a whole-turn document store: `demo/longmemeval.py`
 - [x] **The context-budget curve** — the result that reframes the project; memory's return measured against available context at matched budget
+- [ ] **Longer sessions — the next thing to publish.** Everything measured so far runs on a ~6,900-token haystack, so scarcity had to be *manufactured* by shrinking the budget. LongMemEval_S is ~115k tokens across 40 sessions, where full context is not an option at all and ~95% of the haystack is distractors.
+  - **The prediction, stated before the run:** the curve holds — the memory layer retains most of full-context accuracy at a fraction of the tokens, and the advantage grows as the session lengthens, because the fraction of the conversation that fits keeps falling.
+  - **What would falsify it:** if the advantage *shrinks* with session length, the gain measured here was an artefact of clipping a short transcript rather than a property of long sessions. A second possibility worth separating: on a haystack that is mostly distractors, filtering could beat full context outright by removing noise that steals attention mass — which would be a *stronger* result than the curve predicts, and would mean the current framing understates the case.
 - [ ] **Pressure-gated injection** — inject nothing while the history fits. The design the curve implies; not built
 - [ ] **Re-measure with `num_ctx` set** — every prior run was truncated at 2048 tokens
 - [ ] **[Model study](results/model-study.md)** — three models, five of six cells still N=1

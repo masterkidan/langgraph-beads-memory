@@ -1,11 +1,24 @@
 # How different models benefit from a memory harness
 
-**Status: three models, both scenarios. Six cells at N=1, one of them
-re-measured at N=3.**
+**Status: SUPERSEDED for the cells it overlaps.** Four of these cells were
+re-measured at N=3 in [2026-08-19](2026-08-19-context-budget.md) — 24 runs, two
+models, both scenarios — and the accuracy findings did not survive: three of
+four deltas are under one metric and the fourth is a regression. Every token
+figure on this page was also measured with Ollama truncating prompts at its
+default 2048, which fell hardest on the baseline.
+
+What still holds is the *shape* of the question this page asks — the benefit is
+per-model and must not be pooled — and the model-selection notes below.
+
+*Original status: three models, both scenarios. Six cells at N=1, one of them
+re-measured at N=3.*
 
 A separate question from "does structured memory help", and it deserves its own
-treatment. The library's three properties — constant retrieval cost, small
-payload, typed relevance — are architectural and hold regardless of model. What
+treatment. The library's properties — constant retrieval cost and small
+payload — are architectural and hold regardless of model. "Typed relevance" was
+listed here as a third and should not have been: measured against a plain
+document store it retrieves *worse*, and earns its place on cost and currency
+instead. What
 *varies by model* is which of them you actually cash in.
 
 ## The question

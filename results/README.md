@@ -151,6 +151,23 @@ An aborted qwen3:4b attempt is kept in `aborted-4b/` — it wrote ~12,000 output
 tokens per run against 8b's ~1,400 and was reverted. It is not pooled with
 anything.
 
+## SUPERSEDED — read [2026-08-19](2026-08-19-context-budget.md) first
+
+Everything below predates the context-budget round and three of its conclusions
+did not survive it:
+
+- **The headline separation is gone.** At N=3 across two models and two
+  scenarios, no accuracy gain is established; one cell is a clean regression.
+- **Every token figure here was measured under silent truncation.** Ollama's
+  default `num_ctx` is 2048 and `demo/llm.py` never set one, so any prompt above
+  that was cut before evaluation. It fell hardest on the baseline.
+- **The value is conditional on context pressure.** At a matched budget, the
+  memory layer is worth +28 of 78 when the window is tight and −1 (a tie) when
+  the conversation nearly fits.
+
+The method notes, the operational guidance, and the disclosed corrections below
+all still stand. The *numbers* should be read as historical.
+
 ## A caveat that may supersede all of the above
 
 Every round in the index ran on `qwen3:8b`. On 2026-08-12 a first clean run on

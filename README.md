@@ -13,22 +13,24 @@ Beads-style durable memory for [LangGraph](https://github.com/langchain-ai/langg
 > external benchmark:
 > [results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
 >
-> On that same benchmark head-to-head, where the whole haystack fits in the
-> window, this library places **third of four on accuracy at a seventh of the
-> context** — 48/78 at 328 tokens, against 64/78 at 6,337 for pasting in the
-> whole transcript. That is the −2 column of the curve, not a separate result.
+> Against LangGraph's own store at the **same** budget it wins — 51/78 to 42/78,
+> taking 22 questions the store misses and losing 13. Given an unbounded window
+> it does not: more context beats less, and that is the point of the curve.
 >
 > So this is not "better recall". It is **bounded, constant-cost recall for the
 > part of a session the model can no longer see** — and injecting it
 > unconditionally is a measurable tax when the model can still see everything.
 >
+> **Part 1 of a series.** This covers retrieval under a fixed context budget,
+> measured on an external benchmark. Longer sessions (~115k tokens) and the
+> multi-turn agent scenarios are follow-ups, and are named as such below.
+>
 > An earlier version of this line led with "−9.8% input tokens and 6.33 of 8
-> objective metrics against 3.67". That figure does not survive: at N=3 across
-> two models and two scenarios the token saving holds in all four cells
-> (−39.6%, −2.9%, −44.2%, −12.9%) and **no accuracy gain is established** — one
-> cell is a clean regression. Separately, every token figure recorded before
-> 2026-08-19 was measured with Ollama silently truncating prompts at 2048
-> tokens. Both are documented rather than quietly re-run.
+> objective metrics against 3.67", measured on this project's own scenarios.
+> That figure does not survive and has been retired; every token figure recorded
+> before 2026-08-19 was also measured with Ollama silently truncating prompts at
+> 2048 tokens. Both are documented rather than quietly re-run —
+> [results/](results/).
 
 ## What it gives you
 
@@ -166,78 +168,35 @@ it does not.
 budget-capped and ran at roughly double everyone else's context, so its score is
 not comparable. It is in the results file, marked.*
 
-### On an external benchmark
+### What the evidence does not yet cover
 
-Everything else here is measured on scenarios this project wrote, and
-[results/README.md](results/README.md) is explicit that those are "a designed
-demonstration, not a neutral benchmark". This is not. **LongMemEval**
-`knowledge-update` is MIT-licensed, external, and published on by both
-Zep/Graphiti and Mem0 — n=78, `gemma4:12b`, `num_ctx=16384`:
+Everything above is **LongMemEval `knowledge-update`**, n=78, one model
+(`gemma4:12b`), one question category. It is external and MIT-licensed, which is
+the point — the two scenarios this project ships are, in
+[results/README.md](results/README.md)'s own words, "a designed demonstration,
+not a neutral benchmark".
 
-| arm | correct | mean input tokens |
-|---|---|---|
-| whole transcript in the prompt | **64/78 (82%)** | 6,337 |
-| document store over whole turns | 57/78 (73%) | 2,473 |
-| bm25 — LongMemEval's own reference retriever | 46/78 (59%) | 2,347 |
-| **this library** | 48/78 (62%) | **328** |
+Three limits worth stating plainly, because each is a follow-up rather than a
+settled result:
 
-**This library places third of four on accuracy, at a seventh of the context.**
-That is the honest number and it is worth reading alongside the curve above
-rather than as a separate verdict: at `num_ctx=16384` the entire haystack is
-~6,900 tokens, so *nothing is scarce* — this is the 6,000-token column of the
-budget table, the regime where retrieved facts are measured at **−2**.
+**Longer sessions are untested.** The haystack here is ~6,900 tokens, so
+scarcity had to be created by capping the budget rather than by lengthening the
+conversation. That simulates a small-context model; it does not simulate a long
+session. LongMemEval_S — ~115k tokens over 40 sessions, where full context is
+not an option and most of the haystack is distractors — is the next run, and it
+is the setting where a filter could plausibly beat full context outright by
+removing noise rather than merely surviving truncation.
 
-Two things this row is *not*. It is not a comparison against LangGraph: the
-document store here keeps whole turns verbatim, while the real LangMem path has
-the agent decide what to save and stores extracted memories. And it is not a
-measurement of typed invalidation — replaying a transcript emits no `supersedes`
-edges. Making them reachable was tried: the model proposed a link on **9 of 78**
-supersede-shaped questions, while deriving the same links deterministically from
-`contested_values` found **43** and moved the score from 46 to 48.
+**One-shot QA exercises half the design.** LongMemEval asks a question about a
+*finished* conversation, so there is no "recent" context — it tests the facts
+half with the transcript half amputated. The shipped middleware sends windowed
+raw messages *plus* an injected block.
 
-What it does establish is the mechanism behind the curve. An external retriever
-competes with attention, and attention is the better retriever on material it
-can already reach — `search()` commits to a hard top-k from one query vector
-before the model reasons, while attention selects softly, per head, per layer,
-across the whole prompt.
-
-### At N=3, across the full matrix
-
-Two models × two scenarios × two arms, 24 runs, 0 errors. Every run, not a mean:
-
-| scenario | model | stock memory | this library | Δ input tokens |
-|---|---|---|---|---|
-| incident | gemma4:12b | 7, 7, 7 | 6, 4, 5 | **−39.6%** |
-| incident | qwen3.5:9b | 5, 5, 5 | 6, 5, 6 | −2.9% |
-| vecdb | gemma4:12b | 5, 5, 5 | 5, 5, 6 | **−44.2%** |
-| vecdb | qwen3.5:9b | 5, 5, 5 | 4, 5, 5 | −12.9% |
-
-**The token saving holds in all four cells. No accuracy gain is established** —
-three deltas are under one metric, and the fourth (gemma incident) is a clean
-regression with non-overlapping distributions.
-
-What *is* consistent per-metric, on both models independently:
-`names_surviving_cause` and `proposes_reversible_fix` regress 3/3 → 1/3 and
-3/3 → 0–1/3, both from the same turn. Against that, on `qwen3.5:9b`:
-`uses_corrected_deploy_time` **0/3 → 3/3** (typed invalidation carrying a
-correction the flat store never holds), `buried_metric_recalled` 0/3 → 2/3, and
-`breadth_complete` 0/3 → 2/3.
-
-*Two caveats that bound all of the above.* Every token figure recorded before
-2026-08-19 was measured with Ollama truncating prompts at its default 2,048
-tokens, which fell mainly on the baseline. And at temperature 0 all four
-baseline cells scored identically three times while every treatment cell had
-spread 1–2 — the memory layer is injecting the run-to-run variance, and the fix
-for that is not yet validated.
-
-Full write-up, including five changes that did not work:
-[results/2026-08-19-context-budget.md](results/2026-08-19-context-budget.md).
-
-You can read the ranking off any run rather than taking it on faith:
-
-```bash
-uv run python -m demo.show_memory results/fresh-gemma/incident --turn conv-3
-```
+**The two built-in scenarios are follow-up work.** `incident` and `vecdb` are
+multi-turn and do exercise both halves, but their results are N=1 per cell here
+and noisy: the same configuration has produced 3/6, 6/6 and 4/6 on identical
+code. They are recorded in [results/](results/) and are not load-bearing for
+anything claimed above.
 
 ## How it compares to LangGraph's built-in memory
 
